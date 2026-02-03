@@ -1,0 +1,1 @@
+/opt/intel/oneapi/mpi/latest/bin/mpiifx -O3 CMakeFiles/LePIC_3D.dir/main.f90.o -o LePIC_3D  libpic_modules.a 

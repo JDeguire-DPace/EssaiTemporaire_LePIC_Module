@@ -1,0 +1,6 @@
+#!/bin/sh
+
+cd post_analysis/
+gnuplot 0D.gnu
+
+cd ..

@@ -1,0 +1,113 @@
+*** Start calculation ... ***
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ +                                                                          +
+ +   3D explicit parallel particle in cell code                             +
+ +                                                                          +
+ + LePIC 3D algorithm version: 3.3.1                                        +
+ + Last modifications: Dec/2023                                             +
+ +                                                                          +
+ + Copyright or © or Copr. Gwenael Fubiani (2022/11/22)                     +
+ +                                                                          +
+ + gwenael.fubiani@cnrs.fr                                                  +
+ +                                                                          +
+ + This software is a computer program whose purpose is to model low        +
+ + temperature plasmas with a Particle-In-Cell algorihm in 3D-3V            +
+ + dimensions.                                                              +
+ +                                                                          +
+ + This software is governed by the CeCILL-C license under French law and   +
+ + abiding by the rules of distribution of free software.  You can  use,    +
+ + modify and/ or redistribute the software under the terms of the CeCILL-C +
+ + license as circulated by CEA, CNRS and INRIA at the following URL        +
+ + "http://www.cecill.info".                                                +
+ +                                                                          +
+ + As a counterpart to the access to the source code and  rights to copy,   +
+ + modify and redistribute granted by the license, users are provided only  +
+ + with a limited warranty and the software's author, the holder of the     +
+ + economic rights,  and the successive licensors  have only  limited       +
+ + liability.                                                               +
+ +                                                                          +
+ + In this respect, the user's attention is drawn to the risks associated   +
+ + with loading,  using,  modifying and/or developing or reproducing the    +
+ + software by the user in light of its specific status of free software,   +
+ + that may mean  that it is complicated to manipulate,  and  that  also    +
+ + therefore means  that it is reserved for developers  and  experienced    +
+ + professionals having in-depth computer knowledge. Users are therefore    +
+ + encouraged to load and test the software's suitability as regards their  +
+ + requirements in conditions enabling the security of their systems and/or +
+ + data to be ensured and,  more generally, to use and operate it in the    +
+ + same conditions as regards security.                                     +
+ +                                                                          +
+ + The fact that you are presently reading this means that you have had     +
+ + knowledge of the CeCILL-C license and that you accept its terms.         +
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+                                                   
+ Number of OpenMP threads=  16
+ Number of MPI threads=   2
+ Input file was read correctly ...
+ eps0 HAS BEEN RE-SCALED: k_eps0=   36000.0000000000     
+ Gas chemistry read correctly (end of file reached)
+ Total number of reactions:          61
+ Type of wall surfaces (1=metal, 2 & 3= dielectric):  1  1  1  1  0
+ Gaussian magnetic filter field profile
+ Bmax @ location:         125           0           0
+ Frequency of calls to collision subroutine=  10
+ Frequency of calls to electron (Maxwellian) heating subroutine=   4
+ Frequency of calls to sort subroutine=  10
+ Frequency for averaging=    50
+ Heating region: ix<=  1, ix>=   51
+ Injection region: ix<=  1, ix>=   51, iy<=  1, iy>=   97, iz<=  1, iz>=  193
+ Particle loading region: nx<= 128
+ Loading particles ...
+ Particles: [e]   [H2+] [H-]  [H3+] [H+] 
+ np=  36353280  16351207         0   9083420  10905517
+ lde (mm)=   5.83998920113031     
+ lpe (mm)=   10708.4415408690     
+ vt (m/s)=   1452784.98634840       0.000000000000000E+000
+  0.000000000000000E+000  0.000000000000000E+000  0.000000000000000E+000
+ <|v|> (m/s)=   1639292.31286467     
+ dx (mm)=   3.14062500000000      dy (mm)=   3.33333333333333      dz (mm)=
+   3.02083333333333     
+ dx/lde=  0.537779247843839      dy/lde=  0.570777311144373      dz/lde=
+  0.517266938224588     
+ Nm=   553426106.770833     
+ dt (s)=  6.238018760628004E-010 , wpe*dt=  0.109728887910663     
+ vte*dt/dx=  0.300000000000000     
+ Figures in the YZ plane are drawn at the location ix=   65
+ Figures in the XY plane are drawn at the location ix=   97
+ Bm(G)=     75., wc*dt=   0.82, wc (/s)=   1.3191E+09, re (mm)=  1.10
+ err: w*/wc=  0.95, r*/re=  1.08
+ Multigrid PDE Solver is used, eps=   1.00E-08
+ ng= 6, omega=   1.6
+ nx= 128, ny=  96, nz= 192, # of cells:  1817664
+ Save 3D density, potential and E-field maps option on
+ Source/sink plotting option on
+ *** Startup time (s):   3.2 ***
+  
+ Running simulation ...
+ Negative ion current generated by neutral atoms on the extraction electrode: IH-(A)=   53.940, jH-(A/m2)=  600.0
+ Pwall (W)=  -2.53E+05, Pabs (W)=   4.28E+04, Pcoll (W)=  -1.69E+06, Pinj (W)=   1.13E+02, I_w (A)=  -2.21E+04    2.84E+00  , Ek_w (eV)=   1.14E+01    2.15E-01
+ it=        1, t (us)=    0.0, np=   36332258    16277194        3062     9278529    10921808
+ Saving 3D potentiel and density maps ...
+ Backing up simulation data ...
+ Done!
+ Pwall (W)=  -2.32E+04, Pabs (W)=   6.09E+04, Pcoll (W)=  -3.46E+04, Pinj (W)=   1.08E+02, I_w (A)=  -1.32E+03    5.33E+02  , Ek_w (eV)=   1.55E+01    5.54E+00
+ it=     1001, t (us)=    0.6, np=   30634207    12893281      324742    12766659    10585673
+ <t> (ms): E/rho=  271.9, poisson=  117.2, sorting=   37.2, avg/write=  226.6, MC=  286.9, mover=  1039.9, bck=    1.1, total=  1981.0
+ Saving 3D potentiel and density maps ...
+
+===================================================================================
+=   BAD TERMINATION OF ONE OF YOUR APPLICATION PROCESSES
+=   RANK 0 PID 734087 RUNNING AT gre6
+=   KILLED BY SIGNAL: 9 (Killed)
+===================================================================================
+
+===================================================================================
+=   BAD TERMINATION OF ONE OF YOUR APPLICATION PROCESSES
+=   RANK 1 PID 734088 RUNNING AT gre6
+=   KILLED BY SIGNAL: 9 (Killed)
+===================================================================================
+
+real	51m13.867s
+user	1625m38.853s
+sys	5m33.292s
+ Total calculation time : 51 min 13 sec

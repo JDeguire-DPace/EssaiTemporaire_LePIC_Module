@@ -1,0 +1,11 @@
+#!/bin/sh
+
+gfortran -O3 -fbounds-check  -o pdf.exe pdf.f90
+
+rm -f *.*~
+rm -f *~
+
+
+
+
+

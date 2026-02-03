@@ -1,0 +1,9 @@
+#!/bin/sh
+
+ifort -O3 -o 1d_profiles.exe 1d_profiles.f90
+rm -f *~
+
+
+
+
+
