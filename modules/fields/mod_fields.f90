@@ -9,6 +9,7 @@ module mod_fields
     ! Keep it minimal: phi and E are the first things used everywhere
     real(real64), allocatable :: phi(:,:,:)   ! (0:nx+2,0:ny+2,0:nz+2)
     real(real64), allocatable :: E(:,:,:,:)   ! (3,0:nx+2,0:ny+2,0:nz+2)
+    real(real64), allocatable :: kq(:,:,:)    ! (0:nx+2,0:ny+2,0:nz+2) charge weights for Poisson solve
 
   contains
     procedure :: allocate_from_domain
@@ -34,6 +35,10 @@ contains
     if (.not. allocated(self%E)) then
       allocate(self%E(3, 0:nx+2, 0:ny+2, 0:nz+2))
     end if
+
+    if (.not. allocated(self%kq)) then
+      allocate(self%kq(0:nx+2, 0:ny+2, 0:nz+2))
+    end if
   end subroutine allocate_from_domain
 
 
@@ -41,6 +46,7 @@ contains
     class(Fields), intent(inout) :: self
     if (allocated(self%phi)) self%phi = 0.0_real64
     if (allocated(self%E))   self%E   = 0.0_real64
+    if (allocated(self%kq))  self%kq  = 0.0_real64
   end subroutine zero
 
 
@@ -48,6 +54,7 @@ contains
     class(Fields), intent(inout) :: self
     if (allocated(self%phi)) deallocate(self%phi)
     if (allocated(self%E))   deallocate(self%E)
+    if (allocated(self%kq))  deallocate(self%kq)
   end subroutine destroy
 
 end module mod_fields

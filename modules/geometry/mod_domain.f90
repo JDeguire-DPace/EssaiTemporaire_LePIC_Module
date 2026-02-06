@@ -1,5 +1,5 @@
 module mod_domain
-  use iso_fortran_env, only: real64
+  use iso_fortran_env, only: real64, int32
   implicit none
   private
   public :: Domain
@@ -26,7 +26,7 @@ module mod_domain
     integer, allocatable :: dtype(:)
 
     ! core arrays (legacy layout: ghosted 0:n+2)
-    integer,      allocatable :: bcnd(:,:,:)
+    integer(int32), allocatable :: bcnd(:,:,:)
 
   contains
     procedure :: init_from_config

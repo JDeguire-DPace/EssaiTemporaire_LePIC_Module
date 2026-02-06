@@ -22,8 +22,8 @@ module mod_poisson_decomp
     integer(int32) :: kr = 0             ! local end index used in gather (includes extra at last rank)
 
     ! Allgatherv bookkeeping (counts in number of real64 elements)
-    integer(int32), allocatable :: recvcounts(:)
-    integer(int32), allocatable :: displs(:)
+    integer, allocatable :: recvcounts(:)
+    integer, allocatable :: displs(:)
 
     ! Local arrays with 2 ghost planes on each side (z dimension)
     ! Layout: (0:nx+2, 0:ny+2, 0:m+2)  -> total m+3 planes
@@ -64,7 +64,7 @@ contains
 
     ! Allocate local arrays
     allocate(self%phi_dom(0:nx+2, 0:ny+2, 0:self%m+2))
-    allocate(self%rhs_dom(0:nx+2, 0:ny+2, 0:self%m+1))   ! legacy used 0:m+1 for rhs
+    allocate(self%rhs_dom(0:nx+1, 0:ny+1, 0:self%m+1))
     allocate(self%bcnd_dom(0:nx+2, 0:ny+2, 0:self%m+2))
 
     self%phi_dom = 0.0_real64
@@ -99,40 +99,32 @@ contains
     if (self%rank == self%nproc-1) self%kr = self%m + 1
   end subroutine init
 
+  subroutine scatter_from_global(self, phi, bcnd)
+  class(PoissonDecomp), intent(inout) :: self
+  real(real64),   intent(in)  :: phi (0:,0:,0:)
+  integer(int32), intent(in)  :: bcnd(0:,0:,0:)
+  integer(int32) :: gk0
 
-  subroutine scatter_from_global(self, phi, rhs, bcnd)
-    class(PoissonDecomp), intent(inout) :: self
-    real(real64),   intent(in)  :: phi(0:self%nx+2, 0:self%ny+2, 0:self%nz+2)
-    real(real64),   intent(in)  :: rhs(0:self%nx+1, 0:self%ny+1, 0:self%nz/self%nproc+1)  ! optional: see note below
-    integer(int32), intent(in)  :: bcnd(0:self%nx+2, 0:self%ny+2, 0:self%nz+2)
+  gk0 = self%k0
 
-    integer(int32) :: gk0
+  self%phi_dom(:,:,0:self%m+2)  = phi (:,:, gk0 : gk0 + self%m + 2)
+  self%bcnd_dom(:,:,0:self%m+2) = bcnd(:,:, gk0 : gk0 + self%m + 2)
+end subroutine
 
-    ! Copy the local slab + 2 extra planes (0:m+2 local corresponds to global k0 : k0+m+2)
-    gk0 = self%k0
-    self%phi_dom(:,:,0:self%m+2)  = phi(:,:, gk0 : gk0 + self%m + 2)
-    self%bcnd_dom(:,:,0:self%m+2) = bcnd(:,:, gk0 : gk0 + self%m + 2)
 
-    ! rhs_dom: in legacy they build rhs_dom directly from charge deposition (already local).
-    ! If you currently build global rhs, you can similarly slice:
-    ! self%rhs_dom(:,:,0:self%m+1) = rhs_global(:,:, gk0 : gk0 + self%m + 1)
-    !
-    ! For now we keep rhs passed-in as already-local (recommended).
-    self%rhs_dom = rhs
-  end subroutine scatter_from_global
 
 
   subroutine gather_to_global(self, phi)
     class(PoissonDecomp), intent(inout) :: self
     real(real64), intent(inout) :: phi(0:self%nx+2, 0:self%ny+2, 0:self%nz+2)
     integer :: ierr
-    integer(int32) :: sendcount
+    integer :: sendcount
 
     sendcount = (self%kr - self%kl + 1) * (self%nx+3) * (self%ny+3)
 
     call MPI_Allgatherv( &
-      self%phi_dom(0:self%nx+2, 0:self%ny+2, self%kl:self%kr), sendcount, MPI_REAL8, &
-      phi, self%recvcounts, self%displs, MPI_REAL8, self%comm, ierr)
+      self%phi_dom(0:self%nx+2, 0:self%ny+2, self%kl:self%kr), sendcount, MPI_DOUBLE_PRECISION, &
+      phi, self%recvcounts, self%displs, MPI_DOUBLE_PRECISION, self%comm, ierr)
   end subroutine gather_to_global
 
 

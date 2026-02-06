@@ -23,12 +23,15 @@ set(PIC_SOURCES
   modules/particles/mod_reactions.f90
   modules/particles/mod_reactionsDB.f90
 
+  modules/fields/mod_poissonDecomposition.f90
+  modules/fields/mod_charge_weights.f90
+
   modules/geometry/mod_domain.f90
   modules/fields/mod_fields.f90
   modules/geometry/mod_generateBoundary.f90
   modules/geometry/mod_boundary.f90
 
- 
+  modules/core/mod_debug_checks.f90
 
   modules/core/mod_state.f90
 )
