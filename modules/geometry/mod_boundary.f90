@@ -2,6 +2,7 @@ module mod_boundary
   use iso_fortran_env, only: real64
   use mod_domain,      only: Domain
   use mod_config,      only: Config
+  use mod_fields,      only: Fields
   use mod_generateBoundary
   implicit none
   private
@@ -53,7 +54,7 @@ contains
 
 
 
-  subroutine build_boundary(dom, cfg, mpi_rank)
+  subroutine build_boundary(dom, cfg, fld, mpi_rank)
     implicit none
     type(Domain), intent(inout) :: dom
     type(Config), intent(in)    :: cfg
@@ -61,7 +62,7 @@ contains
     type(GeometrySegments) :: geo
     type(BoundaryInputs)  :: inp
     type(BoundaryOutputs) :: outp
-
+    type(Fields) :: fld  
     real(real64), allocatable :: V(:)
     integer,      allocatable :: dtype(:)
 
@@ -100,7 +101,7 @@ contains
     ! ------------------------------------------------------------
     ! call kernel wrapper
     ! ------------------------------------------------------------
-    call generate_boundary(dom%u, dom%n, dom%h, dom%bcnd, V, cfg%ngrid, dtype, &
+    call generate_boundary(fld%phi , dom%n, dom%h, dom%bcnd, V, cfg%ngrid, dtype, &
                            cfg%xl_pow, cfg%xr_pow, mpi_rank, inp, outp, geo)
 
     ! ------------------------------------------------------------

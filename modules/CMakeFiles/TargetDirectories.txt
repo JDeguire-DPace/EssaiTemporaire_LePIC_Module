@@ -1,5 +1,0 @@
-/mnt/c/Users/Jasmin Deguire/Desktop/LePIC_3D/modules/CMakeFiles/pic_modules_obj.dir
-/mnt/c/Users/Jasmin Deguire/Desktop/LePIC_3D/modules/CMakeFiles/pic_modules.dir
-/mnt/c/Users/Jasmin Deguire/Desktop/LePIC_3D/modules/CMakeFiles/LePIC_3D.dir
-/mnt/c/Users/Jasmin Deguire/Desktop/LePIC_3D/modules/CMakeFiles/edit_cache.dir
-/mnt/c/Users/Jasmin Deguire/Desktop/LePIC_3D/modules/CMakeFiles/rebuild_cache.dir

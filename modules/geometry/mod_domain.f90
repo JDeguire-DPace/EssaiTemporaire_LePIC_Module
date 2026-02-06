@@ -27,11 +27,10 @@ module mod_domain
 
     ! core arrays (legacy layout: ghosted 0:n+2)
     integer,      allocatable :: bcnd(:,:,:)
-    real(real64), allocatable :: u(:,:,:)
 
   contains
     procedure :: init_from_config
-    procedure :: allocate_fields
+    procedure :: allocate_masks_domain
   end type Domain
 
 contains
@@ -51,17 +50,15 @@ contains
     self%zmax = 0.0_real64
   end subroutine init_from_config
 
-  subroutine allocate_fields(self)
+  subroutine allocate_masks_domain(self)
     implicit none
     class(Domain), intent(inout) :: self
 
-    if (any(self%n <= 0)) error stop "Domain%allocate_fields: n not initialized"
+    if (any(self%n <= 0)) error stop "Domain%allocate_masks_domain: n not initialized"
 
     allocate(self%bcnd(0:self%n(1)+2, 0:self%n(2)+2, 0:self%n(3)+2))
-    allocate(self%u   (0:self%n(1)+2, 0:self%n(2)+2, 0:self%n(3)+2))
 
     self%bcnd = 0
-    self%u    = 0.0_real64
-  end subroutine allocate_fields
+  end subroutine allocate_masks_domain
 
 end module mod_domain

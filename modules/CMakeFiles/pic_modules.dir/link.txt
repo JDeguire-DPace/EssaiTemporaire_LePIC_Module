@@ -1,2 +1,0 @@
-/usr/bin/ar qc libpic_modules.a CMakeFiles/pic_modules_obj.dir/core/mod_part_info.f90.o CMakeFiles/pic_modules_obj.dir/core/mod_utils.f90.o CMakeFiles/pic_modules_obj.dir/core/mod_constants.f90.o CMakeFiles/pic_modules_obj.dir/config/mod_config.f90.o CMakeFiles/pic_modules_obj.dir/config/mod_readConditions.f90.o CMakeFiles/pic_modules_obj.dir/geometry/mod_domain.f90.o CMakeFiles/pic_modules_obj.dir/geometry/mod_generateBoundary.f90.o CMakeFiles/pic_modules_obj.dir/geometry/mod_boundary.f90.o
-/usr/bin/ranlib libpic_modules.a

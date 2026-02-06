@@ -447,6 +447,34 @@ contains
         write(12,101) (bcnd(ix,iy,iz), iy=1,n(2)+1,outp%every)
       end do
       close(12)
+
+
+      izl = n(3)/2 + 1
+      open(12,file='../DATA/DATA_2D/phi_xy.mco')
+      write(12,*) n(1)/outp%every, n(2)/outp%every
+102   format(800(f6.2,1x))
+      do iy=n(2)+1,1,-1*outp%every
+        write(12,102) (u(ix,iy,izl), ix=1,n(1)+1,outp%every)
+        
+      end do
+      close(12)
+
+      open(12,file='../DATA/DATA_2D/phi_xz.mco')
+      write(12,*) n(1)/outp%every, n(3)/outp%every
+      do iz=n(3)+1,1,-1*outp%every
+        write(12,102) (u(ix,n(2)/2+1,iz), ix=1,n(1)+1,outp%every)
+      end do
+      close(12)
+
+      ix = n(1)/2 + 1
+      if (inp%flag_grd == 1) ix = outp%ixg
+      open(12,file='../DATA/DATA_2D/phi_yz.mco')
+      write(12,*) n(2)/outp%every, n(3)/outp%every
+      do iz=n(3)+1,1,-1*outp%every
+        write(12,102) (u(ix,iy,iz), iy=1,n(2)+1,outp%every)
+      end do
+      close(12)
+
     end if
 
   end subroutine generate_boundary
