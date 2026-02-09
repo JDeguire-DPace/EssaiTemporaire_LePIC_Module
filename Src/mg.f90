@@ -3,28 +3,28 @@ subroutine mg(u,b,bcnd,h,res,n,omega,ng,eps,k,ktot,rank,nproc,&
           r2,r4,r8,r16,r32,r64,r128,r256,r512,r1024,r2048,&
           bcnd2,bcnd4,bcnd8,bcnd16,bcnd32,bcnd64,bcnd128, &
           bcnd256,bcnd512,bcnd1024,bcnd2048)
-!     ==============================================================
-!     VERSION:         0.1
-!     LAST MOD:      DEC/14
-!     MOD AUTHOR:    G. Fubiani
-!     COMMENTS:      Solve poisson equation using a V-shaped
-!                    multi-grid method. SOR algorithm is used for 
-!                    relaxation.
-!     NOTE:          1) u(x,y,t) is defined as u(0:nx+2,0:ny+2) where
-!                    1 and n+1 are for the boundary conditions.
-!                    2) Graphical representation of MG scheme:
-!                     
-!                             Fine grid (n=8)
-!                    |---|---|---|---|---|---|---|---|
-!                    1   2   3   4   5   6   7   8   9
-!                    1(BC)                          n+1(BC)  
-!                             
-!                          First level coarsed grid
-!                    |-------|-------|-------|-------|
-!                    1       2       3       4       5
-!                    1(BC)                         n/2+1(BC)  
-!
-!     --------------------------------------------------------------
+   !     ==============================================================
+   !     VERSION:         0.1
+   !     LAST MOD:      DEC/14
+   !     MOD AUTHOR:    G. Fubiani
+   !     COMMENTS:      Solve poisson equation using a V-shaped
+   !                    multi-grid method. SOR algorithm is used for 
+   !                    relaxation.
+   !     NOTE:          1) u(x,y,t) is defined as u(0:nx+2,0:ny+2) where
+   !                    1 and n+1 are for the boundary conditions.
+   !                    2) Graphical representation of MG scheme:
+   !                     
+   !                             Fine grid (n=8)
+   !                    |---|---|---|---|---|---|---|---|
+   !                    1   2   3   4   5   6   7   8   9
+   !                    1(BC)                          n+1(BC)  
+   !                             
+   !                          First level coarsed grid
+   !                    |-------|-------|-------|-------|
+   !                    1       2       3       4       5
+   !                    1(BC)                         n/2+1(BC)  
+   !
+   !     --------------------------------------------------------------
   implicit none
   integer:: i,k,ig,n(3,12),ng,ksor,iter(ng),il,rank,nproc, &
        bcnd(0:n(1,1)+2,0:n(2,1)+2,0:n(3,1)+2)

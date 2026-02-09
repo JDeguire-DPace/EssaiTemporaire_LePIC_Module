@@ -15,27 +15,27 @@ module mod_poisson_decomp
     integer :: nproc = -1
 
     ! Z-slab decomposition info
-    integer(int32) :: m = 0              ! base slab size = nz / nproc
-    integer(int32) :: k0 = 0             ! global start index for owned slab (0-based in storage sense)
-    integer(int32) :: k1 = 0             ! global end index for owned slab
-    integer(int32) :: kl = 0             ! local start index used in gather (excludes one ghost at rank 0)
-    integer(int32) :: kr = 0             ! local end index used in gather (includes extra at last rank)
+    integer(int32) :: m = 0
+    integer(int32) :: k0 = 0
+    integer(int32) :: k1 = 0
+    integer(int32) :: kl = 0
+    integer(int32) :: kr = 0
 
-    ! Allgatherv bookkeeping (counts in number of real64 elements)
-    integer, allocatable :: recvcounts(:)
-    integer, allocatable :: displs(:)
+    ! Allgatherv bookkeeping
+    integer, allocatable :: recvcounts_phi(:), displs_phi(:)
+    integer, allocatable :: recvcounts_rhs(:), displs_rhs(:)
 
-    ! Local arrays with 2 ghost planes on each side (z dimension)
-    ! Layout: (0:nx+2, 0:ny+2, 0:m+2)  -> total m+3 planes
-    real(real64),    allocatable :: phi_dom(:,:,:)
-    real(real64),    allocatable :: rhs_dom(:,:,:)
-    integer(int32),  allocatable :: bcnd_dom(:,:,:)
+    ! Local arrays
+    real(real64),   allocatable :: phi_dom(:,:,:)
+    real(real64),   allocatable :: rhs_dom(:,:,:)
+    integer(int32), allocatable :: bcnd_dom(:,:,:)
 
   contains
     procedure :: init
     procedure :: destroy
     procedure :: scatter_from_global
-    procedure :: gather_to_global
+    procedure :: gather_phi_to_global
+    procedure :: gather_rhs_to_global
   end type PoissonDecomp
 
 contains
@@ -45,78 +45,92 @@ contains
     integer(int32), intent(in) :: nx, ny, nz
     integer,        intent(in) :: comm
     integer :: ierr, r
-    integer(int32) :: planes_r, off
+    integer(int32) :: planes_r
+    integer :: off
 
     self%nx = nx; self%ny = ny; self%nz = nz
     self%comm = comm
     call MPI_Comm_rank(comm, self%rank, ierr)
     call MPI_Comm_size(comm, self%nproc, ierr)
 
-    ! Legacy assumes perfect division
     if (mod(nz, self%nproc) /= 0) then
       if (self%rank == 0) write(*,*) "ERROR: nz not divisible by nproc (legacy requires this)."
-      error stop "PoissonDecomp%init: nz% nproc != 0"
+      error stop "PoissonDecomp%init: nz % nproc != 0"
     end if
 
     self%m  = nz / self%nproc
     self%k0 = self%rank * self%m
     self%k1 = self%k0 + self%m - 1
 
-    ! Allocate local arrays
     allocate(self%phi_dom(0:nx+2, 0:ny+2, 0:self%m+2))
     allocate(self%rhs_dom(0:nx+1, 0:ny+1, 0:self%m+1))
     allocate(self%bcnd_dom(0:nx+2, 0:ny+2, 0:self%m+2))
 
-    self%phi_dom = 0.0_real64
-    self%rhs_dom = 0.0_real64
-    self%bcnd_dom = 0
+    self%phi_dom  = 0.0_real64
+    self%rhs_dom  = 0.0_real64
+    self%bcnd_dom = 0_int32
 
-    ! Build Allgatherv counts/displacements exactly like legacy logic:
-    ! - each rank contributes m planes, except rank 0 contributes (m+1),
-    !   last contributes (m+2) because of boundary + ghost handling
-    allocate(self%recvcounts(0:self%nproc-1))
-    allocate(self%displs(0:self%nproc-1))
+    allocate(self%recvcounts_phi(0:self%nproc-1), self%displs_phi(0:self%nproc-1))
+    allocate(self%recvcounts_rhs(0:self%nproc-1), self%displs_rhs(0:self%nproc-1))
 
+    ! ---- phi counts/displs (nx+3)*(ny+3) per plane ----
     off = 0
     do r=0, self%nproc-1
       planes_r = self%m
-      if (r == 0)             planes_r = planes_r + 1
-      if (r == self%nproc-1)  planes_r = planes_r + 2
+      if (r == 0)            planes_r = planes_r + 1
+      if (r == self%nproc-1) planes_r = planes_r + 2
 
-      self%recvcounts(r) = planes_r * (nx+3) * (ny+3)
-      self%displs(r)     = off
-      off = off + self%recvcounts(r)
+      self%recvcounts_phi(r) = int(planes_r, kind(off)) * (self%nx+3) * (self%ny+3)
+      self%displs_phi(r)     = off
+      off = off + self%recvcounts_phi(r)
     end do
 
-    ! Determine local send range kl:kr (in local z-index)
-    ! Matching legacy:
-    !   kl = 1; if rank==0 -> 0
-    !   kr = m; if last -> m+1
+    ! ---- rhs counts/displs (nx+2)*(ny+2) per plane ----
+    off = 0
+    do r=0, self%nproc-1
+      planes_r = self%m
+      if (r == 0)            planes_r = planes_r + 1   ! include global z=0
+      if (r == self%nproc-1) planes_r = planes_r + 1   ! include global z=nz+1
+
+      self%recvcounts_rhs(r) = int(planes_r, kind(off)) * (self%nx+2) * (self%ny+2)
+      self%displs_rhs(r)     = off
+      off = off + self%recvcounts_rhs(r)
+    end do
+
+    ! Send range (local indices) used in gather
     self%kl = 1
     if (self%rank == 0) self%kl = 0
 
     self%kr = self%m
-    if (self%rank == self%nproc-1) self%kr = self%m + 1
+    if (self%rank == self%nproc-1) self%kr = self%m + 2
   end subroutine init
 
+
   subroutine scatter_from_global(self, phi, bcnd)
-  class(PoissonDecomp), intent(inout) :: self
-  real(real64),   intent(in)  :: phi (0:,0:,0:)
-  integer(int32), intent(in)  :: bcnd(0:,0:,0:)
-  integer(int32) :: gk0
-
-  gk0 = self%k0
-
-  self%phi_dom(:,:,0:self%m+2)  = phi (:,:, gk0 : gk0 + self%m + 2)
-  self%bcnd_dom(:,:,0:self%m+2) = bcnd(:,:, gk0 : gk0 + self%m + 2)
-end subroutine
-
-
-
-
-  subroutine gather_to_global(self, phi)
     class(PoissonDecomp), intent(inout) :: self
-    real(real64), intent(inout) :: phi(0:self%nx+2, 0:self%ny+2, 0:self%nz+2)
+    real(real64), intent(in) :: phi(0:,0:,0:)
+    integer,      intent(in) :: bcnd(0:,0:,0:)     ! <--- default integer here
+
+    integer(int32) :: gk0, lbz
+    integer :: iz0, iz1
+
+    gk0 = self%k0
+    lbz = int(lbound(phi,3), int32)
+
+    iz0 = int(lbz + gk0)
+    iz1 = int(lbz + gk0 + self%m + 2_int32)
+
+    ! Optional safety check
+    if (iz0 < lbound(phi,3) .or. iz1 > ubound(phi,3)) error stop "scatter_from_global: bad z slice"
+
+    self%phi_dom(:,:,0:self%m+2)  = phi(:,:, iz0:iz1)
+    self%bcnd_dom(:,:,0:self%m+2) = int( bcnd(:,:, iz0:iz1), int32 )  ! <--- convert here
+  end subroutine scatter_from_global
+
+
+  subroutine gather_phi_to_global(self, phi)
+    class(PoissonDecomp), intent(inout) :: self
+    real(real64), intent(inout) :: phi(0:self%nx+2,0:self%ny+2,0:self%nz+2)
     integer :: ierr
     integer :: sendcount
 
@@ -124,17 +138,33 @@ end subroutine
 
     call MPI_Allgatherv( &
       self%phi_dom(0:self%nx+2, 0:self%ny+2, self%kl:self%kr), sendcount, MPI_DOUBLE_PRECISION, &
-      phi, self%recvcounts, self%displs, MPI_DOUBLE_PRECISION, self%comm, ierr)
-  end subroutine gather_to_global
+      phi, self%recvcounts_phi, self%displs_phi, MPI_DOUBLE_PRECISION, self%comm, ierr)
+  end subroutine gather_phi_to_global
+
+
+  subroutine gather_rhs_to_global(self, rhs)
+    class(PoissonDecomp), intent(inout) :: self
+    real(real64), intent(inout) :: rhs(0:self%nx+1,0:self%ny+1,0:self%nz+1)
+    integer :: ierr
+    integer :: sendcount
+
+    sendcount = (self%kr - self%kl + 1) * (self%nx+2) * (self%ny+2)
+
+    call MPI_Allgatherv( &
+      self%rhs_dom(0:self%nx+1,0:self%ny+1,self%kl:self%kr), sendcount, MPI_DOUBLE_PRECISION, &
+      rhs, self%recvcounts_rhs, self%displs_rhs, MPI_DOUBLE_PRECISION, self%comm, ierr)
+  end subroutine gather_rhs_to_global
 
 
   subroutine destroy(self)
     class(PoissonDecomp), intent(inout) :: self
-    if (allocated(self%phi_dom)) deallocate(self%phi_dom)
-    if (allocated(self%rhs_dom)) deallocate(self%rhs_dom)
-    if (allocated(self%bcnd_dom)) deallocate(self%bcnd_dom)
-    if (allocated(self%recvcounts)) deallocate(self%recvcounts)
-    if (allocated(self%displs)) deallocate(self%displs)
+    if (allocated(self%phi_dom))        deallocate(self%phi_dom)
+    if (allocated(self%rhs_dom))        deallocate(self%rhs_dom)
+    if (allocated(self%bcnd_dom))       deallocate(self%bcnd_dom)
+    if (allocated(self%recvcounts_phi)) deallocate(self%recvcounts_phi)
+    if (allocated(self%displs_phi))     deallocate(self%displs_phi)
+    if (allocated(self%recvcounts_rhs)) deallocate(self%recvcounts_rhs)
+    if (allocated(self%displs_rhs))     deallocate(self%displs_rhs)
   end subroutine destroy
 
 end module mod_poisson_decomp

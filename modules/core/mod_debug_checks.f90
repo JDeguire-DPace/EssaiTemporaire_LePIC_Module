@@ -1,6 +1,7 @@
 module mod_debug_checks
   use iso_fortran_env, only: real64, int32
   use mpi
+  use mod_poisson_decomp, only: PoissonDecomp
   implicit none
   private
   public :: checkpoint_poisson_decomp, checkpoint_kq
@@ -34,15 +35,43 @@ contains
   end subroutine checkpoint_poisson_decomp
 
 
-  subroutine checkpoint_kq(kq, comm, rank, label)
-    real(real64), intent(in) :: kq(:,:,:)
+  subroutine checkpoint_kq(kq, comm, rank, label, pdec)
+    use iso_fortran_env, only: real64, int32
+    use mpi
+    use mod_poisson_decomp, only: PoissonDecomp
+    implicit none
+
+    real(real64), intent(in) :: kq(0:,0:,0:)   ! <--- force lb=0
     integer, intent(in) :: comm, rank
     character(*), intent(in) :: label
+    type(PoissonDecomp), intent(in) :: pdec
+
+    integer(int32) :: zlo, zhi
     integer :: ierr
     integer :: c1, c2, g1, g2
+    integer :: nplanes, gplanes
+    integer :: nz_kq_lo, nz_kq_hi
 
-    c1 = count(kq == 1.0_real64)
-    c2 = count(kq == 2.0_real64)
+    nz_kq_lo = lbound(kq,3)
+    nz_kq_hi = ubound(kq,3)
+
+    ! Global z-slab owned by this rank in legacy gather sense:
+    zlo = pdec%k0 + pdec%kl
+    zhi = pdec%k0 + pdec%kr
+
+    nplanes = zhi - zlo + 1
+    write(*,'(a,i0,a,2(i0,1x),a,2(i0,1x),a,i0)') &
+      "KQ SLICE rank=", rank, " zlo/zhi=", zlo, zhi, &
+      " kq_zbounds=", nz_kq_lo, nz_kq_hi, " nplanes=", nplanes
+
+    call MPI_Reduce(nplanes, gplanes, 1, MPI_INTEGER, MPI_SUM, 0, comm, ierr)
+    if (rank == 0) then
+      write(*,'(a,i0,a,i0)') "KQ SLICE total planes counted=", gplanes, &
+                            " expected=", (ubound(kq,3)-lbound(kq,3)+1)
+    end if
+
+    c1 = count(kq(:,:,zlo:zhi) == 1.0_real64)
+    c2 = count(kq(:,:,zlo:zhi) == 2.0_real64)
 
     call MPI_Reduce(c1, g1, 1, MPI_INTEGER, MPI_SUM, 0, comm, ierr)
     call MPI_Reduce(c2, g2, 1, MPI_INTEGER, MPI_SUM, 0, comm, ierr)
