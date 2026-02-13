@@ -16,6 +16,7 @@ import sys
 from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.colors import LogNorm
 
 # Tkinter file dialog (built-in)
 import tkinter as tk
@@ -55,8 +56,8 @@ def read_mco_ascii(path: Path) -> np.ndarray:
                 f"Bad header in {path.name}: expected 2 ints 'n1 n2', got: {header}"
             )
 
-        n1 = int(header[0])+1
-        n2 = int(header[1])+1
+        n1 = int(header[0]) + 1
+        n2 = int(header[1]) + 1
 
         data = []
         for _ in range(n2):
@@ -72,14 +73,40 @@ def read_mco_ascii(path: Path) -> np.ndarray:
                 )
             data.append([float(x) for x in row])
 
-    arr = np.array(data, dtype=float)  # shape (n2, n1)
-    return arr
+    return np.array(data, dtype=float)
 
+
+    
 
 def main() -> int:
+    # def essai_fit(x,y,z):
+    #     x0 = 0.5*128*3.125e-3
+    #     y0 = 0.5*96*3.3333e-3
+    #     z0 = 0.5*192*3.0208e-3
+    #     sig2 = (0.05)**2
+    #     eps0 = 8.854187817e-12
+    #     A = (1.0/np.sqrt(2.*np.pi*sig2))*(1.6022e-19 * 1e12/eps0)
+    #     return A * np.exp(-((x-x0)**2 + (y-y0)**2 + (z-z0)**2)/(2*sig2))
+    
     script_dir = Path(__file__).resolve().parent
     default_dir = (script_dir.parent / "DATA" / "DATA_2D")
     initial_dir = default_dir if default_dir.is_dir() else script_dir.parent
+
+    # xo = np.linspace(0, 0.4, 128)
+    # yo = np.linspace(0, 0.32, 96)
+    # zo = np.linspace(0, 0.56, 192)
+
+    # phi = essai_fit(*np.meshgrid(xo, yo, zo, indexing="ij"))
+
+    # plt.figure()
+    # plt.plot(xo, phi[:, 48, 96])
+    #im = plt.imshow(phi[:, 48, :], origin="lower", aspect="auto")
+    #plt.colorbar(im, label="Phi")
+    #plt.title("Test Gaussian Source (Log scale)")
+    #plt.xlabel("Index 1")
+    #plt.ylabel("Index 2")
+    #plt.tight_layout()
+    
 
     path = pick_file(initial_dir)
     if path is None:
@@ -89,7 +116,6 @@ def main() -> int:
     try:
         arr = read_mco_ascii(path)
     except Exception as e:
-        # show GUI error and also print to terminal
         try:
             tk.Tk().withdraw()
             messagebox.showerror("Failed to read .mco", str(e))
@@ -98,14 +124,30 @@ def main() -> int:
         print(f"Error: {e}", file=sys.stderr)
         return 1
 
-    plt.figure()
-    plt.imshow(arr, origin="lower", aspect="auto")
-    plt.colorbar(label=path.stem)
-    plt.title(path.name)
+    im = plt.imshow(
+        arr,
+        origin="lower",
+        aspect="auto",
+        #norm=LogNorm(vmin=vmin, vmax=vmax),
+    )
+    plt.colorbar(im, label=path.stem)
+    plt.title(path.name + " (Log scale)")
     plt.xlabel("Index 1")
     plt.ylabel("Index 2")
     plt.tight_layout()
+
+    # -----------------------------
+    # 1D slice plot (linear)
+    # -----------------------------
+    plt.figure()
+    plt.plot(np.arange(arr.shape[1]), arr[80, :])
+    plt.title("Row 80 slice")
+    plt.xlabel("Index 1")
+    plt.ylabel(path.stem)
+    plt.tight_layout()
+
     plt.show()
+
     return 0
 
 

@@ -58,11 +58,11 @@ contains
     implicit none
     type(Domain), intent(inout) :: dom
     type(Config), intent(in)    :: cfg
+    type(Fields), intent(inout) :: fld  
     integer,      intent(in)    :: mpi_rank
     type(GeometrySegments) :: geo
     type(BoundaryInputs)  :: inp
     type(BoundaryOutputs) :: outp
-    type(Fields) :: fld  
     real(real64), allocatable :: V(:)
     integer,      allocatable :: dtype(:)
 
