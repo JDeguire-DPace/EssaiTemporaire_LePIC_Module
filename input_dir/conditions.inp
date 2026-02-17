@@ -2,7 +2,7 @@ special.dat ! name of file storing reactions
 5. ! Te (eV)
 6 ! # of levels in MG solver
 1.d-7, 1.4d0 ! Min. precision in residual, w for SOR [1.6]
-640 160 160 ! n: nx=2**n, ny=2**n. Number of grid points [2**7,2**3]
+128 32 32 ! n: nx=2**n, ny=2**n. Number of grid points [2**7,2**3]
 0. 10. 0. 100. 0. 100. ! Particle heating region x<, x>, y<, y>, z<, z> [cm]
 10. ! Particle loading region [cm]
 2 ! # of magnetic field files (<0 positive ions not magnetized)

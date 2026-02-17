@@ -755,6 +755,14 @@ program main
   call system_clock(cnt_f)
   dtime=REAL(cnt_f-cnt_i)/REAL(cnt_rate)
   if(mpi_rank.eq.0) print'(" *** Startup time (s): ",f5.1," ***")', dtime
+  
+  
+  
+  
+
+
+
+
 
   if(mpi_rank.eq.0) then
      print*, ' '
@@ -765,6 +773,7 @@ program main
   ! Start iteration 
   !
   do it=1,ntmax
+     if (it.eq.2) call stop_calculation
 
      time= time + dt
      if(time.ge.tmax) exit ! Stop calculation
@@ -944,6 +953,9 @@ program main
      !   
      call pdesolver(phi_dom,rhs_dom,bcnd_dom,h,n,ncycle,eps,omega,niter,&
           ksor,res,ng,mpi_rank,nproc_mpi)
+
+     
+     
 
      ! Concatenate *_dom()
      if(it.eq.1) then

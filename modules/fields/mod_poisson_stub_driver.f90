@@ -26,6 +26,13 @@ module mod_poisson_stub_driver
 contains
 
   subroutine run_poisson_stub(comm, n, h, bcnd_global, phi_global)
+    use iso_fortran_env,  only: real64
+    use mpi
+    use ieee_arithmetic,  only: ieee_is_nan
+    use mod_poisson_decomp, only: PoissonDecomp
+    use mod_part_info,      only: flag_pbc, flag_nmn
+    implicit none
+
     integer, intent(in) :: comm
     integer, intent(in) :: n(3)
     real(real64), intent(in) :: h(3)
@@ -38,22 +45,26 @@ contains
     real(real64), allocatable :: b_loc(:,:,:)
     integer,      allocatable :: bcnd_loc(:,:,:)
     real(real64), allocatable :: u_mg(:,:,:)
-    real(real64) :: local_sum, global_sum
-    real(real64) :: local_vol, global_vol
 
     integer :: ng, ncycl, k
     real(real64) :: eps, omega, ktot, res
     real(real64) :: h_mg(3)
+
+    real(real64) :: local_sum, global_sum
+    integer :: local_n, global_n
+    integer :: kk, nan_k
+    integer :: flag_loc, flag_glob
+    logical :: force_driver_pbc_ghosts
+
+    ! ------------------------------------------------------------------
+    ! IMPORTANT: legacy mg/sors uses MPI_COMM_WORLD internally.
+    ! So for now treat comm as WORLD-consistent.
+    ! ------------------------------------------------------------------
+    call MPI_Comm_rank(MPI_COMM_WORLD, rank, ierr)
+    call MPI_Comm_size(MPI_COMM_WORLD, nproc, ierr)
+
     h_mg = h
-    
-
-    call MPI_Comm_rank(comm, rank, ierr)
-    call MPI_Comm_size(comm, nproc, ierr)
-
-    ! IMPORTANT: PoissonDecomp%init must accept integer comm if it uses `use mpi`
-    call pdec%init(n(1), n(2), n(3), comm)
-
-    m = n(3) / nproc
+    m    = n(3) / nproc
 
     allocate(u_mg(0:n(1)+2, 0:n(2)+2, -1:m+2))
     allocate(b_loc(0:n(1)+1, 0:n(2)+1,  0:m+1))
@@ -63,6 +74,18 @@ contains
     b_loc    = 0.0_real64
     bcnd_loc = 0
 
+    ! ------------------------------------------------------------------
+    ! Legacy solver dependency: these flags live in mod_part_info
+    ! Set them explicitly for this test.
+    ! ------------------------------------------------------------------
+    ! If your geometry implies periodic:
+    flag_pbc = 1
+    ! If you know flag_nmn should be 0/1, set it deterministically:
+    ! flag_nmn = 0
+    ! (leave as-is if you already manage it elsewhere)
+
+    ! Local decomp + scatter
+    call pdec%init(n(1), n(2), n(3), MPI_COMM_WORLD)
     call pdec%scatter_from_global(phi_global, bcnd_global)
 
     u_mg(:,:,0:m+2)     = pdec%phi_dom(:,:,0:m+2)
@@ -70,25 +93,63 @@ contains
 
     call build_rhs_gaussian(n, h, pdec%k0, m, b_loc, bcnd_loc)
 
+    ! Diagnostics: RHS sum
+    local_sum = sum(b_loc(1:n(1)+1, 1:n(2)+1, 1:m))
+    call MPI_Allreduce(local_sum, global_sum, 1, MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ierr)
+    if (rank == 0) then
+      print *, "Global RHS sum = ", global_sum
+      print *, "pre:  min/max u_mg= ", minval(u_mg), maxval(u_mg)
+    end if
+
+    ! ------------------------------------------------------------------
+    ! Toggle: FORCE periodic ghost planes in the driver as a diagnostic.
+    ! If this removes NaNs, the bug is in legacy periodic handling (flag/comm/gating).
+    ! ------------------------------------------------------------------
+    force_driver_pbc_ghosts = .true.
+    if (force_driver_pbc_ghosts) then
+      u_mg(:,:,0)   = u_mg(:,:,m)
+      u_mg(:,:,m+1) = u_mg(:,:,1)
+    end if
+
+    ! Solver params
     ng    = 6
-    ncycl = 50
-    eps   = 1.0e-6_real64
+    ncycl = 100
+    eps   = 1.0e-7_real64
     omega = 1.7_real64
     ktot  = 0.0_real64
     res   = 0.0_real64
     k     = 0
-
     
-
-    local_sum = sum(b_loc(1:n(1)+1,1:n(2)+1,1:m))
-    call MPI_Allreduce(local_sum, global_sum, 1, MPI_DOUBLE_PRECISION, MPI_SUM, comm, ierr)
-
-    if (rank == 0) then
-      print*, "Global RHS sum =", global_sum
-    end if
-
     call pdesolver(u_mg, b_loc, bcnd_loc, h_mg, n, ncycl, eps, omega, k, ktot, res, ng, rank, nproc)
 
+    ! Gauge fix for periodic (remove mean)
+    local_sum = sum(u_mg(1:n(1)+1, 1:n(2)+1, 1:m))
+    local_n   = (n(1)+1)*(n(2)+1)*m
+    call MPI_Allreduce(local_sum, global_sum, 1, MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ierr)
+    call MPI_Allreduce(local_n,   global_n,   1, MPI_INTEGER, MPI_SUM, MPI_COMM_WORLD, ierr)
+
+    if (global_n > 0) then
+      u_mg(1:n(1)+1, 1:n(2)+1, 1:m) = u_mg(1:n(1)+1, 1:n(2)+1, 1:m) - global_sum/real(global_n, real64)
+    end if
+
+    if (rank == 0) then
+      print *, "post: min/max u_mg= ", minval(u_mg), maxval(u_mg)
+    end if
+
+    ! NaN check
+    flag_loc = merge(1, 0, any(ieee_is_nan(u_mg)))
+    call MPI_Allreduce(flag_loc, flag_glob, 1, MPI_INTEGER, MPI_MAX, MPI_COMM_WORLD, ierr)
+    if (rank == 0) print *, "NaN present after pdesolver? ", (flag_glob == 1)
+
+    do kk = lbound(u_mg,3), ubound(u_mg,3)
+      nan_k = count(ieee_is_nan(u_mg(:,:,kk)))
+      if (nan_k > 0) then
+        write(*,'(A,I3,A,I5,A,I10)') "rank ", rank, " NaNs in k=", kk, " : ", nan_k
+      end if
+    end do
+    write(*,*) "rank",rank," total NaNs =", count(ieee_is_nan(u_mg))
+
+    ! Back to decomp + gather
     pdec%phi_dom(:,:,lbound(pdec%phi_dom,3):ubound(pdec%phi_dom,3)) = &
         u_mg(:,:,lbound(pdec%phi_dom,3):ubound(pdec%phi_dom,3))
     call pdec%gather_phi_to_global(phi_global)
@@ -96,6 +157,7 @@ contains
     call pdec%destroy()
     deallocate(u_mg, b_loc, bcnd_loc)
   end subroutine run_poisson_stub
+
 
 
   subroutine build_rhs_gaussian(n, h, k0, m, b_loc, bcnd_loc)

@@ -448,20 +448,7 @@ subroutine generate_boundary(u,n,h,bcnd,V,ngrid,dtype,xl_pow,xr_pow,mpi_rank)
      close(12)
         
   endif
-  
-  
-   ! Full 3D boundary condition file
-   if(mpi_rank.eq.0) then
-      write(*,*) "nx, ny, nz = ", n(1), n(2), n(3)
-      open(newunit=udon,file="DATA/bcnd_type_full.dat",status="replace",action="write")
-      write(udon,*) n(1), n(2), n(3)
-      do iz=0,n(3)+2
-      do iy=0,n(2)+2
-         write(udon,*) (bcnd, ix=0,n(1)+2)
-      end do
-      end do
-      close(udon)
-   endif
+
   return
 end subroutine generate_boundary
 

@@ -139,12 +139,12 @@ def main() -> int:
     # -----------------------------
     # 1D slice plot (linear)
     # -----------------------------
-    plt.figure()
-    plt.plot(np.arange(arr.shape[1]), arr[80, :])
-    plt.title("Row 80 slice")
-    plt.xlabel("Index 1")
-    plt.ylabel(path.stem)
-    plt.tight_layout()
+    # plt.figure()
+    # plt.plot(np.arange(arr.shape[1]), arr[80, :])
+    # plt.title("Row 80 slice")
+    # plt.xlabel("Index 1")
+    # plt.ylabel(path.stem)
+    # plt.tight_layout()
 
     plt.show()
 
