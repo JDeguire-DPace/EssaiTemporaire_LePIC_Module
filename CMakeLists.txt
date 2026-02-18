@@ -91,10 +91,10 @@ target_link_libraries(run_min PRIVATE
   MPI::MPI_Fortran
 )
 
-add_executable(run_poisson_stub
+add_executable(run_poisson_quadPotential
   ${MODULES_DIR}/main/main_poisson_stub.f90
 )
-target_link_libraries(run_poisson_stub PRIVATE
+target_link_libraries(run_poisson_quadPotential PRIVATE
   pic_core_obj
   poisson_stub_driver_obj
   legacy_mg

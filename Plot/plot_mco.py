@@ -139,13 +139,49 @@ def main() -> int:
     # -----------------------------
     # 1D slice plot (linear)
     # -----------------------------
-    # plt.figure()
-    # plt.plot(np.arange(arr.shape[1]), arr[80, :])
-    # plt.title("Row 80 slice")
-    # plt.xlabel("Index 1")
-    # plt.ylabel(path.stem)
-    # plt.tight_layout()
+    plt.figure()
+    plt.plot(np.arange(arr.shape[1]), arr[16, :])
+    plt.title("Row 80 slice")
+    plt.xlabel("Index 1")
+    plt.ylabel(path.stem)
+    plt.tight_layout()
 
+
+    x = np.linspace(0,0.1,128)
+    eps0 = 8.854e-12
+
+    # -----------------------------
+    # Quadratique
+    # -----------------------------
+    # rho_0 = 1e-6
+
+    # L = 0.1
+    # phi_x = 20 - 1e-6*x*(L - x)/(2*eps0)
+    # plt.plot(x*(128/0.1),phi_x)
+
+    # -----------------------------
+    # Gaussien
+    # -----------------------------
+    # amplitude = 1e-6
+    # x0 = 0.05
+    # sig = 0.05/4
+
+    # phi_x = (amplitude/np.sqrt(2*np.pi*sig**2))*np.exp(-((x+0.1/128)-x0)**2/(2*sig**2))/(eps0)
+    # plt.plot(x*(128/0.1),phi_x)
+    
+    # -----------------------------
+    # Sinus
+    # -----------------------------
+    amplitude = 1e-6
+    L = 0.10
+
+    phi_x = np.sin(2*np.pi*(x)/L)
+    plt.plot(x*(128/0.1),phi_x)
+    plt.plot(x*(128/0.1),np.zeros(128))
+    
+    
+    
+    
     plt.show()
 
     return 0

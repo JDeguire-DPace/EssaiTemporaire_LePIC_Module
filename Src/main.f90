@@ -850,6 +850,7 @@ program main
      ! Calculate rho
      !
      call calc_rho(n,np,rhs_dom,bcnd,ntype,nproc,nproc_mpi,mpi_rank)
+     rhs_dom = 1.0d-6
      ctime(1)= ctime(1) + MSTIMER()
 
      !
