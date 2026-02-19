@@ -124,28 +124,24 @@ def main() -> int:
         print(f"Error: {e}", file=sys.stderr)
         return 1
 
-    im = plt.imshow(
+    # Create a single figure with 2 subplots
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
+
+    # --- 2D plot (left) ---
+    im = ax1.imshow(
         arr,
         origin="lower",
         aspect="auto",
         #norm=LogNorm(vmin=vmin, vmax=vmax),
     )
-    plt.colorbar(im, label=path.stem)
-    plt.title(path.name + " (Log scale)")
-    plt.xlabel("Index 1")
-    plt.ylabel("Index 2")
-    plt.tight_layout()
+    plt.colorbar(im, ax=ax1, label=rf"$\phi$ (V)")
+    ax1.set_xlabel("x cell")
+    ax1.set_ylabel("z cell")
 
-    # -----------------------------
-    # 1D slice plot (linear)
-    # -----------------------------
-    plt.figure()
-    plt.plot(np.arange(arr.shape[1]), arr[16, :])
-    plt.title("Row 80 slice")
-    plt.xlabel("Index 1")
-    plt.ylabel(path.stem)
-    plt.tight_layout()
-
+    # --- 1D slice plot (right) ---
+    ax2.plot(np.arange(arr.shape[1]), arr[16, :], label="LePIC potential", color="skyblue", linewidth=4)
+    ax2.set_xlabel("x cell")
+    ax2.set_ylabel(rf"$\phi$ (V)")
 
     x = np.linspace(0,0.1,128)
     eps0 = 8.854e-12
@@ -153,35 +149,31 @@ def main() -> int:
     # -----------------------------
     # Quadratique
     # -----------------------------
-    # rho_0 = 1e-6
-
+    # rho_0 = 1e-7
     # L = 0.1
-    # phi_x = 20 - 1e-6*x*(L - x)/(2*eps0)
-    # plt.plot(x*(128/0.1),phi_x)
-
+    # phi_x = 20 - 1e-7*x*(L - x)/(2*eps0)
+    
     # -----------------------------
     # Gaussien
     # -----------------------------
-    # amplitude = 1e-6
+    # amplitude = 1e-12
     # x0 = 0.05
     # sig = 0.05/4
 
-    # phi_x = (amplitude/np.sqrt(2*np.pi*sig**2))*np.exp(-((x+0.1/128)-x0)**2/(2*sig**2))/(eps0)
-    # plt.plot(x*(128/0.1),phi_x)
-    
+    # phi_x = (amplitude/np.sqrt(2*np.pi*sig**2))*np.exp(-((x)-x0)**2/(2*sig**2))/(eps0)
+    # ax2.plot(x*(128/0.1),phi_x)
+
     # -----------------------------
     # Sinus
     # -----------------------------
-    amplitude = 1e-6
+    # amplitude = 1e-6
     L = 0.10
 
-    phi_x = np.sin(2*np.pi*(x)/L)
-    plt.plot(x*(128/0.1),phi_x)
-    plt.plot(x*(128/0.1),np.zeros(128))
-    
-    
-    
-    
+    phi_x = np.sin(4*np.pi*(x)/L)
+    ax2.plot(x*(128/0.1),phi_x)
+    ax2.plot(x*(128/0.1), phi_x, label="Analytical", color="red", linestyle=(0, (5, 10)), linewidth=4)
+    ax2.legend()
+    plt.tight_layout()
     plt.show()
 
     return 0

@@ -52,7 +52,7 @@ contains
 
     real(real64) :: local_sum, global_sum
     integer :: local_n, global_n
-    integer :: kk, nan_k
+    integer :: kk, nan_k, ix, iy, iz
     integer :: flag_loc, flag_glob
     logical :: force_driver_pbc_ghosts
 
@@ -93,6 +93,21 @@ contains
 
     call build_rhs_sin(n, h, pdec%k0, m, b_loc, bcnd_loc)
 
+
+    if (rank == 0) then
+      if (rank == 0) then
+        open(12,file='../DATA/DATA_2D/rho_xz.mco')
+        102   format(800(ES12.4,1x))
+          write(12,*) n(1), n(3)
+          
+          do iz=n(3)+1,1,-1
+            
+            write(12,102) (b_loc(ix,n(2)/2+1,iz), ix=1,n(1)+1,1)
+          end do
+          close(12)
+      end if
+    end if
+
     ! Diagnostics: RHS sum
     local_sum = sum(b_loc(1:n(1)+1, 1:n(2)+1, 1:m))
     call MPI_Allreduce(local_sum, global_sum, 1, MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ierr)
@@ -110,6 +125,7 @@ contains
       u_mg(:,:,0)   = u_mg(:,:,m)
       u_mg(:,:,m+1) = u_mg(:,:,1)
     end if
+
 
     ! Solver params
     ng    = 6
@@ -176,7 +192,7 @@ contains
     z0 = 0.5_real64 * (n(3)*h(3))
 
     sig2 = (5.0e-2_real64/4)**2
-    amp  = 1.0e-6_real64
+    amp  = 1.0e-12_real64
 
     b_loc = 1.0e-6_real64! - 10.0_real64/(3.0_real64)   ! scale factor to get from a physical charge density (C/m^3) to the appropriate RHS units for the Poisson equation in V/m^2, assuming a grid spacing of order 1e-2 m. Adjust as needed for your specific grid and physical scenario.
 
@@ -187,8 +203,8 @@ contains
         do i=0,n(1)+1
           x = real(i, real64) * h(1)
           if (bcnd_loc(i,j,k) <= 0) then
-            b_loc(i,j,k) = amp * exp(-(x-x0)**2/(2*sig2)) * &
-                    (x0**2-2.0_real64*x0*x-sig2+x**2)/(sqrt(2*3.141592*sig2**5))
+            b_loc(i,j,k) = amp*exp(-((x-h(1))-x0)**2/(2*sig2)) * &
+                    (x0**2-2.0_real64*x0*(x-h(1))-sig2+(x-h(1))**2)/(sqrt(2*3.141592*sig2**5))
           end if
         end do
       end do
@@ -216,20 +232,20 @@ contains
     amp  = 1.0e-6_real64
     L = 0.10_real64
 
-    b_loc = 0.0_real64! - 10.0_real64/(3.0_real64)   ! scale factor to get from a physical charge density (C/m^3) to the appropriate RHS units for the Poisson equation in V/m^2, assuming a grid spacing of order 1e-2 m. Adjust as needed for your specific grid and physical scenario.
-
+    b_loc = 0.0_real64
+    
     do k=0,m+1
-      z = real(k0 + k, real64) * h(3)
       do j=0,n(2)+1
-        y = real(j, real64) * h(2)
         do i=0,n(1)+1
           x = real(i, real64) * h(1)
           if (bcnd_loc(i,j,k) <= 0) then
-            b_loc(i,j,k) = -(2.0_real64*pi/L)**2*sin(2.0_real64*pi*x/L)*eps0
+            b_loc(i,j,k) = -(4.0_real64*pi/L)**2 * sin(4.0_real64*pi*(x-h(1))/L)*eps0
           end if
         end do
       end do
     end do
+
+
   end subroutine build_rhs_sin
 
   subroutine build_rhs_constant(n, h, k0, m, b_loc, bcnd_loc)
@@ -247,7 +263,7 @@ contains
     y0 = 0.5_real64 * (n(2)*h(2))
     z0 = 0.5_real64 * (n(3)*h(3))
 
-    b_loc = 1.0e-6_real64
+    b_loc = 1.0e-7_real64 
   end subroutine build_rhs_constant
 
   subroutine write_mco_real_xy(fname, a, nx, ny, kslice, rank)
