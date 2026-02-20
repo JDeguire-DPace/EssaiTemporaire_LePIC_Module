@@ -773,7 +773,7 @@ program main
   ! Start iteration 
   !
   do it=1,ntmax
-     if (it.eq.2) call stop_calculation
+     !if (it.eq.2) call stop_calculation
 
      time= time + dt
      if(time.ge.tmax) exit ! Stop calculation
@@ -850,7 +850,7 @@ program main
      ! Calculate rho
      !
      call calc_rho(n,np,rhs_dom,bcnd,ntype,nproc,nproc_mpi,mpi_rank)
-     rhs_dom = 1.0d-6
+     !rhs_dom = 1.0d-6
      ctime(1)= ctime(1) + MSTIMER()
 
      !

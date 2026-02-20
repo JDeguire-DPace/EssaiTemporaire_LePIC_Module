@@ -17,6 +17,8 @@ module mod_state
   use mod_reactionsDB,    only: ReactionsDB
   use mod_part_info,      only: npart
 
+  use mod_magneticField, only: MagneticField
+
   implicit none
   private
   public :: State
@@ -29,6 +31,7 @@ module mod_state
 
     type(ChemistryState) :: chem
     type(ReactionsDB)    :: rxn
+    type(MagneticField)  :: magField
 
     integer :: mpi_rank = -1
     integer :: mpi_size = -1
@@ -61,9 +64,12 @@ contains
     ! Fields setup
     call self%fld%allocate_from_domain(self%dom)
     call self%fld%zero()
+    call self%magField%build_from_cfg(self%cfg, self%dom, self%mpi_rank)
 
     ! Chemistry / reactions
     call self%init_chemistry()
+    call self%magField%write_macho_planes('../DATA/DATA_2D', 1, self%mpi_rank)
+    write(*,*) "State initialization complete."
   end subroutine init
 
 
@@ -156,6 +162,7 @@ contains
     call self%pdec%destroy()
     call self%fld%destroy()
     call self%rxn%destroy()
+    call self%magField%destroy()
     ! later: destroy domain arrays / close IO if needed
   end subroutine finalize
 
