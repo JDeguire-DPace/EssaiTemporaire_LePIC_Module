@@ -16,14 +16,17 @@ module mod_boundary
   end type GeometryData
 contains
 
-  subroutine read_geometry_file(fname, geo)
+  subroutine read_geometry_file(fname, geo, dom)
     character(len=*), intent(in)  :: fname
     type(GeometrySegments), intent(out) :: geo
+    type(Domain), intent(inout) :: dom
     integer :: i
 
     open(10,file=fname)
     read(10,*) geo%xmax, geo%ymax, geo%zmax
-
+    dom%xmax = geo%xmax/100.0_real64
+    dom%ymax = geo%ymax/100.0_real64
+    dom%zmax = geo%zmax/100.0_real64
     ! allocate max 100 like legacy
     geo%nseg = 0
     allocate(geo%xl(100),geo%yl(100),geo%zl(100),geo%xr(100),geo%yr(100),geo%zr(100),geo%ind(100))
@@ -74,7 +77,7 @@ contains
 
 
     call read_boundary_potentials('../input_dir/boundary.inp', V, cfg%ngrid)
-    call read_geometry_file('../input_dir/geometry.inp', geo)
+    call read_geometry_file('../input_dir/geometry.inp', geo, dom)
 
     ! --- ensure dom%dtype bounds ---
     if (allocated(dom%dtype)) then

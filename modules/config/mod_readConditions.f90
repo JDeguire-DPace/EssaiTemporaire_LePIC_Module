@@ -10,7 +10,7 @@ module mod_readConditions
     module procedure read_input_cfg
     module procedure read_input_legacy
   end interface read_input
-contains
+ contains
   ! --------------------------------------------------------------------
   ! Legacy kernel: EXACT signature, EXACT logic.
   ! Only edits: remove include/COMMON, rely on mod_part_info globals.

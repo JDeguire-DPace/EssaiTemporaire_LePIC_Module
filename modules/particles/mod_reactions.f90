@@ -73,7 +73,7 @@ contains
 
     ! Open files
     open(10, file='../input_dir/'//trim(rname))
-    open(11, file='../DATA/particles.out')
+    open(11, file='../Output/particles.out')
 
     ! Init arrays
     do icol=1,ncol_mx
@@ -542,7 +542,7 @@ contains
     if (mpi_rank==0) then
       do ptype=1,ntype
         write(pnum,'(i1)') ptype
-        open(10,file='../DATA/reactions.'//pnum)
+        open(10,file='../Output/reactions.'//pnum)
         do icol=1,chem%p_ncol(ptype)
           do ipt=1,chem%sig_npt_mx
             write(10,'(1x,f12.4,1x,es12.4)') sig_Er(ipt), sig(ipt, sig_list(ptype,icol))

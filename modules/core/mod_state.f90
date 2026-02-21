@@ -43,7 +43,7 @@ module mod_state
     procedure :: finalize
   end type State
 
-contains
+ contains
 
   subroutine init(self, comm_in)
     class(State), intent(inout) :: self
@@ -60,15 +60,16 @@ contains
     ! Domain setup
     call self%dom%init_from_config(self%cfg)
     call self%dom%allocate_masks_domain()   ! your current domain allocation
+    
 
     ! Fields setup
     call self%fld%allocate_from_domain(self%dom)
     call self%fld%zero()
-    call self%magField%build_from_cfg(self%cfg, self%dom, self%mpi_rank)
+    
 
     ! Chemistry / reactions
     call self%init_chemistry()
-    call self%magField%write_macho_planes('../DATA/DATA_2D', 1, self%mpi_rank)
+    
     write(*,*) "State initialization complete."
   end subroutine init
 
@@ -81,7 +82,8 @@ contains
 
     if (self%mpi_rank == 0) write(*,*) "Building boundary..."
     call build_boundary(self%dom, self%cfg, self%fld, self%mpi_rank)
-
+    call self%magField%build_from_cfg(self%cfg, self%dom, self%mpi_rank)
+    call self%magField%write_macho_planes('../Output/Output_2D', 1, self%mpi_rank)
     ! ------------------------------------------------------------
     ! Poisson Z-slab decomposition (legacy structure)
     ! ------------------------------------------------------------

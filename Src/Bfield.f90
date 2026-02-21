@@ -52,7 +52,7 @@ subroutine gaussian_Bfield(Bi,n,h,B0,x0,Lx,B_dir)
   integer:: ix,iy,iz,n(3),B_dir
   real(kind=8):: h(3),Bi(4,0:n(1)+2,0:n(2)+2,0:n(3)+2),x,B0,x0,Lx
 
-  ! Generate B-field map 
+  ! Generate B-field map
   do ix=0,n(1)+2
      x= (ix-1)*h(1)
      do iy=0,n(2)+2

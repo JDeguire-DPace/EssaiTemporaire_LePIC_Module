@@ -38,7 +38,7 @@ program main_poisson_stub
   if (rank == 0) then
   
         izl = dom%n(3)/2 + 1
-        open(12,file='../DATA/DATA_2D/phi1_xy.mco')
+        open(12,file='../Output/Output_2D/phi1_xy.mco')
         write(12,*) dom%n(1), dom%n(2)
     102   format(800(ES12.4,1x))
         do iy=dom%n(2)+1,1,-1
@@ -47,7 +47,7 @@ program main_poisson_stub
         end do
         close(12)
 
-        open(12,file='../DATA/DATA_2D/phi1_xz.mco')
+        open(12,file='../Output/Output_2D/phi1_xz.mco')
         write(12,*) dom%n(1), dom%n(3)
         do iz=dom%n(3)+1,1,-1
           
@@ -57,7 +57,7 @@ program main_poisson_stub
 
         ! ix = n(1)/2 + 1
         ! if (inp%flag_grd == 1) ix = outp%ixg
-        ! open(12,file='../DATA/DATA_2D/phi_yz.mco')
+        ! open(12,file='../Output/Output_2D/phi_yz.mco')
         ! write(12,*) n(2)/outp%every, n(3)/outp%every
         ! do iz=n(3)+1,1,-1*outp%every
         !   write(12,102) (u(ix,iy,iz), iy=1,n(2)+1,outp%every)

@@ -96,7 +96,7 @@ contains
 
     if (rank == 0) then
       if (rank == 0) then
-        open(12,file='../DATA/DATA_2D/rho_xz.mco')
+        open(12,file='../Output/Output_2D/rho_xz.mco')
         102   format(800(ES12.4,1x))
           write(12,*) n(1), n(3)
           
