@@ -29,9 +29,6 @@ contains
 
     pmin = minval(phi_dom); pmax = maxval(phi_dom)
     bmin = minval(bcnd_dom); bmax = maxval(bcnd_dom)
-
-    write(*,'(a,i0,a,i0,a,i0,a,1p,2e12.3,a,2(i0,1x))') &
-      "DECOMP OK rank=", rank, " k0=", k0, " m=", m, " phi[min,max]=", pmin, pmax, " bcnd[min,max]=", bmin, bmax
   end subroutine checkpoint_poisson_decomp
 
 
@@ -60,15 +57,8 @@ contains
     zhi = pdec%k0 + pdec%kr
 
     nplanes = zhi - zlo + 1
-    write(*,'(a,i0,a,2(i0,1x),a,2(i0,1x),a,i0)') &
-      "KQ SLICE rank=", rank, " zlo/zhi=", zlo, zhi, &
-      " kq_zbounds=", nz_kq_lo, nz_kq_hi, " nplanes=", nplanes
 
     call MPI_Reduce(nplanes, gplanes, 1, MPI_INTEGER, MPI_SUM, 0, comm, ierr)
-    if (rank == 0) then
-      write(*,'(a,i0,a,i0)') "KQ SLICE total planes counted=", gplanes, &
-                            " expected=", (ubound(kq,3)-lbound(kq,3)+1)
-    end if
 
     c1 = count(kq(:,:,zlo:zhi) == 1.0_real64)
     c2 = count(kq(:,:,zlo:zhi) == 2.0_real64)
@@ -76,9 +66,6 @@ contains
     call MPI_Reduce(c1, g1, 1, MPI_INTEGER, MPI_SUM, 0, comm, ierr)
     call MPI_Reduce(c2, g2, 1, MPI_INTEGER, MPI_SUM, 0, comm, ierr)
 
-    if (rank == 0) then
-      write(*,'(a,1x,a,1x,a,i0,1x,a,i0)') "KQ CHECK:", trim(label), "count1=", g1, "count2=", g2
-    end if
   end subroutine checkpoint_kq
 
 end module mod_debug_checks

@@ -163,7 +163,6 @@ contains
         write(*,'(A,I3,A,I5,A,I10)') "rank ", rank, " NaNs in k=", kk, " : ", nan_k
       end if
     end do
-    write(*,*) "rank",rank," total NaNs =", count(ieee_is_nan(u_mg))
 
     ! Back to decomp + gather
     pdec%phi_dom(:,:,lbound(pdec%phi_dom,3):ubound(pdec%phi_dom,3)) = &

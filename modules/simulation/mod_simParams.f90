@@ -246,12 +246,12 @@ contains
 
     if (mpi_rank /= 0) return
 
-    write(*,'(1x,"Frequency of calls to collision subroutine= ",i0)') self%nb_step_collisions
-    write(*,'(1x,"Frequency of calls to electron (Maxwellian) heating subroutine= ",i0)') self%nb_step_heating
-    write(*,'(1x,"Frequency of calls to sort subroutine= ",i0)') self%nb_step_sort
+    write(*,'(a,i0)') "Frequency of calls to collision subroutine = ", self%nb_step_collisions
+    write(*,'(a,i0)')"Frequency of calls to electron (Maxwellian) heating subroutine= ", self%nb_step_heating
+    write(*,'(a,i0)')"Frequency of calls to sort subroutine= ", self%nb_step_sort
 
     if (self%nb_step_averaging == nsav) then
-      write(*,'(1x,"Data will not be averaged!")')
+      write(*,'(a)')"Data will not be averaged!"
     else
       write(*,'(1x,"Frequency for averaging= ",i0)') self%nb_step_averaging
     end if

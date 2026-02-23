@@ -1,0 +1,527 @@
+
+---
+events:
+  -
+    kind: "message-v1"
+    backtrace:
+      - "/usr/share/cmake-3.28/Modules/CMakeDetermineSystem.cmake:233 (message)"
+      - "CMakeLists.txt:2 (project)"
+    message: |
+      The system is: Linux - 6.6.87.2-microsoft-standard-WSL2 - x86_64
+  -
+    kind: "message-v1"
+    backtrace:
+      - "/usr/share/cmake-3.28/Modules/CMakeDetermineCompilerId.cmake:17 (message)"
+      - "/usr/share/cmake-3.28/Modules/CMakeDetermineCompilerId.cmake:64 (__determine_compiler_id_test)"
+      - "/usr/share/cmake-3.28/Modules/CMakeDetermineFortranCompiler.cmake:186 (CMAKE_DETERMINE_COMPILER_ID)"
+      - "CMakeLists.txt:2 (project)"
+    message: |
+      Compiling the Fortran compiler identification source file "CMakeFortranCompilerId.F" succeeded.
+      Compiler: /opt/intel/oneapi/mpi/latest/bin/mpiifx 
+      Build flags: 
+      Id flags: -v 
+      
+      The output was:
+      0
+      mpiifx generated: ifx -v CMakeFortranCompilerId.F -I"/opt/intel/oneapi/mpi/2021.17/include/mpi" -I"/opt/intel/oneapi/mpi/2021.17/include" -I"/opt/intel/oneapi/mpi/2021.17/include/mpi" -L"/opt/intel/oneapi/mpi/2021.17/lib" -L"/opt/intel/oneapi/mpi/2021.17/lib" -Xlinker --enable-new-dtags -Xlinker -rpath -Xlinker "/opt/intel/oneapi/mpi/2021.17/lib" -Xlinker -rpath -Xlinker "/opt/intel/oneapi/mpi/2021.17/lib" -lmpifort -lmpi -ldl -lrt -lpthread
+      ifx version 2025.3.0
+      /opt/intel/oneapi/compiler/2025.3/bin/fpp    -D__INTEL_LLVM_COMPILER=20250300 -D__INTEL_LLVM_COMPILER_UPDATE=0 -D__INTEL_COMPILER=20250300 -D__INTEL_COMPILER_UPDATE=0 -D__unix__ -D__unix -D__linux__ -D__linux -D__gnu_linux__ -Dunix -Dlinux -D__ELF__ -D__x86_64 -D__x86_64__ -D__amd64 -D__amd64__ -D__INTEL_COMPILER_BUILD_DATE=20251010 -D__MMX__ -D__SSE__ -D__SSE_MATH__ -D__SSE2__ -D__SSE2_MATH__ -D__pentium4 -D__pentium4__ -D__tune_pentium4__ -I. -I/opt/intel/oneapi/mpi/2021.17/include/mpi -I/opt/intel/oneapi/mpi/2021.17/include -I/opt/intel/oneapi/mpi/2021.17/include/mpi -I/opt/intel/oneapi/umf/1.0/include -I/opt/intel/oneapi/mkl/2025.3/include -I/opt/intel/oneapi/dev-utilities/2025.3/include -I/opt/intel/oneapi/ccl/2021.17/include -I/opt/intel/oneapi/umf/1.0/include -I/opt/intel/oneapi/tbb/2022.3/env/../include -I/opt/intel/oneapi/mpi/2021.17/include -I/opt/intel/oneapi/mkl/2025.3/include -I/opt/intel/oneapi/ishmem/1.5/include -I/opt/intel/oneapi/ippcp/2025.3/include -I/opt/intel/oneapi/ipp/2022.3/include -I/opt/intel/oneapi/dnnl/2025.3/include -I/opt/intel/oneapi/compiler/2025.3/opt/compiler/include/intel64 -I/opt/intel/oneapi/compiler/2025.3/opt/compiler/include -I/opt/intel/oneapi/compiler/2025.3/include -I/usr/local/include -I/opt/intel/oneapi/compiler/2025.3/lib/clang/21/include -I/usr/include -I/usr/include/x86_64-linux-gnu -fixed -4Ycpp -4Ncvf -f_com=yes -MX CMakeFortranCompilerId.F /tmp/ifx17729210525aiepx/ifxw6IeoM.i
+      #include "..." search starts here:
+      #include <...> search starts here:
+       .
+       /opt/intel/oneapi/mpi/2021.17/include/mpi
+       /opt/intel/oneapi/mpi/2021.17/include
+       /opt/intel/oneapi/mpi/2021.17/include/mpi
+       /opt/intel/oneapi/umf/1.0/include
+       /opt/intel/oneapi/mkl/2025.3/include
+       /opt/intel/oneapi/dev-utilities/2025.3/include
+       /opt/intel/oneapi/ccl/2021.17/include
+       /opt/intel/oneapi/umf/1.0/include
+       /opt/intel/oneapi/tbb/2022.3/env/../include
+       /opt/intel/oneapi/mpi/2021.17/include
+       /opt/intel/oneapi/mkl/2025.3/include
+       /opt/intel/oneapi/ishmem/1.5/include
+       /opt/intel/oneapi/ippcp/2025.3/include
+       /opt/intel/oneapi/ipp/2022.3/include
+       /opt/intel/oneapi/dnnl/2025.3/include
+       /opt/intel/oneapi/compiler/2025.3/opt/compiler/include/intel64
+       /opt/intel/oneapi/compiler/2025.3/opt/compiler/include
+       /opt/intel/oneapi/compiler/2025.3/include
+       /usr/local/include
+       /opt/intel/oneapi/compiler/2025.3/lib/clang/21/include
+       /usr/include
+       /usr/include/x86_64-linux-gnu
+      End of search list.
+      /opt/intel/oneapi/compiler/2025.3/bin/compiler/xfortcom    -triple x86_64-unknown-linux-gnu -emit-obj "-verify nomodule" -main-file-name CMakeFortranCompilerId.F -mllvm --relocation-model=static "-options-string -I/opt/intel/oneapi/mpi/2021.17/include/mpi -I/opt/intel/oneapi/mpi/2021.17/include -I/opt/intel/oneapi/mpi/2021.17/include/mpi -v -L/opt/intel/oneapi/mpi/2021.17/lib -L/opt/intel/oneapi/mpi/2021.17/lib -Xlinker --enable-new-dtags -Xlinker -rpath -Xlinker /opt/intel/oneapi/mpi/2021.17/lib -Xlinker -rpath -Xlinker /opt/intel/oneapi/mpi/2021.17/lib -lmpifort -lmpi -ldl -lrt -lpthread " -menable-unsafe-fp-math -freciprocal-math -mframe-pointer=none -omp_simd -target-cpu x86-64 -target-linker-version 2.42 -O2 -vectorize-loops -vectorize-slp -fveclib=SVML -mllvm -loopopt=1 -floopopt-pipeline=light -mllvm -disable-hir-generate-mkl-call -mllvm -paropt=11 -fintel-libirc-allowed -o /tmp/ifx17729210525aiepx/ifxAEhDkS.o -D__INTEL_LLVM_COMPILER=20250300 -D__INTEL_LLVM_COMPILER_UPDATE=0 -D__unix__ -D__unix -D__linux__ -D__linux -D__gnu_linux__ -Dunix -Dlinux -D__ELF__ -D__x86_64 -D__x86_64__ -D__amd64 -D__amd64__ -D__INTEL_COMPILER_BUILD_DATE=20251010 -D__MMX__ -D__SSE__ -D__SSE_MATH__ -D__SSE2__ -D__SSE2_MATH__ -D__pentium4 -D__pentium4__ -D__tune_pentium4__ -D__INTEL_COMPILER=20250300 -D__INTEL_COMPILER_UPDATE=0 -I. -I/opt/intel/oneapi/mpi/2021.17/include/mpi -I/opt/intel/oneapi/mpi/2021.17/include -I/opt/intel/oneapi/mpi/2021.17/include/mpi -I/opt/intel/oneapi/umf/1.0/include -I/opt/intel/oneapi/mkl/2025.3/include -I/opt/intel/oneapi/dev-utilities/2025.3/include -I/opt/intel/oneapi/ccl/2021.17/include -I/opt/intel/oneapi/umf/1.0/include -I/opt/intel/oneapi/tbb/2022.3/env/../include -I/opt/intel/oneapi/mpi/2021.17/include -I/opt/intel/oneapi/mkl/2025.3/include -I/opt/intel/oneapi/ishmem/1.5/include -I/opt/intel/oneapi/ippcp/2025.3/include -I/opt/intel/oneapi/ipp/2022.3/include -I/opt/intel/oneapi/dnnl/2025.3/include -I/opt/intel/oneapi/compiler/2025.3/opt/compiler/include/intel64 -I/opt/intel/oneapi/compiler/2025.3/opt/compiler/include -I/opt/intel/oneapi/compiler/2025.3/include -I/usr/local/include -I/opt/intel/oneapi/compiler/2025.3/lib/clang/21/include -I/usr/include -I/usr/include/x86_64-linux-gnu -faltmathlib=SVML "-fp_model fast" -omp_simd -O2 "-reentrancy threaded" "-unroll 2" -simd -offload_host -nooffload_do_concurrent /tmp/ifx17729210525aiepx/ifxw6IeoM.i
+      #include "..." search starts here:
+      #include <...> search starts here:
+       .
+       /opt/intel/oneapi/mpi/2021.17/include/mpi
+       /opt/intel/oneapi/mpi/2021.17/include
+       /opt/intel/oneapi/mpi/2021.17/include/mpi
+       /opt/intel/oneapi/umf/1.0/include
+       /opt/intel/oneapi/mkl/2025.3/include
+       /opt/intel/oneapi/dev-utilities/2025.3/include
+       /opt/intel/oneapi/ccl/2021.17/include
+       /opt/intel/oneapi/umf/1.0/include
+       /opt/intel/oneapi/tbb/2022.3/env/../include
+       /opt/intel/oneapi/mpi/2021.17/include
+       /opt/intel/oneapi/mkl/2025.3/include
+       /opt/intel/oneapi/ishmem/1.5/include
+       /opt/intel/oneapi/ippcp/2025.3/include
+       /opt/intel/oneapi/ipp/2022.3/include
+       /opt/intel/oneapi/dnnl/2025.3/include
+       /opt/intel/oneapi/compiler/2025.3/opt/compiler/include/intel64
+       /opt/intel/oneapi/compiler/2025.3/opt/compiler/include
+       /opt/intel/oneapi/compiler/2025.3/include
+       /usr/local/include
+       /opt/intel/oneapi/compiler/2025.3/lib/clang/21/include
+       /usr/include
+       /usr/include/x86_64-linux-gnu
+      End of search list.
+      ld    /usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/Scrt1.o /usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/crti.o /usr/lib/gcc/x86_64-linux-gnu/13/crtbeginS.o --eh-frame-hdr --build-id -dynamic-linker /lib64/ld-linux-x86-64.so.2 -m elf_x86_64 -L/opt/intel/oneapi/mpi/2021.17/lib -L/opt/intel/oneapi/mpi/2021.17/lib -o a.out /opt/intel/oneapi/compiler/2025.3/lib/for_main.o -L/opt/intel/oneapi/tcm/1.4/lib -L/opt/intel/oneapi/umf/1.0/lib -L/opt/intel/oneapi/tbb/2022.3/env/../lib/intel64/gcc4.8 -L/opt/intel/oneapi/mpi/2021.17/lib -L/opt/intel/oneapi/mkl/2025.3/lib -L/opt/intel/oneapi/ishmem/1.5/lib -L/opt/intel/oneapi/ippcp/2025.3/lib/ -L/opt/intel/oneapi/ipp/2022.3/lib -L/opt/intel/oneapi/dnnl/2025.3/lib -L/opt/intel/oneapi/dal/2025.9/lib -L/opt/intel/oneapi/compiler/2025.3/lib -L/opt/intel/oneapi/ccl/2021.17/lib/ -L/opt/intel/oneapi/compiler/2025.3/lib -L/opt/intel/oneapi/compiler/2025.3/lib -L/opt/intel/oneapi/compiler/2025.3/lib/clang/21/lib/x86_64-unknown-linux-gnu -L/opt/intel/oneapi/compiler/2025.3/lib -L/opt/intel/oneapi/tcm/1.4/lib/../lib/ -L/opt/intel/oneapi/umf/1.0/lib/../lib/ -L/opt/intel/oneapi/tbb/2022.3/env/../lib/intel64/gcc4.8/../lib/ -L/opt/intel/oneapi/mpi/2021.17/lib/../lib/ -L/opt/intel/oneapi/mkl/2025.3/lib/../lib/ -L/opt/intel/oneapi/ishmem/1.5/lib/../lib/ -L/opt/intel/oneapi/ippcp/2025.3/lib/../lib/ -L/opt/intel/oneapi/ipp/2022.3/lib/../lib/ -L/opt/intel/oneapi/dnnl/2025.3/lib/../lib/ -L/opt/intel/oneapi/dal/2025.9/lib/../lib/ -L/opt/intel/oneapi/compiler/2025.3/lib/../lib/ -L/opt/intel/oneapi/ccl/2021.17/lib/../lib/ -L/usr/lib/gcc/x86_64-linux-gnu/13/ -L/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/ -L/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib64 -L/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib/ -L/lib/x86_64-linux-gnu/ -L/lib/../lib64 -L/lib/../lib/ -L/usr/lib/x86_64-linux-gnu/ -L/usr/lib/../lib64 -L/usr/lib/../lib/ -L/opt/intel/oneapi/tcm/1.4/lib/ -L/opt/intel/oneapi/umf/1.0/lib/ -L/opt/intel/oneapi/tbb/2022.3/env/../lib/intel64/gcc4.8/ -L/opt/intel/oneapi/mpi/2021.17/lib/ -L/opt/intel/oneapi/mkl/2025.3/lib/ -L/opt/intel/oneapi/ishmem/1.5/lib/ -L/opt/intel/oneapi/ippcp/2025.3/lib/ -L/opt/intel/oneapi/ipp/2022.3/lib/ -L/opt/intel/oneapi/dnnl/2025.3/lib/ -L/opt/intel/oneapi/dal/2025.9/lib/ -L/opt/intel/oneapi/compiler/2025.3/lib/ -L/opt/intel/oneapi/ccl/2021.17/lib/ -L/usr/lib/gcc/x86_64-linux-gnu/13/../../../ -L/lib64 -L/lib/ -L/usr/lib64 -L/usr/lib /tmp/ifx17729210525aiepx/ifxAEhDkS.o --enable-new-dtags -rpath /opt/intel/oneapi/mpi/2021.17/lib -rpath /opt/intel/oneapi/mpi/2021.17/lib -lmpifort -lmpi -ldl -lrt -lpthread -Bdynamic -Bstatic -lifport -lifcoremt -Bdynamic -limf -Bstatic -lsvml -Bdynamic -lm -Bstatic -lipgo -lirc -Bdynamic -lpthread -Bstatic -lsvml -Bdynamic -lc -lgcc -lgcc_s -Bstatic -lirc_s -Bdynamic -ldl -lc /usr/lib/gcc/x86_64-linux-gnu/13/crtendS.o /usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/crtn.o
+      
+      
+      Compilation of the Fortran compiler identification source "CMakeFortranCompilerId.F" produced "a.out"
+      
+      The Fortran compiler identification is IntelLLVM, found in:
+        /mnt/c/Users/Jasmin Deguire/Desktop/LePIC_3D/build/CMakeFiles/3.28.3/CompilerIdFortran/a.out
+      
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.28/Modules/CMakeDetermineCompilerABI.cmake:57 (try_compile)"
+      - "/usr/share/cmake-3.28/Modules/CMakeTestFortranCompiler.cmake:20 (CMAKE_DETERMINE_COMPILER_ABI)"
+      - "CMakeLists.txt:2 (project)"
+    checks:
+      - "Detecting Fortran compiler ABI info"
+    directories:
+      source: "/mnt/c/Users/Jasmin Deguire/Desktop/LePIC_3D/build/CMakeFiles/CMakeScratch/TryCompile-Ym2kiH"
+      binary: "/mnt/c/Users/Jasmin Deguire/Desktop/LePIC_3D/build/CMakeFiles/CMakeScratch/TryCompile-Ym2kiH"
+    cmakeVariables:
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_Fortran_FLAGS: ""
+      CMAKE_Fortran_FLAGS_DEBUG: "-g -diag-disable:10440"
+    buildResult:
+      variable: "CMAKE_Fortran_ABI_COMPILED"
+      cached: true
+      stdout: |
+        Change Dir: '/mnt/c/Users/Jasmin Deguire/Desktop/LePIC_3D/build/CMakeFiles/CMakeScratch/TryCompile-Ym2kiH'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_1f1f0/fast
+        /usr/bin/gmake  -f CMakeFiles/cmTC_1f1f0.dir/build.make CMakeFiles/cmTC_1f1f0.dir/build
+        gmake[1]: Entering directory '/mnt/c/Users/Jasmin Deguire/Desktop/LePIC_3D/build/CMakeFiles/CMakeScratch/TryCompile-Ym2kiH'
+        Building Fortran object CMakeFiles/cmTC_1f1f0.dir/CMakeFortranCompilerABI.F90.o
+        /opt/intel/oneapi/mpi/latest/bin/mpiifx   -v -c /usr/share/cmake-3.28/Modules/CMakeFortranCompilerABI.F90 -o CMakeFiles/cmTC_1f1f0.dir/CMakeFortranCompilerABI.F90.o
+        mpiifx generated: ifx -v -c /usr/share/cmake-3.28/Modules/CMakeFortranCompilerABI.F90 -o 'CMakeFiles/cmTC_1f1f0.dir/CMakeFortranCompilerABI.F90.o' -I"/opt/intel/oneapi/mpi/2021.17/include/mpi" -I"/opt/intel/oneapi/mpi/2021.17/include" -I"/opt/intel/oneapi/mpi/2021.17/include/mpi"
+        ifx version 2025.3.0
+        /opt/intel/oneapi/compiler/2025.3/bin/fpp    -D__INTEL_LLVM_COMPILER=20250300 -D__INTEL_LLVM_COMPILER_UPDATE=0 -D__INTEL_COMPILER=20250300 -D__INTEL_COMPILER_UPDATE=0 -D__unix__ -D__unix -D__linux__ -D__linux -D__gnu_linux__ -Dunix -Dlinux -D__ELF__ -D__x86_64 -D__x86_64__ -D__amd64 -D__amd64__ -D__INTEL_COMPILER_BUILD_DATE=20251010 -D__MMX__ -D__SSE__ -D__SSE_MATH__ -D__SSE2__ -D__SSE2_MATH__ -D__pentium4 -D__pentium4__ -D__tune_pentium4__ -I. -I/opt/intel/oneapi/mpi/2021.17/include/mpi -I/opt/intel/oneapi/mpi/2021.17/include -I/opt/intel/oneapi/mpi/2021.17/include/mpi -I/opt/intel/oneapi/umf/1.0/include -I/opt/intel/oneapi/mkl/2025.3/include -I/opt/intel/oneapi/dev-utilities/2025.3/include -I/opt/intel/oneapi/ccl/2021.17/include -I/opt/intel/oneapi/umf/1.0/include -I/opt/intel/oneapi/tbb/2022.3/env/../include -I/opt/intel/oneapi/mpi/2021.17/include -I/opt/intel/oneapi/mkl/2025.3/include -I/opt/intel/oneapi/ishmem/1.5/include -I/opt/intel/oneapi/ippcp/2025.3/include -I/opt/intel/oneapi/ipp/2022.3/include -I/opt/intel/oneapi/dnnl/2025.3/include -I/opt/intel/oneapi/compiler/2025.3/opt/compiler/include/intel64 -I/opt/intel/oneapi/compiler/2025.3/opt/compiler/include -I/opt/intel/oneapi/compiler/2025.3/include -I/usr/local/include -I/opt/intel/oneapi/compiler/2025.3/lib/clang/21/include -I/usr/include -I/usr/include/x86_64-linux-gnu -4Ycpp -4Ncvf -f_com=yes -MX /usr/share/cmake-3.28/Modules/CMakeFortranCompilerABI.F90 /tmp/ifx1557436117sDteej/ifxgjHfdg.i90
+        #include "..." search starts here:
+        #include <...> search starts here:
+         .
+         /opt/intel/oneapi/mpi/2021.17/include/mpi
+         /opt/intel/oneapi/mpi/2021.17/include
+         /opt/intel/oneapi/mpi/2021.17/include/mpi
+         /opt/intel/oneapi/umf/1.0/include
+         /opt/intel/oneapi/mkl/2025.3/include
+         /opt/intel/oneapi/dev-utilities/2025.3/include
+         /opt/intel/oneapi/ccl/2021.17/include
+         /opt/intel/oneapi/umf/1.0/include
+         /opt/intel/oneapi/tbb/2022.3/env/../include
+         /opt/intel/oneapi/mpi/2021.17/include
+         /opt/intel/oneapi/mkl/2025.3/include
+         /opt/intel/oneapi/ishmem/1.5/include
+         /opt/intel/oneapi/ippcp/2025.3/include
+         /opt/intel/oneapi/ipp/2022.3/include
+         /opt/intel/oneapi/dnnl/2025.3/include
+         /opt/intel/oneapi/compiler/2025.3/opt/compiler/include/intel64
+         /opt/intel/oneapi/compiler/2025.3/opt/compiler/include
+         /opt/intel/oneapi/compiler/2025.3/include
+         /usr/local/include
+         /opt/intel/oneapi/compiler/2025.3/lib/clang/21/include
+         /usr/include
+         /usr/include/x86_64-linux-gnu
+        End of search list.
+        /opt/intel/oneapi/compiler/2025.3/bin/compiler/xfortcom    -triple x86_64-unknown-linux-gnu -emit-obj "-verify nomodule" -main-file-name /usr/share/cmake-3.28/Modules/CMakeFortranCompilerABI.F90 -mllvm --relocation-model=static "-options-string -I/opt/intel/oneapi/mpi/2021.17/include/mpi -I/opt/intel/oneapi/mpi/2021.17/include -I/opt/intel/oneapi/mpi/2021.17/include/mpi -v -c -o CMakeFiles/cmTC_1f1f0.dir/CMakeFortranCompilerABI.F90.o " -menable-unsafe-fp-math -freciprocal-math -mframe-pointer=none -omp_simd -target-cpu x86-64 -target-linker-version 2.42 -O2 -vectorize-loops -vectorize-slp -fveclib=SVML -mllvm -loopopt=1 -floopopt-pipeline=light -mllvm -disable-hir-generate-mkl-call -mllvm -paropt=11 -fintel-libirc-allowed -o CMakeFiles/cmTC_1f1f0.dir/CMakeFortranCompilerABI.F90.o -D__INTEL_LLVM_COMPILER=20250300 -D__INTEL_LLVM_COMPILER_UPDATE=0 -D__unix__ -D__unix -D__linux__ -D__linux -D__gnu_linux__ -Dunix -Dlinux -D__ELF__ -D__x86_64 -D__x86_64__ -D__amd64 -D__amd64__ -D__INTEL_COMPILER_BUILD_DATE=20251010 -D__MMX__ -D__SSE__ -D__SSE_MATH__ -D__SSE2__ -D__SSE2_MATH__ -D__pentium4 -D__pentium4__ -D__tune_pentium4__ -D__INTEL_COMPILER=20250300 -D__INTEL_COMPILER_UPDATE=0 -I/usr/share/cmake-3.28/Modules -I. -I/opt/intel/oneapi/mpi/2021.17/include/mpi -I/opt/intel/oneapi/mpi/2021.17/include -I/opt/intel/oneapi/mpi/2021.17/include/mpi -I/opt/intel/oneapi/umf/1.0/include -I/opt/intel/oneapi/mkl/2025.3/include -I/opt/intel/oneapi/dev-utilities/2025.3/include -I/opt/intel/oneapi/ccl/2021.17/include -I/opt/intel/oneapi/umf/1.0/include -I/opt/intel/oneapi/tbb/2022.3/env/../include -I/opt/intel/oneapi/mpi/2021.17/include -I/opt/intel/oneapi/mkl/2025.3/include -I/opt/intel/oneapi/ishmem/1.5/include -I/opt/intel/oneapi/ippcp/2025.3/include -I/opt/intel/oneapi/ipp/2022.3/include -I/opt/intel/oneapi/dnnl/2025.3/include -I/opt/intel/oneapi/compiler/2025.3/opt/compiler/include/intel64 -I/opt/intel/oneapi/compiler/2025.3/opt/compiler/include -I/opt/intel/oneapi/compiler/2025.3/include -I/usr/local/include -I/opt/intel/oneapi/compiler/2025.3/lib/clang/21/include -I/usr/include -I/usr/include/x86_64-linux-gnu -faltmathlib=SVML "-fp_model fast" -omp_simd -O2 "-reentrancy threaded" "-unroll 2" -simd -offload_host -nooffload_do_concurrent /tmp/ifx1557436117sDteej/ifxgjHfdg.i90
+        #include "..." search starts here:
+        #include <...> search starts here:
+         /usr/share/cmake-3.28/Modules
+         .
+         /opt/intel/oneapi/mpi/2021.17/include/mpi
+         /opt/intel/oneapi/mpi/2021.17/include
+         /opt/intel/oneapi/mpi/2021.17/include/mpi
+         /opt/intel/oneapi/umf/1.0/include
+         /opt/intel/oneapi/mkl/2025.3/include
+         /opt/intel/oneapi/dev-utilities/2025.3/include
+         /opt/intel/oneapi/ccl/2021.17/include
+         /opt/intel/oneapi/umf/1.0/include
+         /opt/intel/oneapi/tbb/2022.3/env/../include
+         /opt/intel/oneapi/mpi/2021.17/include
+         /opt/intel/oneapi/mkl/2025.3/include
+         /opt/intel/oneapi/ishmem/1.5/include
+         /opt/intel/oneapi/ippcp/2025.3/include
+         /opt/intel/oneapi/ipp/2022.3/include
+         /opt/intel/oneapi/dnnl/2025.3/include
+         /opt/intel/oneapi/compiler/2025.3/opt/compiler/include/intel64
+         /opt/intel/oneapi/compiler/2025.3/opt/compiler/include
+         /opt/intel/oneapi/compiler/2025.3/include
+         /usr/local/include
+         /opt/intel/oneapi/compiler/2025.3/lib/clang/21/include
+         /usr/include
+         /usr/include/x86_64-linux-gnu
+        End of search list.
+        Linking Fortran executable cmTC_1f1f0
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_1f1f0.dir/link.txt --verbose=1
+        /opt/intel/oneapi/mpi/latest/bin/mpiifx  -v CMakeFiles/cmTC_1f1f0.dir/CMakeFortranCompilerABI.F90.o -o cmTC_1f1f0 
+        mpiifx generated: ifx -v 'CMakeFiles/cmTC_1f1f0.dir/CMakeFortranCompilerABI.F90.o' -o 'cmTC_1f1f0' -I"/opt/intel/oneapi/mpi/2021.17/include/mpi" -I"/opt/intel/oneapi/mpi/2021.17/include" -I"/opt/intel/oneapi/mpi/2021.17/include/mpi" -L"/opt/intel/oneapi/mpi/2021.17/lib" -L"/opt/intel/oneapi/mpi/2021.17/lib" -Xlinker --enable-new-dtags -Xlinker -rpath -Xlinker "/opt/intel/oneapi/mpi/2021.17/lib" -Xlinker -rpath -Xlinker "/opt/intel/oneapi/mpi/2021.17/lib" -lmpifort -lmpi -ldl -lrt -lpthread
+        ifx version 2025.3.0
+        ld    /usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/Scrt1.o /usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/crti.o /usr/lib/gcc/x86_64-linux-gnu/13/crtbeginS.o --eh-frame-hdr --build-id -dynamic-linker /lib64/ld-linux-x86-64.so.2 -m elf_x86_64 -L/opt/intel/oneapi/mpi/2021.17/lib -L/opt/intel/oneapi/mpi/2021.17/lib -o cmTC_1f1f0 /opt/intel/oneapi/compiler/2025.3/lib/for_main.o -L/opt/intel/oneapi/tcm/1.4/lib -L/opt/intel/oneapi/umf/1.0/lib -L/opt/intel/oneapi/tbb/2022.3/env/../lib/intel64/gcc4.8 -L/opt/intel/oneapi/mpi/2021.17/lib -L/opt/intel/oneapi/mkl/2025.3/lib -L/opt/intel/oneapi/ishmem/1.5/lib -L/opt/intel/oneapi/ippcp/2025.3/lib/ -L/opt/intel/oneapi/ipp/2022.3/lib -L/opt/intel/oneapi/dnnl/2025.3/lib -L/opt/intel/oneapi/dal/2025.9/lib -L/opt/intel/oneapi/compiler/2025.3/lib -L/opt/intel/oneapi/ccl/2021.17/lib/ -L/opt/intel/oneapi/compiler/2025.3/lib -L/opt/intel/oneapi/compiler/2025.3/lib -L/opt/intel/oneapi/compiler/2025.3/lib/clang/21/lib/x86_64-unknown-linux-gnu -L/opt/intel/oneapi/compiler/2025.3/lib -L/opt/intel/oneapi/tcm/1.4/lib/../lib/ -L/opt/intel/oneapi/umf/1.0/lib/../lib/ -L/opt/intel/oneapi/tbb/2022.3/env/../lib/intel64/gcc4.8/../lib/ -L/opt/intel/oneapi/mpi/2021.17/lib/../lib/ -L/opt/intel/oneapi/mkl/2025.3/lib/../lib/ -L/opt/intel/oneapi/ishmem/1.5/lib/../lib/ -L/opt/intel/oneapi/ippcp/2025.3/lib/../lib/ -L/opt/intel/oneapi/ipp/2022.3/lib/../lib/ -L/opt/intel/oneapi/dnnl/2025.3/lib/../lib/ -L/opt/intel/oneapi/dal/2025.9/lib/../lib/ -L/opt/intel/oneapi/compiler/2025.3/lib/../lib/ -L/opt/intel/oneapi/ccl/2021.17/lib/../lib/ -L/usr/lib/gcc/x86_64-linux-gnu/13/ -L/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/ -L/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib64 -L/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib/ -L/lib/x86_64-linux-gnu/ -L/lib/../lib64 -L/lib/../lib/ -L/usr/lib/x86_64-linux-gnu/ -L/usr/lib/../lib64 -L/usr/lib/../lib/ -L/opt/intel/oneapi/tcm/1.4/lib/ -L/opt/intel/oneapi/umf/1.0/lib/ -L/opt/intel/oneapi/tbb/2022.3/env/../lib/intel64/gcc4.8/ -L/opt/intel/oneapi/mpi/2021.17/lib/ -L/opt/intel/oneapi/mkl/2025.3/lib/ -L/opt/intel/oneapi/ishmem/1.5/lib/ -L/opt/intel/oneapi/ippcp/2025.3/lib/ -L/opt/intel/oneapi/ipp/2022.3/lib/ -L/opt/intel/oneapi/dnnl/2025.3/lib/ -L/opt/intel/oneapi/dal/2025.9/lib/ -L/opt/intel/oneapi/compiler/2025.3/lib/ -L/opt/intel/oneapi/ccl/2021.17/lib/ -L/usr/lib/gcc/x86_64-linux-gnu/13/../../../ -L/lib64 -L/lib/ -L/usr/lib64 -L/usr/lib CMakeFiles/cmTC_1f1f0.dir/CMakeFortranCompilerABI.F90.o --enable-new-dtags -rpath /opt/intel/oneapi/mpi/2021.17/lib -rpath /opt/intel/oneapi/mpi/2021.17/lib -lmpifort -lmpi -ldl -lrt -lpthread -Bdynamic -Bstatic -lifport -lifcoremt -Bdynamic -limf -Bstatic -lsvml -Bdynamic -lm -Bstatic -lipgo -lirc -Bdynamic -lpthread -Bstatic -lsvml -Bdynamic -lc -lgcc -lgcc_s -Bstatic -lirc_s -Bdynamic -ldl -lc /usr/lib/gcc/x86_64-linux-gnu/13/crtendS.o /usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/crtn.o
+        gmake[1]: Leaving directory '/mnt/c/Users/Jasmin Deguire/Desktop/LePIC_3D/build/CMakeFiles/CMakeScratch/TryCompile-Ym2kiH'
+        
+      exitCode: 0
+  -
+    kind: "message-v1"
+    backtrace:
+      - "/usr/share/cmake-3.28/Modules/CMakeDetermineCompilerABI.cmake:127 (message)"
+      - "/usr/share/cmake-3.28/Modules/CMakeTestFortranCompiler.cmake:20 (CMAKE_DETERMINE_COMPILER_ABI)"
+      - "CMakeLists.txt:2 (project)"
+    message: |
+      Parsed Fortran implicit include dir info: rv=done
+        found start of include info
+        found start of implicit include info
+          add: [.]
+          add: [/opt/intel/oneapi/mpi/2021.17/include/mpi]
+          add: [/opt/intel/oneapi/mpi/2021.17/include]
+          add: [/opt/intel/oneapi/mpi/2021.17/include/mpi]
+          add: [/opt/intel/oneapi/umf/1.0/include]
+          add: [/opt/intel/oneapi/mkl/2025.3/include]
+          add: [/opt/intel/oneapi/dev-utilities/2025.3/include]
+          add: [/opt/intel/oneapi/ccl/2021.17/include]
+          add: [/opt/intel/oneapi/umf/1.0/include]
+          add: [/opt/intel/oneapi/tbb/2022.3/env/../include]
+          add: [/opt/intel/oneapi/mpi/2021.17/include]
+          add: [/opt/intel/oneapi/mkl/2025.3/include]
+          add: [/opt/intel/oneapi/ishmem/1.5/include]
+          add: [/opt/intel/oneapi/ippcp/2025.3/include]
+          add: [/opt/intel/oneapi/ipp/2022.3/include]
+          add: [/opt/intel/oneapi/dnnl/2025.3/include]
+          add: [/opt/intel/oneapi/compiler/2025.3/opt/compiler/include/intel64]
+          add: [/opt/intel/oneapi/compiler/2025.3/opt/compiler/include]
+          add: [/opt/intel/oneapi/compiler/2025.3/include]
+          add: [/usr/local/include]
+          add: [/opt/intel/oneapi/compiler/2025.3/lib/clang/21/include]
+          add: [/usr/include]
+          add: [/usr/include/x86_64-linux-gnu]
+        end of search list found
+        skipping relative include dir [.]
+        collapse include dir [/opt/intel/oneapi/mpi/2021.17/include/mpi] ==> [/opt/intel/oneapi/mpi/2021.17/include/mpi]
+        collapse include dir [/opt/intel/oneapi/mpi/2021.17/include] ==> [/opt/intel/oneapi/mpi/2021.17/include]
+        collapse include dir [/opt/intel/oneapi/mpi/2021.17/include/mpi] ==> [/opt/intel/oneapi/mpi/2021.17/include/mpi]
+        collapse include dir [/opt/intel/oneapi/umf/1.0/include] ==> [/opt/intel/oneapi/umf/1.0/include]
+        collapse include dir [/opt/intel/oneapi/mkl/2025.3/include] ==> [/opt/intel/oneapi/mkl/2025.3/include]
+        collapse include dir [/opt/intel/oneapi/dev-utilities/2025.3/include] ==> [/opt/intel/oneapi/dev-utilities/2025.3/include]
+        collapse include dir [/opt/intel/oneapi/ccl/2021.17/include] ==> [/opt/intel/oneapi/ccl/2021.17/include]
+        collapse include dir [/opt/intel/oneapi/umf/1.0/include] ==> [/opt/intel/oneapi/umf/1.0/include]
+        collapse include dir [/opt/intel/oneapi/tbb/2022.3/env/../include] ==> [/opt/intel/oneapi/tbb/2022.3/include]
+        collapse include dir [/opt/intel/oneapi/mpi/2021.17/include] ==> [/opt/intel/oneapi/mpi/2021.17/include]
+        collapse include dir [/opt/intel/oneapi/mkl/2025.3/include] ==> [/opt/intel/oneapi/mkl/2025.3/include]
+        collapse include dir [/opt/intel/oneapi/ishmem/1.5/include] ==> [/opt/intel/oneapi/ishmem/1.5/include]
+        collapse include dir [/opt/intel/oneapi/ippcp/2025.3/include] ==> [/opt/intel/oneapi/ippcp/2025.3/include]
+        collapse include dir [/opt/intel/oneapi/ipp/2022.3/include] ==> [/opt/intel/oneapi/ipp/2022.3/include]
+        collapse include dir [/opt/intel/oneapi/dnnl/2025.3/include] ==> [/opt/intel/oneapi/dnnl/2025.3/include]
+        collapse include dir [/opt/intel/oneapi/compiler/2025.3/opt/compiler/include/intel64] ==> [/opt/intel/oneapi/compiler/2025.3/opt/compiler/include/intel64]
+        collapse include dir [/opt/intel/oneapi/compiler/2025.3/opt/compiler/include] ==> [/opt/intel/oneapi/compiler/2025.3/opt/compiler/include]
+        collapse include dir [/opt/intel/oneapi/compiler/2025.3/include] ==> [/opt/intel/oneapi/compiler/2025.3/include]
+        collapse include dir [/usr/local/include] ==> [/usr/local/include]
+        collapse include dir [/opt/intel/oneapi/compiler/2025.3/lib/clang/21/include] ==> [/opt/intel/oneapi/compiler/2025.3/lib/clang/21/include]
+        collapse include dir [/usr/include] ==> [/usr/include]
+        collapse include dir [/usr/include/x86_64-linux-gnu] ==> [/usr/include/x86_64-linux-gnu]
+        implicit include dirs: [/opt/intel/oneapi/mpi/2021.17/include/mpi;/opt/intel/oneapi/mpi/2021.17/include;/opt/intel/oneapi/umf/1.0/include;/opt/intel/oneapi/mkl/2025.3/include;/opt/intel/oneapi/dev-utilities/2025.3/include;/opt/intel/oneapi/ccl/2021.17/include;/opt/intel/oneapi/tbb/2022.3/include;/opt/intel/oneapi/ishmem/1.5/include;/opt/intel/oneapi/ippcp/2025.3/include;/opt/intel/oneapi/ipp/2022.3/include;/opt/intel/oneapi/dnnl/2025.3/include;/opt/intel/oneapi/compiler/2025.3/opt/compiler/include/intel64;/opt/intel/oneapi/compiler/2025.3/opt/compiler/include;/opt/intel/oneapi/compiler/2025.3/include;/usr/local/include;/opt/intel/oneapi/compiler/2025.3/lib/clang/21/include;/usr/include;/usr/include/x86_64-linux-gnu]
+      
+      
+  -
+    kind: "message-v1"
+    backtrace:
+      - "/usr/share/cmake-3.28/Modules/CMakeDetermineCompilerABI.cmake:159 (message)"
+      - "/usr/share/cmake-3.28/Modules/CMakeTestFortranCompiler.cmake:20 (CMAKE_DETERMINE_COMPILER_ABI)"
+      - "CMakeLists.txt:2 (project)"
+    message: |
+      Parsed Fortran implicit link information:
+        link line regex: [^( *|.*[/\\])(ld|CMAKE_LINK_STARTFILE-NOTFOUND|([^/\\]+-)?ld|collect2)[^/\\]*( |$)]
+        ignore line: [Change Dir: '/mnt/c/Users/Jasmin Deguire/Desktop/LePIC_3D/build/CMakeFiles/CMakeScratch/TryCompile-Ym2kiH']
+        ignore line: []
+        ignore line: [Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_1f1f0/fast]
+        ignore line: [/usr/bin/gmake  -f CMakeFiles/cmTC_1f1f0.dir/build.make CMakeFiles/cmTC_1f1f0.dir/build]
+        ignore line: [gmake[1]: Entering directory '/mnt/c/Users/Jasmin Deguire/Desktop/LePIC_3D/build/CMakeFiles/CMakeScratch/TryCompile-Ym2kiH']
+        ignore line: [Building Fortran object CMakeFiles/cmTC_1f1f0.dir/CMakeFortranCompilerABI.F90.o]
+        ignore line: [/opt/intel/oneapi/mpi/latest/bin/mpiifx   -v -c /usr/share/cmake-3.28/Modules/CMakeFortranCompilerABI.F90 -o CMakeFiles/cmTC_1f1f0.dir/CMakeFortranCompilerABI.F90.o]
+        ignore line: [mpiifx generated: ifx -v -c /usr/share/cmake-3.28/Modules/CMakeFortranCompilerABI.F90 -o 'CMakeFiles/cmTC_1f1f0.dir/CMakeFortranCompilerABI.F90.o' -I"/opt/intel/oneapi/mpi/2021.17/include/mpi" -I"/opt/intel/oneapi/mpi/2021.17/include" -I"/opt/intel/oneapi/mpi/2021.17/include/mpi"]
+        ignore line: [ifx version 2025.3.0]
+        ignore line: [/opt/intel/oneapi/compiler/2025.3/bin/fpp    -D__INTEL_LLVM_COMPILER=20250300 -D__INTEL_LLVM_COMPILER_UPDATE=0 -D__INTEL_COMPILER=20250300 -D__INTEL_COMPILER_UPDATE=0 -D__unix__ -D__unix -D__linux__ -D__linux -D__gnu_linux__ -Dunix -Dlinux -D__ELF__ -D__x86_64 -D__x86_64__ -D__amd64 -D__amd64__ -D__INTEL_COMPILER_BUILD_DATE=20251010 -D__MMX__ -D__SSE__ -D__SSE_MATH__ -D__SSE2__ -D__SSE2_MATH__ -D__pentium4 -D__pentium4__ -D__tune_pentium4__ -I. -I/opt/intel/oneapi/mpi/2021.17/include/mpi -I/opt/intel/oneapi/mpi/2021.17/include -I/opt/intel/oneapi/mpi/2021.17/include/mpi -I/opt/intel/oneapi/umf/1.0/include -I/opt/intel/oneapi/mkl/2025.3/include -I/opt/intel/oneapi/dev-utilities/2025.3/include -I/opt/intel/oneapi/ccl/2021.17/include -I/opt/intel/oneapi/umf/1.0/include -I/opt/intel/oneapi/tbb/2022.3/env/../include -I/opt/intel/oneapi/mpi/2021.17/include -I/opt/intel/oneapi/mkl/2025.3/include -I/opt/intel/oneapi/ishmem/1.5/include -I/opt/intel/oneapi/ippcp/2025.3/include -I/opt/intel/oneapi/ipp/2022.3/include -I/opt/intel/oneapi/dnnl/2025.3/include -I/opt/intel/oneapi/compiler/2025.3/opt/compiler/include/intel64 -I/opt/intel/oneapi/compiler/2025.3/opt/compiler/include -I/opt/intel/oneapi/compiler/2025.3/include -I/usr/local/include -I/opt/intel/oneapi/compiler/2025.3/lib/clang/21/include -I/usr/include -I/usr/include/x86_64-linux-gnu -4Ycpp -4Ncvf -f_com=yes -MX /usr/share/cmake-3.28/Modules/CMakeFortranCompilerABI.F90 /tmp/ifx1557436117sDteej/ifxgjHfdg.i90]
+        ignore line: [#include "..." search starts here:]
+        ignore line: [#include <...> search starts here:]
+        ignore line: [ .]
+        ignore line: [ /opt/intel/oneapi/mpi/2021.17/include/mpi]
+        ignore line: [ /opt/intel/oneapi/mpi/2021.17/include]
+        ignore line: [ /opt/intel/oneapi/mpi/2021.17/include/mpi]
+        ignore line: [ /opt/intel/oneapi/umf/1.0/include]
+        ignore line: [ /opt/intel/oneapi/mkl/2025.3/include]
+        ignore line: [ /opt/intel/oneapi/dev-utilities/2025.3/include]
+        ignore line: [ /opt/intel/oneapi/ccl/2021.17/include]
+        ignore line: [ /opt/intel/oneapi/umf/1.0/include]
+        ignore line: [ /opt/intel/oneapi/tbb/2022.3/env/../include]
+        ignore line: [ /opt/intel/oneapi/mpi/2021.17/include]
+        ignore line: [ /opt/intel/oneapi/mkl/2025.3/include]
+        ignore line: [ /opt/intel/oneapi/ishmem/1.5/include]
+        ignore line: [ /opt/intel/oneapi/ippcp/2025.3/include]
+        ignore line: [ /opt/intel/oneapi/ipp/2022.3/include]
+        ignore line: [ /opt/intel/oneapi/dnnl/2025.3/include]
+        ignore line: [ /opt/intel/oneapi/compiler/2025.3/opt/compiler/include/intel64]
+        ignore line: [ /opt/intel/oneapi/compiler/2025.3/opt/compiler/include]
+        ignore line: [ /opt/intel/oneapi/compiler/2025.3/include]
+        ignore line: [ /usr/local/include]
+        ignore line: [ /opt/intel/oneapi/compiler/2025.3/lib/clang/21/include]
+        ignore line: [ /usr/include]
+        ignore line: [ /usr/include/x86_64-linux-gnu]
+        ignore line: [End of search list.]
+        ignore line: [/opt/intel/oneapi/compiler/2025.3/bin/compiler/xfortcom    -triple x86_64-unknown-linux-gnu -emit-obj "-verify nomodule" -main-file-name /usr/share/cmake-3.28/Modules/CMakeFortranCompilerABI.F90 -mllvm --relocation-model=static "-options-string -I/opt/intel/oneapi/mpi/2021.17/include/mpi -I/opt/intel/oneapi/mpi/2021.17/include -I/opt/intel/oneapi/mpi/2021.17/include/mpi -v -c -o CMakeFiles/cmTC_1f1f0.dir/CMakeFortranCompilerABI.F90.o " -menable-unsafe-fp-math -freciprocal-math -mframe-pointer=none -omp_simd -target-cpu x86-64 -target-linker-version 2.42 -O2 -vectorize-loops -vectorize-slp -fveclib=SVML -mllvm -loopopt=1 -floopopt-pipeline=light -mllvm -disable-hir-generate-mkl-call -mllvm -paropt=11 -fintel-libirc-allowed -o CMakeFiles/cmTC_1f1f0.dir/CMakeFortranCompilerABI.F90.o -D__INTEL_LLVM_COMPILER=20250300 -D__INTEL_LLVM_COMPILER_UPDATE=0 -D__unix__ -D__unix -D__linux__ -D__linux -D__gnu_linux__ -Dunix -Dlinux -D__ELF__ -D__x86_64 -D__x86_64__ -D__amd64 -D__amd64__ -D__INTEL_COMPILER_BUILD_DATE=20251010 -D__MMX__ -D__SSE__ -D__SSE_MATH__ -D__SSE2__ -D__SSE2_MATH__ -D__pentium4 -D__pentium4__ -D__tune_pentium4__ -D__INTEL_COMPILER=20250300 -D__INTEL_COMPILER_UPDATE=0 -I/usr/share/cmake-3.28/Modules -I. -I/opt/intel/oneapi/mpi/2021.17/include/mpi -I/opt/intel/oneapi/mpi/2021.17/include -I/opt/intel/oneapi/mpi/2021.17/include/mpi -I/opt/intel/oneapi/umf/1.0/include -I/opt/intel/oneapi/mkl/2025.3/include -I/opt/intel/oneapi/dev-utilities/2025.3/include -I/opt/intel/oneapi/ccl/2021.17/include -I/opt/intel/oneapi/umf/1.0/include -I/opt/intel/oneapi/tbb/2022.3/env/../include -I/opt/intel/oneapi/mpi/2021.17/include -I/opt/intel/oneapi/mkl/2025.3/include -I/opt/intel/oneapi/ishmem/1.5/include -I/opt/intel/oneapi/ippcp/2025.3/include -I/opt/intel/oneapi/ipp/2022.3/include -I/opt/intel/oneapi/dnnl/2025.3/include -I/opt/intel/oneapi/compiler/2025.3/opt/compiler/include/intel64 -I/opt/intel/oneapi/compiler/2025.3/opt/compiler/include -I/opt/intel/oneapi/compiler/2025.3/include -I/usr/local/include -I/opt/intel/oneapi/compiler/2025.3/lib/clang/21/include -I/usr/include -I/usr/include/x86_64-linux-gnu -faltmathlib=SVML "-fp_model fast" -omp_simd -O2 "-reentrancy threaded" "-unroll 2" -simd -offload_host -nooffload_do_concurrent /tmp/ifx1557436117sDteej/ifxgjHfdg.i90]
+        ignore line: [#include "..." search starts here:]
+        ignore line: [#include <...> search starts here:]
+        ignore line: [ /usr/share/cmake-3.28/Modules]
+        ignore line: [ .]
+        ignore line: [ /opt/intel/oneapi/mpi/2021.17/include/mpi]
+        ignore line: [ /opt/intel/oneapi/mpi/2021.17/include]
+        ignore line: [ /opt/intel/oneapi/mpi/2021.17/include/mpi]
+        ignore line: [ /opt/intel/oneapi/umf/1.0/include]
+        ignore line: [ /opt/intel/oneapi/mkl/2025.3/include]
+        ignore line: [ /opt/intel/oneapi/dev-utilities/2025.3/include]
+        ignore line: [ /opt/intel/oneapi/ccl/2021.17/include]
+        ignore line: [ /opt/intel/oneapi/umf/1.0/include]
+        ignore line: [ /opt/intel/oneapi/tbb/2022.3/env/../include]
+        ignore line: [ /opt/intel/oneapi/mpi/2021.17/include]
+        ignore line: [ /opt/intel/oneapi/mkl/2025.3/include]
+        ignore line: [ /opt/intel/oneapi/ishmem/1.5/include]
+        ignore line: [ /opt/intel/oneapi/ippcp/2025.3/include]
+        ignore line: [ /opt/intel/oneapi/ipp/2022.3/include]
+        ignore line: [ /opt/intel/oneapi/dnnl/2025.3/include]
+        ignore line: [ /opt/intel/oneapi/compiler/2025.3/opt/compiler/include/intel64]
+        ignore line: [ /opt/intel/oneapi/compiler/2025.3/opt/compiler/include]
+        ignore line: [ /opt/intel/oneapi/compiler/2025.3/include]
+        ignore line: [ /usr/local/include]
+        ignore line: [ /opt/intel/oneapi/compiler/2025.3/lib/clang/21/include]
+        ignore line: [ /usr/include]
+        ignore line: [ /usr/include/x86_64-linux-gnu]
+        ignore line: [End of search list.]
+        ignore line: [Linking Fortran executable cmTC_1f1f0]
+        ignore line: [/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_1f1f0.dir/link.txt --verbose=1]
+        ignore line: [/opt/intel/oneapi/mpi/latest/bin/mpiifx  -v CMakeFiles/cmTC_1f1f0.dir/CMakeFortranCompilerABI.F90.o -o cmTC_1f1f0 ]
+        ignore line: [mpiifx generated: ifx -v 'CMakeFiles/cmTC_1f1f0.dir/CMakeFortranCompilerABI.F90.o' -o 'cmTC_1f1f0' -I"/opt/intel/oneapi/mpi/2021.17/include/mpi" -I"/opt/intel/oneapi/mpi/2021.17/include" -I"/opt/intel/oneapi/mpi/2021.17/include/mpi" -L"/opt/intel/oneapi/mpi/2021.17/lib" -L"/opt/intel/oneapi/mpi/2021.17/lib" -Xlinker --enable-new-dtags -Xlinker -rpath -Xlinker "/opt/intel/oneapi/mpi/2021.17/lib" -Xlinker -rpath -Xlinker "/opt/intel/oneapi/mpi/2021.17/lib" -lmpifort -lmpi -ldl -lrt -lpthread]
+        ignore line: [ifx version 2025.3.0]
+        link line: [ld    /usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/Scrt1.o /usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/crti.o /usr/lib/gcc/x86_64-linux-gnu/13/crtbeginS.o --eh-frame-hdr --build-id -dynamic-linker /lib64/ld-linux-x86-64.so.2 -m elf_x86_64 -L/opt/intel/oneapi/mpi/2021.17/lib -L/opt/intel/oneapi/mpi/2021.17/lib -o cmTC_1f1f0 /opt/intel/oneapi/compiler/2025.3/lib/for_main.o -L/opt/intel/oneapi/tcm/1.4/lib -L/opt/intel/oneapi/umf/1.0/lib -L/opt/intel/oneapi/tbb/2022.3/env/../lib/intel64/gcc4.8 -L/opt/intel/oneapi/mpi/2021.17/lib -L/opt/intel/oneapi/mkl/2025.3/lib -L/opt/intel/oneapi/ishmem/1.5/lib -L/opt/intel/oneapi/ippcp/2025.3/lib/ -L/opt/intel/oneapi/ipp/2022.3/lib -L/opt/intel/oneapi/dnnl/2025.3/lib -L/opt/intel/oneapi/dal/2025.9/lib -L/opt/intel/oneapi/compiler/2025.3/lib -L/opt/intel/oneapi/ccl/2021.17/lib/ -L/opt/intel/oneapi/compiler/2025.3/lib -L/opt/intel/oneapi/compiler/2025.3/lib -L/opt/intel/oneapi/compiler/2025.3/lib/clang/21/lib/x86_64-unknown-linux-gnu -L/opt/intel/oneapi/compiler/2025.3/lib -L/opt/intel/oneapi/tcm/1.4/lib/../lib/ -L/opt/intel/oneapi/umf/1.0/lib/../lib/ -L/opt/intel/oneapi/tbb/2022.3/env/../lib/intel64/gcc4.8/../lib/ -L/opt/intel/oneapi/mpi/2021.17/lib/../lib/ -L/opt/intel/oneapi/mkl/2025.3/lib/../lib/ -L/opt/intel/oneapi/ishmem/1.5/lib/../lib/ -L/opt/intel/oneapi/ippcp/2025.3/lib/../lib/ -L/opt/intel/oneapi/ipp/2022.3/lib/../lib/ -L/opt/intel/oneapi/dnnl/2025.3/lib/../lib/ -L/opt/intel/oneapi/dal/2025.9/lib/../lib/ -L/opt/intel/oneapi/compiler/2025.3/lib/../lib/ -L/opt/intel/oneapi/ccl/2021.17/lib/../lib/ -L/usr/lib/gcc/x86_64-linux-gnu/13/ -L/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/ -L/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib64 -L/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib/ -L/lib/x86_64-linux-gnu/ -L/lib/../lib64 -L/lib/../lib/ -L/usr/lib/x86_64-linux-gnu/ -L/usr/lib/../lib64 -L/usr/lib/../lib/ -L/opt/intel/oneapi/tcm/1.4/lib/ -L/opt/intel/oneapi/umf/1.0/lib/ -L/opt/intel/oneapi/tbb/2022.3/env/../lib/intel64/gcc4.8/ -L/opt/intel/oneapi/mpi/2021.17/lib/ -L/opt/intel/oneapi/mkl/2025.3/lib/ -L/opt/intel/oneapi/ishmem/1.5/lib/ -L/opt/intel/oneapi/ippcp/2025.3/lib/ -L/opt/intel/oneapi/ipp/2022.3/lib/ -L/opt/intel/oneapi/dnnl/2025.3/lib/ -L/opt/intel/oneapi/dal/2025.9/lib/ -L/opt/intel/oneapi/compiler/2025.3/lib/ -L/opt/intel/oneapi/ccl/2021.17/lib/ -L/usr/lib/gcc/x86_64-linux-gnu/13/../../../ -L/lib64 -L/lib/ -L/usr/lib64 -L/usr/lib CMakeFiles/cmTC_1f1f0.dir/CMakeFortranCompilerABI.F90.o --enable-new-dtags -rpath /opt/intel/oneapi/mpi/2021.17/lib -rpath /opt/intel/oneapi/mpi/2021.17/lib -lmpifort -lmpi -ldl -lrt -lpthread -Bdynamic -Bstatic -lifport -lifcoremt -Bdynamic -limf -Bstatic -lsvml -Bdynamic -lm -Bstatic -lipgo -lirc -Bdynamic -lpthread -Bstatic -lsvml -Bdynamic -lc -lgcc -lgcc_s -Bstatic -lirc_s -Bdynamic -ldl -lc /usr/lib/gcc/x86_64-linux-gnu/13/crtendS.o /usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/crtn.o]
+          arg [ld] ==> ignore
+          arg [/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/Scrt1.o] ==> obj [/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/Scrt1.o]
+          arg [/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/crti.o] ==> obj [/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/crti.o]
+          arg [/usr/lib/gcc/x86_64-linux-gnu/13/crtbeginS.o] ==> obj [/usr/lib/gcc/x86_64-linux-gnu/13/crtbeginS.o]
+          arg [--eh-frame-hdr] ==> ignore
+          arg [--build-id] ==> ignore
+          arg [-dynamic-linker] ==> ignore
+          arg [/lib64/ld-linux-x86-64.so.2] ==> ignore
+          arg [-m] ==> ignore
+          arg [elf_x86_64] ==> ignore
+          arg [-L/opt/intel/oneapi/mpi/2021.17/lib] ==> dir [/opt/intel/oneapi/mpi/2021.17/lib]
+          arg [-L/opt/intel/oneapi/mpi/2021.17/lib] ==> dir [/opt/intel/oneapi/mpi/2021.17/lib]
+          arg [-o] ==> ignore
+          arg [cmTC_1f1f0] ==> ignore
+          arg [/opt/intel/oneapi/compiler/2025.3/lib/for_main.o] ==> obj [/opt/intel/oneapi/compiler/2025.3/lib/for_main.o]
+          arg [-L/opt/intel/oneapi/tcm/1.4/lib] ==> dir [/opt/intel/oneapi/tcm/1.4/lib]
+          arg [-L/opt/intel/oneapi/umf/1.0/lib] ==> dir [/opt/intel/oneapi/umf/1.0/lib]
+          arg [-L/opt/intel/oneapi/tbb/2022.3/env/../lib/intel64/gcc4.8] ==> dir [/opt/intel/oneapi/tbb/2022.3/env/../lib/intel64/gcc4.8]
+          arg [-L/opt/intel/oneapi/mpi/2021.17/lib] ==> dir [/opt/intel/oneapi/mpi/2021.17/lib]
+          arg [-L/opt/intel/oneapi/mkl/2025.3/lib] ==> dir [/opt/intel/oneapi/mkl/2025.3/lib]
+          arg [-L/opt/intel/oneapi/ishmem/1.5/lib] ==> dir [/opt/intel/oneapi/ishmem/1.5/lib]
+          arg [-L/opt/intel/oneapi/ippcp/2025.3/lib/] ==> dir [/opt/intel/oneapi/ippcp/2025.3/lib/]
+          arg [-L/opt/intel/oneapi/ipp/2022.3/lib] ==> dir [/opt/intel/oneapi/ipp/2022.3/lib]
+          arg [-L/opt/intel/oneapi/dnnl/2025.3/lib] ==> dir [/opt/intel/oneapi/dnnl/2025.3/lib]
+          arg [-L/opt/intel/oneapi/dal/2025.9/lib] ==> dir [/opt/intel/oneapi/dal/2025.9/lib]
+          arg [-L/opt/intel/oneapi/compiler/2025.3/lib] ==> dir [/opt/intel/oneapi/compiler/2025.3/lib]
+          arg [-L/opt/intel/oneapi/ccl/2021.17/lib/] ==> dir [/opt/intel/oneapi/ccl/2021.17/lib/]
+          arg [-L/opt/intel/oneapi/compiler/2025.3/lib] ==> dir [/opt/intel/oneapi/compiler/2025.3/lib]
+          arg [-L/opt/intel/oneapi/compiler/2025.3/lib] ==> dir [/opt/intel/oneapi/compiler/2025.3/lib]
+          arg [-L/opt/intel/oneapi/compiler/2025.3/lib/clang/21/lib/x86_64-unknown-linux-gnu] ==> dir [/opt/intel/oneapi/compiler/2025.3/lib/clang/21/lib/x86_64-unknown-linux-gnu]
+          arg [-L/opt/intel/oneapi/compiler/2025.3/lib] ==> dir [/opt/intel/oneapi/compiler/2025.3/lib]
+          arg [-L/opt/intel/oneapi/tcm/1.4/lib/../lib/] ==> dir [/opt/intel/oneapi/tcm/1.4/lib/../lib/]
+          arg [-L/opt/intel/oneapi/umf/1.0/lib/../lib/] ==> dir [/opt/intel/oneapi/umf/1.0/lib/../lib/]
+          arg [-L/opt/intel/oneapi/tbb/2022.3/env/../lib/intel64/gcc4.8/../lib/] ==> dir [/opt/intel/oneapi/tbb/2022.3/env/../lib/intel64/gcc4.8/../lib/]
+          arg [-L/opt/intel/oneapi/mpi/2021.17/lib/../lib/] ==> dir [/opt/intel/oneapi/mpi/2021.17/lib/../lib/]
+          arg [-L/opt/intel/oneapi/mkl/2025.3/lib/../lib/] ==> dir [/opt/intel/oneapi/mkl/2025.3/lib/../lib/]
+          arg [-L/opt/intel/oneapi/ishmem/1.5/lib/../lib/] ==> dir [/opt/intel/oneapi/ishmem/1.5/lib/../lib/]
+          arg [-L/opt/intel/oneapi/ippcp/2025.3/lib/../lib/] ==> dir [/opt/intel/oneapi/ippcp/2025.3/lib/../lib/]
+          arg [-L/opt/intel/oneapi/ipp/2022.3/lib/../lib/] ==> dir [/opt/intel/oneapi/ipp/2022.3/lib/../lib/]
+          arg [-L/opt/intel/oneapi/dnnl/2025.3/lib/../lib/] ==> dir [/opt/intel/oneapi/dnnl/2025.3/lib/../lib/]
+          arg [-L/opt/intel/oneapi/dal/2025.9/lib/../lib/] ==> dir [/opt/intel/oneapi/dal/2025.9/lib/../lib/]
+          arg [-L/opt/intel/oneapi/compiler/2025.3/lib/../lib/] ==> dir [/opt/intel/oneapi/compiler/2025.3/lib/../lib/]
+          arg [-L/opt/intel/oneapi/ccl/2021.17/lib/../lib/] ==> dir [/opt/intel/oneapi/ccl/2021.17/lib/../lib/]
+          arg [-L/usr/lib/gcc/x86_64-linux-gnu/13/] ==> dir [/usr/lib/gcc/x86_64-linux-gnu/13/]
+          arg [-L/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/] ==> dir [/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/]
+          arg [-L/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib64] ==> dir [/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib64]
+          arg [-L/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib/] ==> dir [/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib/]
+          arg [-L/lib/x86_64-linux-gnu/] ==> dir [/lib/x86_64-linux-gnu/]
+          arg [-L/lib/../lib64] ==> dir [/lib/../lib64]
+          arg [-L/lib/../lib/] ==> dir [/lib/../lib/]
+          arg [-L/usr/lib/x86_64-linux-gnu/] ==> dir [/usr/lib/x86_64-linux-gnu/]
+          arg [-L/usr/lib/../lib64] ==> dir [/usr/lib/../lib64]
+          arg [-L/usr/lib/../lib/] ==> dir [/usr/lib/../lib/]
+          arg [-L/opt/intel/oneapi/tcm/1.4/lib/] ==> dir [/opt/intel/oneapi/tcm/1.4/lib/]
+          arg [-L/opt/intel/oneapi/umf/1.0/lib/] ==> dir [/opt/intel/oneapi/umf/1.0/lib/]
+          arg [-L/opt/intel/oneapi/tbb/2022.3/env/../lib/intel64/gcc4.8/] ==> dir [/opt/intel/oneapi/tbb/2022.3/env/../lib/intel64/gcc4.8/]
+          arg [-L/opt/intel/oneapi/mpi/2021.17/lib/] ==> dir [/opt/intel/oneapi/mpi/2021.17/lib/]
+          arg [-L/opt/intel/oneapi/mkl/2025.3/lib/] ==> dir [/opt/intel/oneapi/mkl/2025.3/lib/]
+          arg [-L/opt/intel/oneapi/ishmem/1.5/lib/] ==> dir [/opt/intel/oneapi/ishmem/1.5/lib/]
+          arg [-L/opt/intel/oneapi/ippcp/2025.3/lib/] ==> dir [/opt/intel/oneapi/ippcp/2025.3/lib/]
+          arg [-L/opt/intel/oneapi/ipp/2022.3/lib/] ==> dir [/opt/intel/oneapi/ipp/2022.3/lib/]
+          arg [-L/opt/intel/oneapi/dnnl/2025.3/lib/] ==> dir [/opt/intel/oneapi/dnnl/2025.3/lib/]
+          arg [-L/opt/intel/oneapi/dal/2025.9/lib/] ==> dir [/opt/intel/oneapi/dal/2025.9/lib/]
+          arg [-L/opt/intel/oneapi/compiler/2025.3/lib/] ==> dir [/opt/intel/oneapi/compiler/2025.3/lib/]
+          arg [-L/opt/intel/oneapi/ccl/2021.17/lib/] ==> dir [/opt/intel/oneapi/ccl/2021.17/lib/]
+          arg [-L/usr/lib/gcc/x86_64-linux-gnu/13/../../../] ==> dir [/usr/lib/gcc/x86_64-linux-gnu/13/../../../]
+          arg [-L/lib64] ==> dir [/lib64]
+          arg [-L/lib/] ==> dir [/lib/]
+          arg [-L/usr/lib64] ==> dir [/usr/lib64]
+          arg [-L/usr/lib] ==> dir [/usr/lib]
+          arg [CMakeFiles/cmTC_1f1f0.dir/CMakeFortranCompilerABI.F90.o] ==> ignore
+          arg [--enable-new-dtags] ==> ignore
+          arg [-rpath] ==> ignore
+          arg [/opt/intel/oneapi/mpi/2021.17/lib] ==> ignore
+          arg [-rpath] ==> ignore
+          arg [/opt/intel/oneapi/mpi/2021.17/lib] ==> ignore
+          arg [-lmpifort] ==> lib [mpifort]
+          arg [-lmpi] ==> lib [mpi]
+          arg [-ldl] ==> lib [dl]
+          arg [-lrt] ==> lib [rt]
+          arg [-lpthread] ==> lib [pthread]
+          arg [-Bdynamic] ==> search dynamic
+          arg [-Bstatic] ==> search static
+          arg [-lifport] ==> lib [ifport]
+          arg [-lifcoremt] ==> lib [ifcoremt]
+          arg [-Bdynamic] ==> search dynamic
+          arg [-limf] ==> lib [imf]
+          arg [-Bstatic] ==> search static
+          arg [-lsvml] ==> lib [svml]
+          arg [-Bdynamic] ==> search dynamic
+          arg [-lm] ==> lib [m]
+          arg [-Bstatic] ==> search static
+          arg [-lipgo] ==> lib [ipgo]
+          arg [-lirc] ==> lib [irc]
+          arg [-Bdynamic] ==> search dynamic
+          arg [-lpthread] ==> lib [pthread]
+          arg [-Bstatic] ==> search static
+          arg [-lsvml] ==> lib [svml]
+          arg [-Bdynamic] ==> search dynamic
+          arg [-lc] ==> lib [c]
+          arg [-lgcc] ==> lib [gcc]
+          arg [-lgcc_s] ==> lib [gcc_s]
+          arg [-Bstatic] ==> search static
+          arg [-lirc_s] ==> lib [irc_s]
+          arg [-Bdynamic] ==> search dynamic
+          arg [-ldl] ==> lib [dl]
+          arg [-lc] ==> lib [c]
+          arg [/usr/lib/gcc/x86_64-linux-gnu/13/crtendS.o] ==> obj [/usr/lib/gcc/x86_64-linux-gnu/13/crtendS.o]
+          arg [/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/crtn.o] ==> obj [/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/crtn.o]
+        collapse obj [/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/Scrt1.o] ==> [/usr/lib/x86_64-linux-gnu/Scrt1.o]
+        collapse obj [/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/crti.o] ==> [/usr/lib/x86_64-linux-gnu/crti.o]
+        collapse obj [/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/crtn.o] ==> [/usr/lib/x86_64-linux-gnu/crtn.o]
+        collapse library dir [/opt/intel/oneapi/mpi/2021.17/lib] ==> [/opt/intel/oneapi/mpi/2021.17/lib]
+        collapse library dir [/opt/intel/oneapi/mpi/2021.17/lib] ==> [/opt/intel/oneapi/mpi/2021.17/lib]
+        collapse library dir [/opt/intel/oneapi/tcm/1.4/lib] ==> [/opt/intel/oneapi/tcm/1.4/lib]
+        collapse library dir [/opt/intel/oneapi/umf/1.0/lib] ==> [/opt/intel/oneapi/umf/1.0/lib]
+        collapse library dir [/opt/intel/oneapi/tbb/2022.3/env/../lib/intel64/gcc4.8] ==> [/opt/intel/oneapi/tbb/2022.3/lib/intel64/gcc4.8]
+        collapse library dir [/opt/intel/oneapi/mpi/2021.17/lib] ==> [/opt/intel/oneapi/mpi/2021.17/lib]
+        collapse library dir [/opt/intel/oneapi/mkl/2025.3/lib] ==> [/opt/intel/oneapi/mkl/2025.3/lib]
+        collapse library dir [/opt/intel/oneapi/ishmem/1.5/lib] ==> [/opt/intel/oneapi/ishmem/1.5/lib]
+        collapse library dir [/opt/intel/oneapi/ippcp/2025.3/lib/] ==> [/opt/intel/oneapi/ippcp/2025.3/lib]
+        collapse library dir [/opt/intel/oneapi/ipp/2022.3/lib] ==> [/opt/intel/oneapi/ipp/2022.3/lib]
+        collapse library dir [/opt/intel/oneapi/dnnl/2025.3/lib] ==> [/opt/intel/oneapi/dnnl/2025.3/lib]
+        collapse library dir [/opt/intel/oneapi/dal/2025.9/lib] ==> [/opt/intel/oneapi/dal/2025.9/lib]
+        collapse library dir [/opt/intel/oneapi/compiler/2025.3/lib] ==> [/opt/intel/oneapi/compiler/2025.3/lib]
+        collapse library dir [/opt/intel/oneapi/ccl/2021.17/lib/] ==> [/opt/intel/oneapi/ccl/2021.17/lib]
+        collapse library dir [/opt/intel/oneapi/compiler/2025.3/lib] ==> [/opt/intel/oneapi/compiler/2025.3/lib]
+        collapse library dir [/opt/intel/oneapi/compiler/2025.3/lib] ==> [/opt/intel/oneapi/compiler/2025.3/lib]
+        collapse library dir [/opt/intel/oneapi/compiler/2025.3/lib/clang/21/lib/x86_64-unknown-linux-gnu] ==> [/opt/intel/oneapi/compiler/2025.3/lib/clang/21/lib/x86_64-unknown-linux-gnu]
+        collapse library dir [/opt/intel/oneapi/compiler/2025.3/lib] ==> [/opt/intel/oneapi/compiler/2025.3/lib]
+        collapse library dir [/opt/intel/oneapi/tcm/1.4/lib/../lib/] ==> [/opt/intel/oneapi/tcm/1.4/lib]
+        collapse library dir [/opt/intel/oneapi/umf/1.0/lib/../lib/] ==> [/opt/intel/oneapi/umf/1.0/lib]
+        collapse library dir [/opt/intel/oneapi/tbb/2022.3/env/../lib/intel64/gcc4.8/../lib/] ==> [/opt/intel/oneapi/tbb/2022.3/lib/intel64/lib]
+        collapse library dir [/opt/intel/oneapi/mpi/2021.17/lib/../lib/] ==> [/opt/intel/oneapi/mpi/2021.17/lib]
+        collapse library dir [/opt/intel/oneapi/mkl/2025.3/lib/../lib/] ==> [/opt/intel/oneapi/mkl/2025.3/lib]
+        collapse library dir [/opt/intel/oneapi/ishmem/1.5/lib/../lib/] ==> [/opt/intel/oneapi/ishmem/1.5/lib]
+        collapse library dir [/opt/intel/oneapi/ippcp/2025.3/lib/../lib/] ==> [/opt/intel/oneapi/ippcp/2025.3/lib]
+        collapse library dir [/opt/intel/oneapi/ipp/2022.3/lib/../lib/] ==> [/opt/intel/oneapi/ipp/2022.3/lib]
+        collapse library dir [/opt/intel/oneapi/dnnl/2025.3/lib/../lib/] ==> [/opt/intel/oneapi/dnnl/2025.3/lib]
+        collapse library dir [/opt/intel/oneapi/dal/2025.9/lib/../lib/] ==> [/opt/intel/oneapi/dal/2025.9/lib]
+        collapse library dir [/opt/intel/oneapi/compiler/2025.3/lib/../lib/] ==> [/opt/intel/oneapi/compiler/2025.3/lib]
+        collapse library dir [/opt/intel/oneapi/ccl/2021.17/lib/../lib/] ==> [/opt/intel/oneapi/ccl/2021.17/lib]
+        collapse library dir [/usr/lib/gcc/x86_64-linux-gnu/13/] ==> [/usr/lib/gcc/x86_64-linux-gnu/13]
+        collapse library dir [/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/] ==> [/usr/lib/x86_64-linux-gnu]
+        collapse library dir [/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib64] ==> [/usr/lib64]
+        collapse library dir [/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib/] ==> [/usr/lib]
+        collapse library dir [/lib/x86_64-linux-gnu/] ==> [/lib/x86_64-linux-gnu]
+        collapse library dir [/lib/../lib64] ==> [/lib64]
+        collapse library dir [/lib/../lib/] ==> [/lib]
+        collapse library dir [/usr/lib/x86_64-linux-gnu/] ==> [/usr/lib/x86_64-linux-gnu]
+        collapse library dir [/usr/lib/../lib64] ==> [/usr/lib64]
+        collapse library dir [/usr/lib/../lib/] ==> [/usr/lib]
+        collapse library dir [/opt/intel/oneapi/tcm/1.4/lib/] ==> [/opt/intel/oneapi/tcm/1.4/lib]
+        collapse library dir [/opt/intel/oneapi/umf/1.0/lib/] ==> [/opt/intel/oneapi/umf/1.0/lib]
+        collapse library dir [/opt/intel/oneapi/tbb/2022.3/env/../lib/intel64/gcc4.8/] ==> [/opt/intel/oneapi/tbb/2022.3/lib/intel64/gcc4.8]
+        collapse library dir [/opt/intel/oneapi/mpi/2021.17/lib/] ==> [/opt/intel/oneapi/mpi/2021.17/lib]
+        collapse library dir [/opt/intel/oneapi/mkl/2025.3/lib/] ==> [/opt/intel/oneapi/mkl/2025.3/lib]
+        collapse library dir [/opt/intel/oneapi/ishmem/1.5/lib/] ==> [/opt/intel/oneapi/ishmem/1.5/lib]
+        collapse library dir [/opt/intel/oneapi/ippcp/2025.3/lib/] ==> [/opt/intel/oneapi/ippcp/2025.3/lib]
+        collapse library dir [/opt/intel/oneapi/ipp/2022.3/lib/] ==> [/opt/intel/oneapi/ipp/2022.3/lib]
+        collapse library dir [/opt/intel/oneapi/dnnl/2025.3/lib/] ==> [/opt/intel/oneapi/dnnl/2025.3/lib]
+        collapse library dir [/opt/intel/oneapi/dal/2025.9/lib/] ==> [/opt/intel/oneapi/dal/2025.9/lib]
+        collapse library dir [/opt/intel/oneapi/compiler/2025.3/lib/] ==> [/opt/intel/oneapi/compiler/2025.3/lib]
+        collapse library dir [/opt/intel/oneapi/ccl/2021.17/lib/] ==> [/opt/intel/oneapi/ccl/2021.17/lib]
+        collapse library dir [/usr/lib/gcc/x86_64-linux-gnu/13/../../../] ==> [/usr/lib]
+        collapse library dir [/lib64] ==> [/lib64]
+        collapse library dir [/lib/] ==> [/lib]
+        collapse library dir [/usr/lib64] ==> [/usr/lib64]
+        collapse library dir [/usr/lib] ==> [/usr/lib]
+        implicit libs: [mpifort;mpi;dl;rt;pthread;ifport;ifcoremt;imf;svml;m;ipgo;irc;pthread;svml;c;gcc;gcc_s;irc_s;dl;c]
+        implicit objs: [/usr/lib/x86_64-linux-gnu/Scrt1.o;/usr/lib/x86_64-linux-gnu/crti.o;/usr/lib/gcc/x86_64-linux-gnu/13/crtbeginS.o;/opt/intel/oneapi/compiler/2025.3/lib/for_main.o;/usr/lib/gcc/x86_64-linux-gnu/13/crtendS.o;/usr/lib/x86_64-linux-gnu/crtn.o]
+        implicit dirs: [/opt/intel/oneapi/mpi/2021.17/lib;/opt/intel/oneapi/tcm/1.4/lib;/opt/intel/oneapi/umf/1.0/lib;/opt/intel/oneapi/tbb/2022.3/lib/intel64/gcc4.8;/opt/intel/oneapi/mkl/2025.3/lib;/opt/intel/oneapi/ishmem/1.5/lib;/opt/intel/oneapi/ippcp/2025.3/lib;/opt/intel/oneapi/ipp/2022.3/lib;/opt/intel/oneapi/dnnl/2025.3/lib;/opt/intel/oneapi/dal/2025.9/lib;/opt/intel/oneapi/compiler/2025.3/lib;/opt/intel/oneapi/ccl/2021.17/lib;/opt/intel/oneapi/compiler/2025.3/lib/clang/21/lib/x86_64-unknown-linux-gnu;/opt/intel/oneapi/tbb/2022.3/lib/intel64/lib;/usr/lib/gcc/x86_64-linux-gnu/13;/usr/lib/x86_64-linux-gnu;/usr/lib64;/usr/lib;/lib/x86_64-linux-gnu;/lib64;/lib]
+        implicit fwks: []
+      
+      
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1278 (try_compile)"
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1707 (_MPI_try_staged_settings)"
+      - "CMakeLists.txt:4 (find_package)"
+    description: "The MPI test mpiver for Fortran in mode F08_MODULE"
+    directories:
+      source: "/mnt/c/Users/Jasmin Deguire/Desktop/LePIC_3D/build/CMakeFiles/CMakeScratch/TryCompile-ZDf9bP"
+      binary: "/mnt/c/Users/Jasmin Deguire/Desktop/LePIC_3D/build/CMakeFiles/CMakeScratch/TryCompile-ZDf9bP"
+    cmakeVariables:
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_Fortran_FLAGS: ""
+      CMAKE_Fortran_FLAGS_DEBUG: "-g -diag-disable:10440"
+    buildResult:
+      variable: "MPI_RESULT_Fortran_mpiver_F08_MODULE"
+      cached: true
+      stdout: |
+        Change Dir: '/mnt/c/Users/Jasmin Deguire/Desktop/LePIC_3D/build/CMakeFiles/CMakeScratch/TryCompile-ZDf9bP'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_ba904/fast
+        /usr/bin/gmake  -f CMakeFiles/cmTC_ba904.dir/build.make CMakeFiles/cmTC_ba904.dir/build
+        gmake[1]: Entering directory '/mnt/c/Users/Jasmin Deguire/Desktop/LePIC_3D/build/CMakeFiles/CMakeScratch/TryCompile-ZDf9bP'
+        Building Fortran object CMakeFiles/cmTC_ba904.dir/mpiver.f90.o
+        /opt/intel/oneapi/mpi/latest/bin/mpiifx    -c "/mnt/c/Users/Jasmin Deguire/Desktop/LePIC_3D/build/CMakeFiles/CMakeScratch/TryCompile-ZDf9bP/mpiver.f90" -o CMakeFiles/cmTC_ba904.dir/mpiver.f90.o
+        Linking Fortran executable cmTC_ba904
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_ba904.dir/link.txt --verbose=1
+        /opt/intel/oneapi/mpi/latest/bin/mpiifx CMakeFiles/cmTC_ba904.dir/mpiver.f90.o -o cmTC_ba904 
+        gmake[1]: Leaving directory '/mnt/c/Users/Jasmin Deguire/Desktop/LePIC_3D/build/CMakeFiles/CMakeScratch/TryCompile-ZDf9bP'
+        
+      exitCode: 0
+...

@@ -213,11 +213,11 @@ module mod_readConditions
             if (end_file=='END' .or. end_file=='end') flag_read = 1
         end do
 
-        if (mpi_rank == 0) print*, 'Input file was read correctly ...'
+        if (mpi_rank == 0) write(*,"(a)"), 'Input file was read correctly ...'
         close(10)
         return
 
-        999 if (mpi_rank == 0) print*, 'Input file was not read correctly!'
+        999 if (mpi_rank == 0) write(*,"(a)"), 'Input file was not read correctly!'
         call stop_calculation
     end subroutine read_input_cfg
 

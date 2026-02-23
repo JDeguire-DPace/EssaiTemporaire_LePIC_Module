@@ -1,0 +1,24 @@
+# The fortran modules provided by this target.
+provides
+ mod_boundary.mod
+ mod_charge_weights.mod
+ mod_chemistrystate.mod
+ mod_config.mod
+ mod_constants.mod
+ mod_debug_checks.mod
+ mod_domain.mod
+ mod_fields.mod
+ mod_generateboundary.mod
+ mod_intro.mod
+ mod_magneticfield.mod
+ mod_part_info.mod
+ mod_particles.mod
+ mod_poisson_decomp.mod
+ mod_reactions.mod
+ mod_reactionsdb.mod
+ mod_readconditions.mod
+ mod_rho_stub.mod
+ mod_simparams.mod
+ mod_simulation.mod
+ mod_state.mod
+ mod_utils.mod

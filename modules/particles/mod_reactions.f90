@@ -372,7 +372,7 @@ contains
       call stop_calculation
     end if
 
-    if (mpi_rank==0) print*, 'Gas chemistry read correctly (end of file reached)'
+    if (mpi_rank==0) write(*,"(a)"), 'Gas chemistry read correctly (end of file reached)'
 
     chem%ncol  = icol
     chem%ntype = ntype
@@ -380,10 +380,13 @@ contains
 
     if (chem%ngas == 0.0_real64) chem%ncol = 0
 
+    if (mpi_rank == 0) write(*,*) " "
+    if (mpi_rank == 0) write(*,"(a)") "Initializing chemistry/reactions..."
+
     if (chem%ncol == 0) then
       if (mpi_rank==0) print*, 'Collision-less mode is set'
     else
-      if (mpi_rank==0) print*, 'Total number of reactions:', chem%ncol
+      if (mpi_rank==0) write(*,"(a,i2)"), 'Total number of reactions:', chem%ncol
     end if
 
     call ordering(chem, sig, sig_Er, sig_tmp, sig_npt, sig_list, col_info, sig_Eex, sigv_mx, ncol_mx, npt_mx, ntype, mpi_rank)

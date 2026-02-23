@@ -73,7 +73,6 @@ module mod_state
     ! Chemistry / reactions
     call self%init_chemistry()
     
-    write(*,*) "State initialization complete."
   end subroutine init
 
 
@@ -83,21 +82,17 @@ module mod_state
     real(real64), allocatable :: phi_rt(:,:,:)
     real(real64) :: lmax, gmax
 
-    if (self%mpi_rank == 0) write(*,*) "Building boundary..."
+    if (self%mpi_rank == 0) write(*,'(a)') "Building boundary..."
     call build_boundary(self%dom, self%cfg, self%fld, self%mpi_rank)
     call self%magField%build_from_cfg(self%cfg, self%dom, self%mpi_rank)
     call self%magField%write_macho_planes('../Output/Output_2D', 1, self%mpi_rank)
     ! ------------------------------------------------------------
     ! Poisson Z-slab decomposition (legacy structure)
     ! ------------------------------------------------------------
-    write(*,*) "Initializing Poisson decomposition..."
-    call self%pdec%init(int(self%dom%n(1),int32), int(self%dom%n(2),int32), int(self%dom%n(3),int32), self%comm)
-    
-    write(*,*) "Scattering phi and bcnd to local Poisson decomposition arrays..." 
+    call self%pdec%init(int(self%dom%n(1),int32), int(self%dom%n(2),int32), int(self%dom%n(3),int32), self%comm) 
     call self%pdec%scatter_from_global(self%fld%phi, self%dom%bcnd)
 
 
-    write(*,*) "Checking Poisson decomposition and local arrays..."
     call checkpoint_poisson_decomp(self%mpi_rank, self%comm, &
                                    int(self%dom%n(3),int32), self%pdec%k0, self%pdec%m, &
                                    self%pdec%phi_dom, self%pdec%bcnd_dom)
@@ -105,11 +100,8 @@ module mod_state
     ! ------------------------------------------------------------
     ! Charge weights kq (global, exact legacy logic)
     ! ------------------------------------------------------------
-    write(*,*) "Building kq charge weights for Poisson solver..."
     call build_kq(self%dom%bcnd, self%fld%kq)
-    write(*,*) "Checking kq charge weights for Poisson solver..."
     call checkpoint_kq(self%fld%kq, self%comm, self%mpi_rank, "after build_kq", self%pdec)
-    write(*,*) "Building kq charge weights for Poisson solver... DONE"
 
     ! ------------------------------------------------------------
     ! Tiny checkpoint: phi round-trip (scatter -> gather)
@@ -121,8 +113,7 @@ module mod_state
 
     lmax = maxval(abs(phi_rt - self%fld%phi))
     call MPI_Allreduce(lmax, gmax, 1, MPI_DOUBLE_PRECISION, MPI_MAX, self%comm, ierr)
-
-    if (self%mpi_rank == 0) write(*,'(a,1p,e12.3)') "PHI round-trip max|diff| = ", gmax
+    
     deallocate(phi_rt)
 
     ! ------------------------------------------------------------
@@ -135,8 +126,9 @@ module mod_state
       write(*,'(a,1p,e12.4)')         "Sg(m^2) = ", self%dom%Sg
       write(*,'(a,4(i0,1x))')         "flags(pbc,pbcz,nmn,die) = ", &
            self%dom%flag_pbc, self%dom%flag_pbcz, self%dom%flag_nmn, self%dom%flag_die
+      write(*,*) "  "
     end if
-    if (self%mpi_rank == 0) write(*,*) "Building derived simulation parameters (Step 7)..."
+    
     call self%params%build(self%cfg, self%dom, self%chem, self%rxn, self%magField, self%mpi_rank)
     call self%params%print_summary(self%mpi_rank, self%cfg%nsav)
   end subroutine build_boundary_only
@@ -144,8 +136,6 @@ module mod_state
 
   subroutine init_chemistry(self)
     class(State), intent(inout) :: self
-
-    if (self%mpi_rank == 0) write(*,*) "Initializing chemistry/reactions..."
 
     ! 1) init chemistry container (species properties)
     call self%chem%init(npart, self%rxn%ncol_mx, self%rxn%npt_mx)
@@ -161,6 +151,7 @@ module mod_state
       write(*,'(a,i0)') "rxn%n_neu = ", self%rxn%n_neu
       write(*,'(a,i0)') "chem%ncol = ", self%chem%ncol
       write(*,'(a,i0)') "chem%sig_npt_mx = ", self%chem%sig_npt_mx
+      write(*,*) "  "
     end if
   end subroutine init_chemistry
 

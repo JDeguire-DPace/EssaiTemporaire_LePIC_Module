@@ -27,6 +27,7 @@ add_library(pic_core_obj OBJECT
   ${MODULES_DIR}/config/mod_config.f90
   ${MODULES_DIR}/config/mod_readConditions.f90
 
+  ${MODULES_DIR}/core/mod_intro.f90
   ${MODULES_DIR}/core/mod_utils.f90
   ${MODULES_DIR}/core/mod_constants.f90
   ${MODULES_DIR}/core/mod_part_info.f90
