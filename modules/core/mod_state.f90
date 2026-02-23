@@ -19,6 +19,8 @@ module mod_state
 
   use mod_magneticField, only: MagneticField
 
+  use mod_simParams, only: SimParams
+
   implicit none
   private
   public :: State
@@ -32,6 +34,7 @@ module mod_state
     type(ChemistryState) :: chem
     type(ReactionsDB)    :: rxn
     type(MagneticField)  :: magField
+    type(SimParams)     :: params
 
     integer :: mpi_rank = -1
     integer :: mpi_size = -1
@@ -133,6 +136,9 @@ module mod_state
       write(*,'(a,4(i0,1x))')         "flags(pbc,pbcz,nmn,die) = ", &
            self%dom%flag_pbc, self%dom%flag_pbcz, self%dom%flag_nmn, self%dom%flag_die
     end if
+    if (self%mpi_rank == 0) write(*,*) "Building derived simulation parameters (Step 7)..."
+    call self%params%build(self%cfg, self%dom, self%chem, self%rxn, self%magField, self%mpi_rank)
+    call self%params%print_summary(self%mpi_rank, self%cfg%nsav)
   end subroutine build_boundary_only
 
 

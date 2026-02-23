@@ -35,12 +35,13 @@ module mod_magneticField
   public :: MagneticField
 
   type :: MagneticField
-     private
+     integer(int32) :: flag_thr = 0
      integer(int32) :: n_B(3) = 0
      real(real64)   :: h_B(3) = 0.0_real64
      real(real64), pointer :: Bi(:,:,:,:) => null()   ! (4,0:nxB+2,0:nyB+2,0:nzB+2)
      real(real64)   :: Bmax   = 0.0_real64
      integer(int32) :: xBm(3) = 0
+     
    contains
      procedure, public :: allocate_from_cfg
      procedure, public :: build_from_cfg
@@ -151,7 +152,7 @@ contains
           call EE_magnets(self%Bi, self%n_B, self%h_B, cfg%B0(iB), cfg%x0(iB), cfg%z0(iB), cfg%dL(iB))
 
         case ('t','T')
-          call Bfield_Hall_thruster(self%Bi, self%n_B, self%h_B, cfg%B0(iB), cfg%x0(iB), cfg%dL(iB))
+          call Bfield_Hall_thruster(self%Bi, self%n_B, self%h_B, cfg%B0(iB), cfg%x0(iB), cfg%dL(iB), self%flag_thr)
 
         case default
           ! do nothing
@@ -481,16 +482,18 @@ contains
 
 
   !> Hall thruster placeholder: localized Bz around x0 (width dL)
-  subroutine Bfield_Hall_thruster(Bi, n_B, h_B, B0, x0, a)
+  subroutine Bfield_Hall_thruster(Bi, n_B, h_B, B0, x0, a, flag_thruster)
     integer(int32), intent(in)  :: n_B(3)
     real(real64),   intent(inout) :: Bi(4,0:n_B(1)+2,0:n_B(2)+2,0:n_B(3)+2)
     real(real64),   intent(in)  :: h_B(3)
     real(real64),   intent(in)  :: B0, x0, a
+    integer,        intent(inout)  :: flag_thruster
     real(real64) :: alpha, y0,d, B1, B2
 
     integer :: ix, iy, iz
     real(real64) :: x,y
-
+    
+    flag_thruster = 1
     d = 1.5e-2_real64
     y0 = 2.0e-2_real64
     alpha = 0.75_real64 ! B2/B1

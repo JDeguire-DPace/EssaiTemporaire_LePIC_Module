@@ -49,8 +49,7 @@ add_library(pic_core_obj OBJECT
   ${MODULES_DIR}/particles/mod_particles.f90
   ${MODULES_DIR}/particles/mod_reactions.f90
   ${MODULES_DIR}/particles/mod_reactionsDB.f90
-
-
+  ${MODULES_DIR}/simulation/mod_simParams.f90
 
   ${MODULES_DIR}/simulation/mod_simulation.f90
 )
