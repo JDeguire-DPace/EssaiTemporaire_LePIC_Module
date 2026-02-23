@@ -140,7 +140,6 @@ contains
           case default;   write(*,*) 'Unknown analytic B key: ', base(1:1)
           end select
         end if
-
         select case (base(1:1))
         case ('g','G')
           call gaussian_Bfield(self%Bi, self%n_B, self%h_B, cfg%B0(iB), cfg%x0(iB), cfg%dL(iB), B_dir)
@@ -340,7 +339,6 @@ contains
   subroutine find_B_dir(B_info, B_dir)
     character(len=*), intent(in)  :: B_info   ! expects "By", "Bz", etc.
     integer,          intent(out) :: B_dir
-
     if (index(B_info,'y')>0 .or. index(B_info,'Y')>0) then
       B_dir = 2
     else if (index(B_info,'z')>0 .or. index(B_info,'Z')>0) then
@@ -408,21 +406,21 @@ contains
 
 
   !> Gaussian field along component determined by B_info ("By"/"Bz"/default Bx).
-  subroutine gaussian_Bfield(Bi, n_B, h_B, B0, x0, dL, B_dir)
-    integer(int32), intent(in)  :: n_B(3)
+  subroutine gaussian_Bfield(Bi, n_B, h_B, B0, x0, sigma, B_dir)
+    integer(int32), intent(in)  :: n_B(3), B_dir
     real(real64),   intent(inout) :: Bi(4,0:n_B(1)+2,0:n_B(2)+2,0:n_B(3)+2)
     real(real64),   intent(in)  :: h_B(3)
-    real(real64),   intent(in)  :: B0, x0, dL
-    integer :: ix, iy, iz, B_dir
+    real(real64),   intent(in)  :: B0, x0, sigma
+    integer :: ix, iy, iz
     real(real64) :: x
-    write(*,*)"Bonjour, je suis Jasmin D  ", x0, dL, h_B(1)
-    if (dL <= 0.0_real64) return
+
+    if (sigma < 0.0_real64) return
 
     do iz = 0, n_B(3)+2
       do iy = 0, n_B(2)+2
         do ix = 0, n_B(1)+2
           x = real(ix-1, real64) * h_B(1)
-          Bi(B_dir, ix, iy, iz) = Bi(B_dir, ix, iy, iz) + B0 * exp(- (x - x0)**2 / (2.0_real64*(dL)**2))
+          Bi(B_dir, ix, iy, iz) = Bi(B_dir, ix, iy, iz) + B0 * exp(- (x - x0)**2 / (2.0_real64*(sigma)**2))
         end do
       end do
     end do
@@ -483,25 +481,85 @@ contains
 
 
   !> Hall thruster placeholder: localized Bz around x0 (width dL)
-  subroutine Bfield_Hall_thruster(Bi, n_B, h_B, B0, x0, dL)
+  subroutine Bfield_Hall_thruster(Bi, n_B, h_B, B0, x0, a)
     integer(int32), intent(in)  :: n_B(3)
     real(real64),   intent(inout) :: Bi(4,0:n_B(1)+2,0:n_B(2)+2,0:n_B(3)+2)
     real(real64),   intent(in)  :: h_B(3)
-    real(real64),   intent(in)  :: B0, x0, dL
+    real(real64),   intent(in)  :: B0, x0, a
+    real(real64) :: alpha, y0,d, B1, B2
 
     integer :: ix, iy, iz
-    real(real64) :: x
+    real(real64) :: x,y
 
-    if (dL <= 0.0_real64) return
+    d = 1.5e-2_real64
+    y0 = 2.0e-2_real64
+    alpha = 0.75_real64 ! B2/B1
+    B1= abs(B0)/(1.0_real64-alpha*a**2/(4.0_real64*d**2+a**2)) 
+    B2=alpha*B1
+
+
+
+
+    if (B0 < 0.0_real64) y0 = 0.0_real64
 
     do iz = 0, n_B(3)+2
       do iy = 0, n_B(2)+2
         do ix = 0, n_B(1)+2
-          x = real(ix-1, real64) * h_B(1)
-          Bi(3,ix,iy,iz) = Bi(3,ix,iy,iz) + B0 * exp(-((x-x0)/dL)**2)
-        end do
-      end do
-    end do
+          x= (ix-1)*h_B(1)
+          y= (iy-1)*h_B(2)
+          ! Bx
+          
+          Bi(1,ix,iy,iz)= Bi(1,ix,iy,iz) + & 
+                B1*Bx_magnet(x-x0,y-y0,a) - B2*Bx_magnet(x-x0+2.0_real64*d,y-y0,a)
+          ! By
+          Bi(2,ix,iy,iz)= Bi(2,ix,iy,iz) + & 
+                B1*By_magnet(x-x0,y-y0,a) - B2*By_magnet(x-x0+2.0_real64*d,y-y0,a)
+        enddo
+      enddo
+    enddo
+
+    if(B0.lt.0) then
+      Bi(1,:,:,:)=0.d0 ! Bx=0
+      do ix=0,n_B(1)+2
+          Bi(2,ix,:,:)= Bi(2,ix,1,1) ! By uniform along (0y) 
+      enddo
+    endif
+
+
   end subroutine Bfield_Hall_thruster
+
+      function Bx_magnet(x,y,a)
+       !     ==============================================================
+       !     VERSION:         0.1
+       !     LAST MOD:      July/18
+       !     MOD AUTHOR:    G. Fubiani
+       !     COMMENTS: x component of the analytically expression for the Bfield 
+       !               profile of a Hall thruster
+       !     --------------------------------------------------------------
+        implicit none
+        real(kind=8):: x,y,a,Bx_magnet
+
+        Bx_magnet= 0.5d0*( a*x/(x**2+(y+a)**2) - a*x/(x**2+(y-a)**2) )
+
+        return
+      end function Bx_magnet
+
+      function By_magnet(x,y,a)
+       !     ==============================================================
+       !     VERSION:         0.1
+       !     LAST MOD:      July/18
+       !     MOD AUTHOR:    G. Fubiani
+       !     COMMENTS: y component of the analytically expression for the Bfield 
+       !               profile of a Hall thruster
+       !     --------------------------------------------------------------
+        implicit none
+        real(kind=8):: x,y,a,By_magnet
+
+        By_magnet= 0.5d0*( a*(y+a)/(x**2+(y+a)**2) - a*(y-a)/(x**2+(y-a)**2) )
+
+        return
+      end function By_magnet
+
+
 
 end module mod_magneticField
