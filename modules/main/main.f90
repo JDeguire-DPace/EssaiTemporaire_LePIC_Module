@@ -1,19 +1,18 @@
 program main
   use mpi
-  use mod_state, only: State
-  use mod_intro, only: print_introduction
+  use mod_intro,      only: print_introduction
+  use mod_simulation, only: Simulation
   implicit none
 
-  type(State) :: S
+  type(Simulation) :: sim
   integer :: ierr
 
-  call print_introduction
+  call print_introduction()
   call MPI_Init(ierr)
 
-  call S%init(MPI_COMM_WORLD)
-  call S%build_boundary_only()
-
-  call S%finalize()
+  call sim%init(MPI_COMM_WORLD)
+  call sim%run(1)
+  call sim%finalize()
 
   call MPI_Finalize(ierr)
 end program main

@@ -1,7 +1,0 @@
-/mnt/c/Users/Jasmin Deguire/Desktop/LePIC_3D/build/CMakeFiles/pic_core_obj.dir
-/mnt/c/Users/Jasmin Deguire/Desktop/LePIC_3D/build/CMakeFiles/poisson_stub_driver_obj.dir
-/mnt/c/Users/Jasmin Deguire/Desktop/LePIC_3D/build/CMakeFiles/legacy_mg.dir
-/mnt/c/Users/Jasmin Deguire/Desktop/LePIC_3D/build/CMakeFiles/run_min.dir
-/mnt/c/Users/Jasmin Deguire/Desktop/LePIC_3D/build/CMakeFiles/run_poisson_quadPotential.dir
-/mnt/c/Users/Jasmin Deguire/Desktop/LePIC_3D/build/CMakeFiles/edit_cache.dir
-/mnt/c/Users/Jasmin Deguire/Desktop/LePIC_3D/build/CMakeFiles/rebuild_cache.dir

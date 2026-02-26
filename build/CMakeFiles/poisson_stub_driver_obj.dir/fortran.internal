@@ -1,3 +1,0 @@
-# The fortran modules provided by this target.
-provides
- mod_poisson_stub_driver.mod

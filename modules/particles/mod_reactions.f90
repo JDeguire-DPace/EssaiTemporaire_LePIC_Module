@@ -385,8 +385,6 @@ contains
 
     if (chem%ncol == 0) then
       if (mpi_rank==0) print*, 'Collision-less mode is set'
-    else
-      if (mpi_rank==0) write(*,"(a,i2)"), 'Total number of reactions:', chem%ncol
     end if
 
     call ordering(chem, sig, sig_Er, sig_tmp, sig_npt, sig_list, col_info, sig_Eex, sigv_mx, ncol_mx, npt_mx, ntype, mpi_rank)

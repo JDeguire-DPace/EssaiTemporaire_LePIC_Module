@@ -1,2 +1,0 @@
-/usr/bin/ar qc liblegacy_mg.a CMakeFiles/legacy_mg.dir/modules/legacy/pdesolver.f90.o CMakeFiles/legacy_mg.dir/modules/legacy/mg.f90.o CMakeFiles/legacy_mg.dir/modules/legacy/sors.f90.o
-/usr/bin/ranlib liblegacy_mg.a

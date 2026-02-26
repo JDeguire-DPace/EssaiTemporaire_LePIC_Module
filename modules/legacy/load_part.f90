@@ -10,9 +10,9 @@ subroutine load_part(n,h,bcnd,np,vxp,ntype,nmax,kq,&
   use omp_lib
   use mpi
   use mod_legacy_particle_globals
+  use mod_constants
   implicit none
   include 'particle_info.h'
-  include 'constants.h'
   integer ierr,mpi_rank,nproc_mpi
   integer:: ntype,ptype,nmax,n(3),iproc,nproc,Nh(nproc)
   real(kind=8):: h(3)
@@ -70,10 +70,11 @@ subroutine load_part_OMP(n,h,bcnd,np,vxp,ntype,nmax,kq, &
 !     NOTE:          
 !     --------------------------------------------------------------
   use mpi
+  use mod_constants
   use mod_legacy_particle_globals
+  
   implicit none
   include 'particle_info.h'
-  include 'constants.h'
   integer:: ix,iy,iz,j,jmax,k,nproc_mpi
   integer:: ntype,ptype,nmax,n(3),iproc,nproc,Nh(nproc)
   ! Particle arrays
@@ -243,9 +244,9 @@ subroutine load_gauss(vx,vy,vt,rnd)
 !     NOTE:          
 !     --------------------------------------------------------------
   use mod_legacy_particle_globals
+  use mod_constants
   implicit none
   real(kind=8):: theta,vp,vx,vy,vt,rnd(2)
-  include 'constants.h'
 
   ! Gaussian loading
   vp = vt*dsqrt( -dlog(1-rnd(1)) )

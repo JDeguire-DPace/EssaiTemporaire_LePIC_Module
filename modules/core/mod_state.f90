@@ -16,6 +16,8 @@ module mod_state
   use mod_chemistryState, only: ChemistryState
   use mod_reactionsDB,    only: ReactionsDB
   use mod_part_info,      only: npart
+  use mod_particles,            only: ParticleSet
+  use mod_load_particles_legacy, only: load_particles_legacy
 
   use mod_magneticField, only: MagneticField
 
@@ -34,19 +36,23 @@ module mod_state
     type(ChemistryState) :: chem
     type(ReactionsDB)    :: rxn
     type(MagneticField)  :: magField
-    type(SimParams)     :: params
+    type(SimParams)      :: params
+    type(ParticleSet), allocatable :: part(:,:)   ! per (ntype,nproc)
 
     integer :: mpi_rank = -1
     integer :: mpi_size = -1
     integer :: comm     = MPI_COMM_NULL
+    integer(int32) :: ntype = 0
+    integer(int32) :: nproc = 1
   contains
     procedure :: init
     procedure :: build_boundary_only
     procedure :: init_chemistry
+    procedure :: init_particles
     procedure :: finalize
   end type State
 
- contains
+contains
 
   subroutine init(self, comm_in)
     class(State), intent(inout) :: self
@@ -62,17 +68,15 @@ module mod_state
 
     ! Domain setup
     call self%dom%init_from_config(self%cfg)
-    call self%dom%allocate_masks_domain()   ! your current domain allocation
-    
+    call self%dom%allocate_masks_domain()
 
     ! Fields setup
     call self%fld%allocate_from_domain(self%dom)
     call self%fld%zero()
-    
 
     ! Chemistry / reactions
     call self%init_chemistry()
-    
+
   end subroutine init
 
 
@@ -82,16 +86,15 @@ module mod_state
     real(real64), allocatable :: phi_rt(:,:,:)
     real(real64) :: lmax, gmax
 
-    if (self%mpi_rank == 0) write(*,'(a)') "Building boundary..."
     call build_boundary(self%dom, self%cfg, self%fld, self%mpi_rank)
     call self%magField%build_from_cfg(self%cfg, self%dom, self%mpi_rank)
     call self%magField%write_macho_planes('../Output/Output_2D', 1, self%mpi_rank)
+
     ! ------------------------------------------------------------
     ! Poisson Z-slab decomposition (legacy structure)
     ! ------------------------------------------------------------
-    call self%pdec%init(int(self%dom%n(1),int32), int(self%dom%n(2),int32), int(self%dom%n(3),int32), self%comm) 
+    call self%pdec%init(int(self%dom%n(1),int32), int(self%dom%n(2),int32), int(self%dom%n(3),int32), self%comm)
     call self%pdec%scatter_from_global(self%fld%phi, self%dom%bcnd)
-
 
     call checkpoint_poisson_decomp(self%mpi_rank, self%comm, &
                                    int(self%dom%n(3),int32), self%pdec%k0, self%pdec%m, &
@@ -113,13 +116,15 @@ module mod_state
 
     lmax = maxval(abs(phi_rt - self%fld%phi))
     call MPI_Allreduce(lmax, gmax, 1, MPI_DOUBLE_PRECISION, MPI_MAX, self%comm, ierr)
-    
+
     deallocate(phi_rt)
 
     ! ------------------------------------------------------------
     ! Print domain summary (rank 0)
     ! ------------------------------------------------------------
     if (self%mpi_rank == 0) then
+      write(*,'(a)') "  "
+      write(*,'(a)') "Building boundary..."
       write(*,'(a,3(i0,1x))')         "n = ", self%dom%n(1), self%dom%n(2), self%dom%n(3)
       write(*,'(a,3(1p,e12.4,1x))')   "h(m) = ", self%dom%h(1), self%dom%h(2), self%dom%h(3)
       write(*,'(a,3(1p,e12.4,1x))')   "box(m) = ", self%dom%xmax, self%dom%ymax, self%dom%zmax
@@ -128,9 +133,11 @@ module mod_state
            self%dom%flag_pbc, self%dom%flag_pbcz, self%dom%flag_nmn, self%dom%flag_die
       write(*,*) "  "
     end if
-    
+
     call self%params%build(self%cfg, self%dom, self%chem, self%rxn, self%magField, self%mpi_rank)
     call self%params%print_summary(self%mpi_rank, self%cfg%nsav)
+
+    call self%init_particles()
   end subroutine build_boundary_only
 
 
@@ -147,13 +154,50 @@ module mod_state
     call self%rxn%load(self%chem, trim(self%cfg%rname), self%mpi_rank)
 
     if (self%mpi_rank == 0) then
-      write(*,'(a,i0)') "rxn%ntype = ", self%rxn%ntype
-      write(*,'(a,i0)') "rxn%n_neu = ", self%rxn%n_neu
-      write(*,'(a,i0)') "chem%ncol = ", self%chem%ncol
-      write(*,'(a,i0)') "chem%sig_npt_mx = ", self%chem%sig_npt_mx
+      write(*,'(i0, a,i0,a,i0,a)')  self%rxn%ntype, " species:  (", self%rxn%ntype-self%rxn%n_neu, " charged and ", self%rxn%n_neu, " neutral)"
+      write(*,'(*(a,1x))') self%chem%pname
+      write(*,'(a,i0)') "Total number of reactions: ", self%chem%ncol
       write(*,*) "  "
     end if
   end subroutine init_chemistry
+
+
+  subroutine init_particles(self)
+    class(State), intent(inout) :: self
+    integer(int32) :: it, ip
+
+    ! species count from reactions DB
+    self%ntype = int(self%rxn%ntype, int32)
+
+    ! OpenMP thread count from config
+    self%nproc = max(1_int32, int(self%cfg%omp_rank_max, int32))
+
+    ! allocate ONCE
+    if (allocated(self%part)) deallocate(self%part)
+    allocate(self%part(self%ntype, self%nproc))
+
+    ! call legacy loader bridge
+    call load_particles_legacy( &
+      cfg      = self%cfg, &
+      mpi_rank = self%mpi_rank, &
+      mpi_size = self%mpi_size, &
+      n        = int(self%dom%n, int32), &
+      h        = self%dom%h, &
+      bcnd     = self%dom%bcnd, &
+      kq       = self%fld%kq, &
+      ntype    = self%ntype, &
+      part     = self%part )
+
+    ! quick print
+    if (self%mpi_rank == 0) then
+      do it = 1, self%ntype
+        write(*,'(a,i0,a)') "Species ", it, " particle counts per thread:"
+        do ip = 1, self%nproc
+          write(*,'(a,i0,a,i0)') "  thread ", ip, " np = ", self%part(it,ip)%n
+        end do
+      end do
+    end if
+  end subroutine init_particles
 
 
   subroutine finalize(self)
@@ -162,7 +206,7 @@ module mod_state
     call self%fld%destroy()
     call self%rxn%destroy()
     call self%magField%destroy()
-    ! later: destroy domain arrays / close IO if needed
+    if (allocated(self%part)) deallocate(self%part)
   end subroutine finalize
 
 end module mod_state
