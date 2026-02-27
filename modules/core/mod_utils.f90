@@ -1,7 +1,8 @@
 module mod_utils
+    use iso_fortran_env, only: real64, int32
     implicit none
     private
-    public :: stop_calculation, indexx
+    public :: stop_calculation, indexx, ran2
 contains
     subroutine stop_calculation
         use mpi
@@ -14,6 +15,22 @@ contains
 
         return
     end subroutine stop_calculation
+
+    function ran2(irand)
+        implicit none
+        integer(int32),parameter :: ia=16807,im=2147483647,iq=127773,ir=2836
+        real(real64),parameter :: am=1.0_real64/im
+        real(real64):: ran2
+        integer :: k,irand
+
+        k=irand/iq
+        irand=ia*(irand-k*iq)-ir*k
+        if (irand.lt.0) irand=irand+im
+        ran2=am*irand
+        
+        return
+
+    end function ran2
 
 
 

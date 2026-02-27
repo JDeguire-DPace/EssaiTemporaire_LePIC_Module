@@ -165,38 +165,38 @@ contains
   subroutine init_particles(self)
     class(State), intent(inout) :: self
     integer(int32) :: it, ip
+    integer(int32) :: ntype_all, ntype_trk
 
-    ! species count from reactions DB
-    self%ntype = int(self%rxn%ntype, int32)
+    ! total species in chemistry/reactions (includes neutrals)
+    ntype_all = int(self%rxn%ntype, int32)
+
+    ! tracked species = charged only
+    ntype_trk = int(self%rxn%ntype - self%rxn%n_neu, int32)
+    if (ntype_trk < 1_int32) ntype_trk = 1_int32
+
+    ! store tracked count in State (self%ntype means "tracked" from now on)
+    self%ntype = ntype_trk
 
     ! OpenMP thread count from config
     self%nproc = max(1_int32, int(self%cfg%omp_rank_max, int32))
 
-    ! allocate ONCE
+    ! allocate ONCE (tracked only)
     if (allocated(self%part)) deallocate(self%part)
     allocate(self%part(self%ntype, self%nproc))
 
-    ! call legacy loader bridge
+    ! call legacy loader bridge: loads ONLY charged into ParticleSet
     call load_particles_legacy( &
-      cfg      = self%cfg, &
-      mpi_rank = self%mpi_rank, &
-      mpi_size = self%mpi_size, &
-      n        = int(self%dom%n, int32), &
-      h        = self%dom%h, &
-      bcnd     = self%dom%bcnd, &
-      kq       = self%fld%kq, &
-      ntype    = self%ntype, &
-      part     = self%part )
+      cfg       = self%cfg, &
+      mpi_rank  = self%mpi_rank, &
+      mpi_size  = self%mpi_size, &
+      n         = int(self%dom%n, int32), &
+      h         = self%dom%h, &
+      bcnd      = self%dom%bcnd, &
+      kq        = self%fld%kq, &
+      ntype_all = ntype_all, &
+      ntype_trk = ntype_trk, &
+      part      = self%part )
 
-    ! quick print
-    if (self%mpi_rank == 0) then
-      do it = 1, self%ntype
-        write(*,'(a,i0,a)') "Species ", it, " particle counts per thread:"
-        do ip = 1, self%nproc
-          write(*,'(a,i0,a,i0)') "  thread ", ip, " np = ", self%part(it,ip)%n
-        end do
-      end do
-    end if
   end subroutine init_particles
 
 

@@ -11,6 +11,7 @@ subroutine load_part(n,h,bcnd,np,vxp,ntype,nmax,kq,&
   use mpi
   use mod_legacy_particle_globals
   use mod_constants
+  use mod_utils, only: ran2, stop_calculation
   implicit none
   include 'particle_info.h'
   integer ierr,mpi_rank,nproc_mpi
@@ -24,8 +25,6 @@ subroutine load_part(n,h,bcnd,np,vxp,ntype,nmax,kq,&
        sum_dEk(nproc),kq(0:n(1)+2,0:n(2)+2,0:n(3)+2)
   ! Macroscopic parameters 
   integer:: iseed(nproc),iseed_OMP
-  
-  if(mpi_rank.eq.0) print*, 'Loading particles ...' 
   
   !
   ! Loop over OpenMP processes
@@ -44,16 +43,6 @@ subroutine load_part(n,h,bcnd,np,vxp,ntype,nmax,kq,&
   sum_np_tot_OMP= SUM(np_tot,DIM=2)
   call MPI_ALLREDUCE(sum_np_tot_OMP, sum_np_tot, ntype, MPI_INTEGER, MPI_SUM, &
        MPI_COMM_WORLD, ierr)
-     
-  !
-  ! Write info on screen
-  !
-  if(mpi_rank.eq.0) then
-     write(*,100) pname(1:ntype)
-100  format(' Particles: ',10(a5,1x))
-     write(*,101) sum_np_tot ! Sum over the second index (nproc)
-101  format(' np=',10(1x,i9))
-  endif
   
   return
 end subroutine load_part
@@ -70,6 +59,7 @@ subroutine load_part_OMP(n,h,bcnd,np,vxp,ntype,nmax,kq, &
 !     NOTE:          
 !     --------------------------------------------------------------
   use mpi
+  use mod_utils, only: ran2, stop_calculation
   use mod_constants
   use mod_legacy_particle_globals
   
@@ -80,7 +70,7 @@ subroutine load_part_OMP(n,h,bcnd,np,vxp,ntype,nmax,kq, &
   ! Particle arrays
   integer:: bcnd(0:n(1)+2,0:n(2)+2,0:n(3)+2),np_tot(ntype,nproc)
   real(kind=8):: h(3),vxp(6,nmax,ntype,nproc),x,y,z,vx,vy,vt,dEk,rnd(2),&
-       ran2,ki(8),kp,px,py,pz,ni0(npart),sum_dEk(nproc)
+     ki(8),kp,px,py,pz,ni0(npart),sum_dEk(nproc)
   real(kind=8):: np(0:n(1)+2,0:n(2)+2,0:n(3)+2,ntype,nproc), &
        kq(0:n(1)+2,0:n(2)+2,0:n(3)+2),vz_sav(ntype)
   ! Macroscopic parameters 
@@ -245,6 +235,7 @@ subroutine load_gauss(vx,vy,vt,rnd)
 !     --------------------------------------------------------------
   use mod_legacy_particle_globals
   use mod_constants
+  use mod_utils, only: ran2
   implicit none
   real(kind=8):: theta,vp,vx,vy,vt,rnd(2)
 
