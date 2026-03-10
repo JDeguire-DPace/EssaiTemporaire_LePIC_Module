@@ -774,7 +774,7 @@ program main
   ! Start iteration 
   !
   do it=1,ntmax
-     !if (it.eq.2) call stop_calculation
+     if (it.eq.2) call stop_calculation
 
      time= time + dt
      if(time.ge.tmax) exit ! Stop calculation
@@ -851,8 +851,16 @@ program main
      ! Calculate rho
      !
      call calc_rho(n,np,rhs_dom,bcnd,ntype,nproc,nproc_mpi,mpi_rank)
-     !rhs_dom = 1.0d-6
      ctime(1)= ctime(1) + MSTIMER()
+
+
+     if (mpi_rank == 0) then
+         print*, ' '
+         print*, 'DEBUG LEGACY rho:'
+         write(*,'(a,es16.8)') 'rho sum = ', sum(rhs_dom)
+         write(*,'(a,es16.8)') 'rho max = ', maxval(rhs_dom)
+         write(*,'(a,es16.8)') 'rho min = ', minval(rhs_dom)
+      end if
 
      !
      ! Dielectric boundary conditions
@@ -1169,6 +1177,15 @@ program main
         if(flag_avg3D.eq.1) then
            call dens_red(n,np,np_red,bcnd,ntype,nproc,nproc_mpi)
            
+            if (mpi_rank == 0) then
+               print*, ' '
+               print*, 'DEBUG LEGACY reduced species density:'
+               write(*,'(a,i0,a,es16.8)') 'ptype ', 1, ' sum = ', sum(np_red(:,:,:,1))
+               write(*,'(a,i0,a,es16.8)') 'ptype ', 1, ' max = ', maxval(np_red(:,:,:,1))
+               write(*,'(a,i0,a,es16.8)') 'ptype ', 2, ' sum = ', sum(np_red(:,:,:,2))
+               write(*,'(a,i0,a,es16.8)') 'ptype ', 2, ' max = ', maxval(np_red(:,:,:,2))
+            end if
+
            !$OMP PARALLEL
            !$OMP DO
            do iz=1,n(3)+1

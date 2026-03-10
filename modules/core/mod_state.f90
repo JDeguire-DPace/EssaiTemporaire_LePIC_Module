@@ -12,14 +12,16 @@ module mod_state
   use mod_poisson_decomp, only: PoissonDecomp
   use mod_charge_weights, only: build_kq
   use mod_debug_checks,   only: checkpoint_poisson_decomp, checkpoint_kq
+  use mod_density,        only: reduce_species_density, build_rho_from_np
 
   use mod_chemistryState, only: ChemistryState
   use mod_reactionsDB,    only: ReactionsDB
   use mod_part_info,      only: npart
   use mod_particles,      only: ParticleSet
   use mod_particle_loader, only: load_particles_modular
-  use mod_magneticField, only: MagneticField
-  use mod_simParams,     only: SimParams
+  use mod_magneticField,  only: MagneticField
+  use mod_simParams,      only: SimParams
+  use mod_output_2d, only: write_density_planes
 
   implicit none
   private
@@ -170,8 +172,10 @@ contains
 
   subroutine init_particles(self)
     class(State), intent(inout) :: self
-    integer(int32) :: ntype_trk
-
+    character(len=128) :: prefix
+    character(len=10)  :: s
+    integer(int32) :: ntype_trk,i
+    real(real64), allocatable :: np_thread(:,:,:,:,:)
 
     ! tracked species = charged only
     ntype_trk = int(self%rxn%ntype - self%rxn%n_neu, int32)
@@ -187,7 +191,14 @@ contains
     if (allocated(self%part)) deallocate(self%part)
     allocate(self%part(self%ntype, self%nproc))
 
-    ! call loader with seeds from SimParams
+    ! allocate species density field storage
+    call self%fld%allocate_species_density(self%dom, self%ntype)
+
+    ! thread-local deposited density
+    allocate(np_thread(0:self%dom%n(1)+2, 0:self%dom%n(2)+2, 0:self%dom%n(3)+2, self%ntype, self%nproc))
+    np_thread = 0.0_real64
+
+    ! load particles and build thread-local species density
     call load_particles_modular( &
           cfg       = self%cfg, &
           mpi_rank  = self%mpi_rank, &
@@ -200,7 +211,47 @@ contains
           Nm        = self%params%Nm, &
           iseed     = self%params%iseed, &
           ntype_trk = ntype_trk, &
-          part      = self%part )
+          part      = self%part, &
+          np_thread = np_thread )
+
+    ! reduce species density over OpenMP threads (+ MPI if needed)
+    call reduce_species_density( &
+         n         = int(self%dom%n, int32), &
+         bcnd      = self%dom%bcnd, &
+         np_thread = np_thread, &
+         ntype     = int(self%ntype), &
+         nproc     = int(self%nproc), &
+         mpi_comm  = self%comm, &
+         np_red    = self%fld%np )
+
+    if (self%mpi_rank == 0) then
+
+      do i = 1, self%ntype
+
+        write(s,'(i0)') i
+        prefix = '../Output/Output_2D/n'//trim(s)
+
+        call write_density_planes( &
+          np       = self%fld%np, &
+          n        = int(self%dom%n, int32), &
+          ptype    = i, &
+          ix_plane = self%params%ix_plot_plane, &
+          iy_plane = int(self%dom%n(2)/2 + 1, int32), &
+          iz_plane = self%params%iz_plot_plane, &
+          every    = 1_int32, &
+          prefix   = prefix )
+      end do
+
+    end if
+
+    ! build charge density rho from species density
+    call build_rho_from_np( &
+         n      = int(self%dom%n, int32), &
+         np_red = self%fld%np, &
+         charge = self%chem%charge(1:self%ntype), &
+         ntype  = int(self%ntype), &
+         rho    = self%fld%rho )
+    deallocate(np_thread)
 
   end subroutine init_particles
 

@@ -11,7 +11,7 @@ module mod_particle_loader
 
 contains
 
-  subroutine load_particles_modular(cfg, mpi_rank, mpi_size, n, h, bcnd, kq, vt0, Nm, iseed, ntype_trk, part)
+  subroutine load_particles_modular(cfg, mpi_rank, mpi_size, n, h, bcnd, kq, vt0, Nm, iseed, ntype_trk, part, np_thread)
     type(Config),   intent(in)    :: cfg
     integer,        intent(in)    :: mpi_rank, mpi_size
     integer(int32), intent(in)    :: n(3)
@@ -23,6 +23,7 @@ contains
     integer(int32), intent(inout) :: iseed(:)
     integer(int32), intent(in)    :: ntype_trk
     type(ParticleSet), intent(inout) :: part(:,:)
+    real(real64), intent(out) :: np_thread(0:n(1)+2,0:n(2)+2,0:n(3)+2,ntype_trk,size(part,2))
 
     integer(int32) :: nproc
     integer(int32) :: np_cell, n_cell, ix_load
@@ -35,7 +36,7 @@ contains
     logical        :: has_vz_sav(ntype_trk)
     real(real64)   :: px, py, pz, kp, ki(8)
     integer, allocatable      :: np_tot(:,:), Nh(:)
-    real(real64), allocatable :: vxp(:,:,:,:), np_arr(:,:,:,:,:), sum_dEk(:)
+    real(real64), allocatable :: vxp(:,:,:,:), sum_dEk(:)
     integer(int32) :: iseed_omp
 
     nproc = int(max(1, omp_get_max_threads()), int32)
@@ -43,6 +44,7 @@ contains
     if (size(part,1) /= ntype_trk) error stop "load_particles_modular: wrong part dim 1"
     if (size(part,2) < nproc)      error stop "load_particles_modular: wrong part dim 2"
     if (size(iseed)  < nproc)      error stop "load_particles_modular: wrong iseed size"
+    if (size(np_thread,5) < nproc) error stop "load_particles_modular: wrong np_thread dim 5"
 
     np_cell = int(cfg%np_cell, int32)
 
@@ -65,16 +67,15 @@ contains
     nmax   = int(1.3_real64 * real(max(1,jmax),real64), int32) + 32_int32
 
     allocate(vxp(6, nmax, ntype_trk, nproc))
-    allocate(np_arr(0:n(1)+2,0:n(2)+2,0:n(3)+2,ntype_trk,nproc))
     allocate(np_tot(ntype_trk, nproc))
     allocate(Nh(nproc))
     allocate(sum_dEk(nproc))
 
-    vxp     = 0.0_real64
-    np_arr  = 0.0_real64
-    np_tot  = 0
-    Nh      = 0
-    sum_dEk = 0.0_real64
+    vxp       = 0.0_real64
+    np_thread = 0.0_real64
+    np_tot    = 0
+    Nh        = 0
+    sum_dEk   = 0.0_real64
 
     if (mpi_rank == 0) then
       write(*,*) " "
@@ -86,7 +87,7 @@ contains
     iseed_omp = iseed(iproc)
 
     np_tot(:,iproc) = 0
-    np_arr(:,:,:,:,iproc) = 0.0_real64
+    np_thread(:,:,:,:,iproc) = 0.0_real64
     sum_dEk(iproc) = 0.0_real64
     Nh(iproc) = 0
     vz_sav = 0.0_real64
@@ -164,14 +165,14 @@ contains
         ki(7)= kp*(1.d0-px)*(1.d0-py)*(1.d0-pz)
         ki(8)= kp*px*(1.d0-py)*(1.d0-pz)
 
-        np_arr(ix,iy,iz,ptype,iproc)       = np_arr(ix,iy,iz,ptype,iproc)       + kq(ix,iy,iz)*ki(1)
-        np_arr(ix+1,iy,iz,ptype,iproc)     = np_arr(ix+1,iy,iz,ptype,iproc)     + kq(ix+1,iy,iz)*ki(2)
-        np_arr(ix+1,iy+1,iz,ptype,iproc)   = np_arr(ix+1,iy+1,iz,ptype,iproc)   + kq(ix+1,iy+1,iz)*ki(3)
-        np_arr(ix,iy+1,iz,ptype,iproc)     = np_arr(ix,iy+1,iz,ptype,iproc)     + kq(ix,iy+1,iz)*ki(4)
-        np_arr(ix,iy,iz+1,ptype,iproc)     = np_arr(ix,iy,iz+1,ptype,iproc)     + kq(ix,iy,iz+1)*ki(5)
-        np_arr(ix+1,iy,iz+1,ptype,iproc)   = np_arr(ix+1,iy,iz+1,ptype,iproc)   + kq(ix+1,iy,iz+1)*ki(6)
-        np_arr(ix+1,iy+1,iz+1,ptype,iproc) = np_arr(ix+1,iy+1,iz+1,ptype,iproc) + kq(ix+1,iy+1,iz+1)*ki(7)
-        np_arr(ix,iy+1,iz+1,ptype,iproc)   = np_arr(ix,iy+1,iz+1,ptype,iproc)   + kq(ix,iy+1,iz+1)*ki(8)
+        np_thread(ix,iy,iz,ptype,iproc)       = np_thread(ix,iy,iz,ptype,iproc)       + kq(ix,iy,iz)*ki(1)
+        np_thread(ix+1,iy,iz,ptype,iproc)     = np_thread(ix+1,iy,iz,ptype,iproc)     + kq(ix+1,iy,iz)*ki(2)
+        np_thread(ix+1,iy+1,iz,ptype,iproc)   = np_thread(ix+1,iy+1,iz,ptype,iproc)   + kq(ix+1,iy+1,iz)*ki(3)
+        np_thread(ix,iy+1,iz,ptype,iproc)     = np_thread(ix,iy+1,iz,ptype,iproc)     + kq(ix,iy+1,iz)*ki(4)
+        np_thread(ix,iy,iz+1,ptype,iproc)     = np_thread(ix,iy,iz+1,ptype,iproc)     + kq(ix,iy,iz+1)*ki(5)
+        np_thread(ix+1,iy,iz+1,ptype,iproc)   = np_thread(ix+1,iy,iz+1,ptype,iproc)   + kq(ix+1,iy,iz+1)*ki(6)
+        np_thread(ix+1,iy+1,iz+1,ptype,iproc) = np_thread(ix+1,iy+1,iz+1,ptype,iproc) + kq(ix+1,iy+1,iz+1)*ki(7)
+        np_thread(ix,iy+1,iz+1,ptype,iproc)   = np_thread(ix,iy+1,iz+1,ptype,iproc)   + kq(ix,iy+1,iz+1)*ki(8)
       end do
     end do
 
@@ -190,7 +191,7 @@ contains
       end do
     end if
 
-    deallocate(vxp, np_arr, np_tot, Nh, sum_dEk)
+    deallocate(vxp, np_tot, Nh, sum_dEk)
   end subroutine load_particles_modular
 
 

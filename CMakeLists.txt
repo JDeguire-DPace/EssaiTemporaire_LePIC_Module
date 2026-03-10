@@ -25,11 +25,10 @@ endif()
 
 set(MODULES_DIR ${CMAKE_SOURCE_DIR}/modules)
 
-# Keep legacy include directory only for remaining legacy PDE pieces / headers
 include_directories(${MODULES_DIR}/legacy)
 
 # ============================================================
-# 0) Minimal dependency library
+# 0) Core dependency library
 # ============================================================
 add_library(core_deps STATIC
   ${MODULES_DIR}/core/mod_constants.f90
@@ -43,28 +42,57 @@ target_include_directories(core_deps PUBLIC
 )
 target_link_options(core_deps PRIVATE ${OMP_LINK_FLAG})
 
-# ----------------------------
-# Core modules (object library)
-# ----------------------------
-add_library(pic_core_obj OBJECT
+# ============================================================
+# 1) Config base first
+# ============================================================
+add_library(config_base STATIC
   ${MODULES_DIR}/config/mod_config.f90
+)
+target_link_libraries(config_base PUBLIC MPI::MPI_Fortran core_deps)
+target_include_directories(config_base PUBLIC ${CMAKE_Fortran_MODULE_DIRECTORY})
+target_link_options(config_base PRIVATE ${OMP_LINK_FLAG})
+
+# ============================================================
+# 2) Geometry base
+# ============================================================
+add_library(geometry_base STATIC
+  ${MODULES_DIR}/geometry/mod_domain.f90
+)
+target_link_libraries(geometry_base PUBLIC MPI::MPI_Fortran core_deps config_base)
+target_include_directories(geometry_base PUBLIC ${CMAKE_Fortran_MODULE_DIRECTORY})
+target_link_options(geometry_base PRIVATE ${OMP_LINK_FLAG})
+add_dependencies(geometry_base config_base)
+
+# ============================================================
+# 3) Fields base
+# ============================================================
+add_library(fields_base STATIC
+  ${MODULES_DIR}/fields/mod_fields.f90
+  ${MODULES_DIR}/fields/mod_density.f90
+)
+target_link_libraries(fields_base PUBLIC MPI::MPI_Fortran core_deps config_base geometry_base)
+target_include_directories(fields_base PUBLIC ${CMAKE_Fortran_MODULE_DIRECTORY})
+target_link_options(fields_base PRIVATE ${OMP_LINK_FLAG})
+add_dependencies(fields_base geometry_base)
+
+# ============================================================
+# 4) Core object library
+# ============================================================
+add_library(pic_core_obj OBJECT
   ${MODULES_DIR}/config/mod_readConditions.f90
 
   ${MODULES_DIR}/core/mod_intro.f90
   ${MODULES_DIR}/core/mod_part_info.f90
-  ${MODULES_DIR}/core/mod_state.f90
   ${MODULES_DIR}/core/mod_debug_checks.f90
+  ${MODULES_DIR}/core/mod_state.f90
 
   ${MODULES_DIR}/fields/mod_PoissonDecomposition.f90
   ${MODULES_DIR}/fields/mod_rho_stub.f90
-
-  ${MODULES_DIR}/geometry/mod_domain.f90
-  ${MODULES_DIR}/geometry/mod_generateBoundary.f90
-  ${MODULES_DIR}/geometry/mod_boundary.f90
-
-  ${MODULES_DIR}/fields/mod_fields.f90
   ${MODULES_DIR}/fields/mod_charge_weights.f90
   ${MODULES_DIR}/fields/mod_magneticField.f90
+
+  ${MODULES_DIR}/geometry/mod_generateBoundary.f90
+  ${MODULES_DIR}/geometry/mod_boundary.f90
 
   ${MODULES_DIR}/particles/mod_chemistryState.f90
   ${MODULES_DIR}/particles/mod_particles.f90
@@ -74,23 +102,37 @@ add_library(pic_core_obj OBJECT
 
   ${MODULES_DIR}/simulation/mod_simParams.f90
   ${MODULES_DIR}/simulation/mod_simulation.f90
+
+  ${MODULES_DIR}/io/mod_output_2d.f90
 )
-target_link_libraries(pic_core_obj PUBLIC MPI::MPI_Fortran)
+target_link_libraries(pic_core_obj PUBLIC
+  MPI::MPI_Fortran
+  core_deps
+  config_base
+  geometry_base
+  fields_base
+)
 target_include_directories(pic_core_obj PUBLIC ${CMAKE_Fortran_MODULE_DIRECTORY})
-add_dependencies(pic_core_obj core_deps)
+add_dependencies(pic_core_obj core_deps config_base geometry_base fields_base)
 
 # ----------------------------
-# Poisson stub driver (calls pdesolver_)
+# Poisson stub driver object
 # ----------------------------
 add_library(poisson_stub_driver_obj OBJECT
   ${MODULES_DIR}/fields/mod_poisson_stub_driver.f90
 )
-target_link_libraries(poisson_stub_driver_obj PUBLIC MPI::MPI_Fortran)
+target_link_libraries(poisson_stub_driver_obj PUBLIC
+  MPI::MPI_Fortran
+  core_deps
+  config_base
+  geometry_base
+  fields_base
+)
 target_include_directories(poisson_stub_driver_obj PUBLIC ${CMAKE_Fortran_MODULE_DIRECTORY})
 add_dependencies(poisson_stub_driver_obj pic_core_obj)
 
 # ----------------------------
-# Legacy multigrid (provides pdesolver_)
+# Legacy multigrid
 # ----------------------------
 add_library(legacy_mg STATIC
   ${MODULES_DIR}/legacy/pdesolver.f90
@@ -113,6 +155,9 @@ add_executable(run_min
 )
 target_link_libraries(run_min PRIVATE
   pic_core_obj
+  fields_base
+  geometry_base
+  config_base
   core_deps
   MPI::MPI_Fortran
 )
@@ -123,6 +168,9 @@ add_executable(run_poisson_quadPotential
 )
 target_link_libraries(run_poisson_quadPotential PRIVATE
   pic_core_obj
+  fields_base
+  geometry_base
+  config_base
   core_deps
   poisson_stub_driver_obj
   legacy_mg
