@@ -1,12 +1,15 @@
 module mod_simulation
+  use, intrinsic :: iso_fortran_env, only: real64, int32
   use mod_state
   use mpi
+  use mod_rng, only: seed_initialization
   implicit none
   private
   public :: Simulation
 
   type :: Simulation
      type(State) :: S
+     
      integer     :: comm = MPI_COMM_WORLD
   contains
      procedure :: init
@@ -19,16 +22,19 @@ contains
   subroutine init(self, comm_in)
     class(Simulation), intent(inout) :: self
     integer, intent(in) :: comm_in
+    
     self%comm = comm_in
 
     call self%S%init(self%comm)
     call self%S%build_boundary_only()
+
   end subroutine init
 
   subroutine run(self, nsteps)
     class(Simulation), intent(inout) :: self
     integer, intent(in) :: nsteps
     integer :: i
+    
     do i = 1, nsteps
       ! placeholder: later you’ll put deposit/poisson/push here
     end do

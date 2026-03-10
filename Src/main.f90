@@ -601,6 +601,7 @@ program main
   !
   do iproc=1,nproc
      iseed(iproc)= 123456*iproc*(10*mpi_rank+1)
+     write(*,*) ' iseed(iproc) = ', iseed(iproc) 
   enddo
   
   !

@@ -16,12 +16,10 @@ module mod_state
   use mod_chemistryState, only: ChemistryState
   use mod_reactionsDB,    only: ReactionsDB
   use mod_part_info,      only: npart
-  use mod_particles,            only: ParticleSet
-  use mod_load_particles_legacy, only: load_particles_legacy
-
+  use mod_particles,      only: ParticleSet
+  use mod_particle_loader, only: load_particles_modular
   use mod_magneticField, only: MagneticField
-
-  use mod_simParams, only: SimParams
+  use mod_simParams,     only: SimParams
 
   implicit none
   private
@@ -37,12 +35,12 @@ module mod_state
     type(ReactionsDB)    :: rxn
     type(MagneticField)  :: magField
     type(SimParams)      :: params
-    type(ParticleSet), allocatable :: part(:,:)   ! per (ntype,nproc)
+    type(ParticleSet), allocatable :: part(:,:)   ! per (tracked species, nproc)
 
     integer :: mpi_rank = -1
     integer :: mpi_size = -1
     integer :: comm     = MPI_COMM_NULL
-    integer(int32) :: ntype = 0
+    integer(int32) :: ntype = 0   ! tracked species count
     integer(int32) :: nproc = 1
   contains
     procedure :: init
@@ -135,6 +133,13 @@ contains
     end if
 
     call self%params%build(self%cfg, self%dom, self%chem, self%rxn, self%magField, self%mpi_rank)
+
+    ! Legacy-equivalent OpenMP lane count from config
+    self%nproc = max(1_int32, int(self%cfg%omp_rank_max, int32))
+
+    ! Initialize per-lane seeds in SimParams
+    call self%params%init_seeds(self%nproc, self%mpi_rank)
+
     call self%params%print_summary(self%mpi_rank, self%cfg%nsav)
 
     call self%init_particles()
@@ -154,7 +159,8 @@ contains
     call self%rxn%load(self%chem, trim(self%cfg%rname), self%mpi_rank)
 
     if (self%mpi_rank == 0) then
-      write(*,'(i0, a,i0,a,i0,a)')  self%rxn%ntype, " species:  (", self%rxn%ntype-self%rxn%n_neu, " charged and ", self%rxn%n_neu, " neutral)"
+      write(*,'(i0, a,i0,a,i0,a)') self%rxn%ntype, " species:  (", &
+           self%rxn%ntype-self%rxn%n_neu, " charged and ", self%rxn%n_neu, " neutral)"
       write(*,'(*(a,1x))') self%chem%pname
       write(*,'(a,i0)') "Total number of reactions: ", self%chem%ncol
       write(*,*) "  "
@@ -164,38 +170,37 @@ contains
 
   subroutine init_particles(self)
     class(State), intent(inout) :: self
-    integer(int32) :: it, ip
-    integer(int32) :: ntype_all, ntype_trk
+    integer(int32) :: ntype_trk
 
-    ! total species in chemistry/reactions (includes neutrals)
-    ntype_all = int(self%rxn%ntype, int32)
 
     ! tracked species = charged only
     ntype_trk = int(self%rxn%ntype - self%rxn%n_neu, int32)
     if (ntype_trk < 1_int32) ntype_trk = 1_int32
 
-    ! store tracked count in State (self%ntype means "tracked" from now on)
+    ! store tracked count in State
     self%ntype = ntype_trk
 
-    ! OpenMP thread count from config
+    ! nproc already set in build_boundary_only, but keep safe
     self%nproc = max(1_int32, int(self%cfg%omp_rank_max, int32))
 
-    ! allocate ONCE (tracked only)
+    ! allocate tracked particle containers
     if (allocated(self%part)) deallocate(self%part)
     allocate(self%part(self%ntype, self%nproc))
 
-    ! call legacy loader bridge: loads ONLY charged into ParticleSet
-    call load_particles_legacy( &
-      cfg       = self%cfg, &
-      mpi_rank  = self%mpi_rank, &
-      mpi_size  = self%mpi_size, &
-      n         = int(self%dom%n, int32), &
-      h         = self%dom%h, &
-      bcnd      = self%dom%bcnd, &
-      kq        = self%fld%kq, &
-      ntype_all = ntype_all, &
-      ntype_trk = ntype_trk, &
-      part      = self%part )
+    ! call loader with seeds from SimParams
+    call load_particles_modular( &
+          cfg       = self%cfg, &
+          mpi_rank  = self%mpi_rank, &
+          mpi_size  = self%mpi_size, &
+          n         = int(self%dom%n, int32), &
+          h         = self%dom%h, &
+          bcnd      = self%dom%bcnd, &
+          kq        = self%fld%kq, &
+          vt0       = self%params%vt0, &
+          Nm        = self%params%Nm, &
+          iseed     = self%params%iseed, &
+          ntype_trk = ntype_trk, &
+          part      = self%part )
 
   end subroutine init_particles
 
@@ -207,6 +212,7 @@ contains
     call self%rxn%destroy()
     call self%magField%destroy()
     if (allocated(self%part)) deallocate(self%part)
+    if (allocated(self%params%iseed)) deallocate(self%params%iseed)
   end subroutine finalize
 
 end module mod_state

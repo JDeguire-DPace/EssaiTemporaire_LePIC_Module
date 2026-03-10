@@ -16,20 +16,19 @@ contains
         return
     end subroutine stop_calculation
 
-    function ran2(irand)
+    function ran2(irand) result(r)
+        use iso_fortran_env, only: int32, real64
         implicit none
-        integer(int32),parameter :: ia=16807,im=2147483647,iq=127773,ir=2836
-        real(real64),parameter :: am=1.0_real64/im
-        real(real64):: ran2
-        integer :: k,irand
+        integer(int32), intent(inout) :: irand
+        integer(int32), parameter :: ia=16807_int32, im=2147483647_int32, iq=127773_int32, ir=2836_int32
+        real(real64),   parameter :: am=1.0_real64/real(im,real64)
+        real(real64) :: r
+        integer(int32) :: k
 
-        k=irand/iq
-        irand=ia*(irand-k*iq)-ir*k
-        if (irand.lt.0) irand=irand+im
-        ran2=am*irand
-        
-        return
-
+        k = irand / iq
+        irand = ia*(irand - k*iq) - ir*k
+        if (irand < 0_int32) irand = irand + im
+        r = am * real(irand, real64)
     end function ran2
 
 

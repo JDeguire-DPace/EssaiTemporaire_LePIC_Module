@@ -25,23 +25,23 @@ endif()
 
 set(MODULES_DIR ${CMAKE_SOURCE_DIR}/modules)
 
-# legacy includes like include 'mg.h', 'particle_info.h', 'constants.h'
+# Keep legacy include directory only for remaining legacy PDE pieces / headers
 include_directories(${MODULES_DIR}/legacy)
 
 # ============================================================
-# 0) Minimal dependency library for legacy/load_part.f90
-#    This forces generation of .mod files BEFORE load_part builds.
+# 0) Minimal dependency library
 # ============================================================
-add_library(legacy_deps STATIC
+add_library(core_deps STATIC
   ${MODULES_DIR}/core/mod_constants.f90
-  ${MODULES_DIR}/particles/mod_legacy_particle_globals.f90
+  ${MODULES_DIR}/core/mod_utils.f90
+  ${MODULES_DIR}/core/mod_rng.f90
 )
-target_link_libraries(legacy_deps PUBLIC MPI::MPI_Fortran)
-target_include_directories(legacy_deps PUBLIC
+target_link_libraries(core_deps PUBLIC MPI::MPI_Fortran)
+target_include_directories(core_deps PUBLIC
   ${CMAKE_Fortran_MODULE_DIRECTORY}
   ${MODULES_DIR}/legacy
 )
-target_link_options(legacy_deps PRIVATE ${OMP_LINK_FLAG})
+target_link_options(core_deps PRIVATE ${OMP_LINK_FLAG})
 
 # ----------------------------
 # Core modules (object library)
@@ -51,8 +51,6 @@ add_library(pic_core_obj OBJECT
   ${MODULES_DIR}/config/mod_readConditions.f90
 
   ${MODULES_DIR}/core/mod_intro.f90
-  ${MODULES_DIR}/core/mod_utils.f90
-  # NOTE: mod_constants.f90 removed from here (built in legacy_deps)
   ${MODULES_DIR}/core/mod_part_info.f90
   ${MODULES_DIR}/core/mod_state.f90
   ${MODULES_DIR}/core/mod_debug_checks.f90
@@ -69,9 +67,8 @@ add_library(pic_core_obj OBJECT
   ${MODULES_DIR}/fields/mod_magneticField.f90
 
   ${MODULES_DIR}/particles/mod_chemistryState.f90
-  # NOTE: mod_legacy_particle_globals.f90 removed from here (built in legacy_deps)
-  ${MODULES_DIR}/particles/mod_load_particles_legacy.f90
   ${MODULES_DIR}/particles/mod_particles.f90
+  ${MODULES_DIR}/particles/mod_particle_loader.f90
   ${MODULES_DIR}/particles/mod_reactions.f90
   ${MODULES_DIR}/particles/mod_reactionsDB.f90
 
@@ -80,25 +77,7 @@ add_library(pic_core_obj OBJECT
 )
 target_link_libraries(pic_core_obj PUBLIC MPI::MPI_Fortran)
 target_include_directories(pic_core_obj PUBLIC ${CMAKE_Fortran_MODULE_DIRECTORY})
-
-# Make sure anything using those modules links the deps (for include/module dirs & ordering)
-add_dependencies(pic_core_obj legacy_deps)
-
-# ----------------------------
-# Legacy particle loader (provides load_part_)
-# ----------------------------
-add_library(legacy_particles STATIC
-  ${MODULES_DIR}/legacy/load_part.f90
-)
-target_link_libraries(legacy_particles PUBLIC
-  MPI::MPI_Fortran
-  legacy_deps
-)
-target_include_directories(legacy_particles PUBLIC
-  ${MODULES_DIR}/legacy
-  ${CMAKE_Fortran_MODULE_DIRECTORY}
-)
-target_link_options(legacy_particles PRIVATE ${OMP_LINK_FLAG})
+add_dependencies(pic_core_obj core_deps)
 
 # ----------------------------
 # Poisson stub driver (calls pdesolver_)
@@ -134,8 +113,7 @@ add_executable(run_min
 )
 target_link_libraries(run_min PRIVATE
   pic_core_obj
-  legacy_deps
-  legacy_particles
+  core_deps
   MPI::MPI_Fortran
 )
 target_link_options(run_min PRIVATE ${OMP_LINK_FLAG})
@@ -145,10 +123,9 @@ add_executable(run_poisson_quadPotential
 )
 target_link_libraries(run_poisson_quadPotential PRIVATE
   pic_core_obj
-  legacy_deps
+  core_deps
   poisson_stub_driver_obj
   legacy_mg
-  legacy_particles
   MPI::MPI_Fortran
 )
 target_link_options(run_poisson_quadPotential PRIVATE ${OMP_LINK_FLAG})

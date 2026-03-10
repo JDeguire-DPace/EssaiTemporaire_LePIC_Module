@@ -17,7 +17,7 @@ subroutine load_part(n,h,bcnd,np,vxp,ntype,nmax,kq,&
   real(kind=8):: h(3)
   ! Particle arrays
   integer:: bcnd(0:n(1)+2,0:n(2)+2,0:n(3)+2),np_tot(ntype,nproc), &
-       sum_np_tot_OMP(ntype),sum_np_tot(ntype)
+       sum_np_tot_OMP(ntype),sum_np_tot(ntype),k
   real(kind=8):: vxp(6,nmax,ntype,nproc)
   real(kind=8):: np(0:n(1)+2,0:n(2)+2,0:n(3)+2,ntype,nproc),ni0(npart),&
        sum_dEk(nproc),kq(0:n(1)+2,0:n(2)+2,0:n(3)+2)
@@ -43,7 +43,7 @@ subroutine load_part(n,h,bcnd,np,vxp,ntype,nmax,kq,&
   sum_np_tot_OMP= SUM(np_tot,DIM=2)
   call MPI_ALLREDUCE(sum_np_tot_OMP, sum_np_tot, ntype, MPI_INTEGER, MPI_SUM, &
        MPI_COMM_WORLD, ierr)
-     
+
   !
   ! Write info on screen
   !
@@ -53,8 +53,12 @@ subroutine load_part(n,h,bcnd,np,vxp,ntype,nmax,kq,&
      write(*,101) sum_np_tot ! Sum over the second index (nproc)
 101  format(' np=',10(1x,i9))
   endif
+
   
   return
+
+
+
 end subroutine load_part
 
 subroutine load_part_OMP(n,h,bcnd,np,vxp,ntype,nmax,kq, &
@@ -229,6 +233,8 @@ subroutine load_part_OMP(n,h,bcnd,np,vxp,ntype,nmax,kq, &
   enddo
 
   return
+
+
 
 end subroutine load_part_OMP
 
