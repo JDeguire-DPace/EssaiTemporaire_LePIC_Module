@@ -33,7 +33,7 @@ include_directories(${MODULES_DIR}/legacy)
 add_library(core_deps STATIC
   ${MODULES_DIR}/core/mod_constants.f90
   ${MODULES_DIR}/core/mod_utils.f90
-  ${MODULES_DIR}/core/mod_rng.f90
+  ${MODULES_DIR}/core/mod_RNG.f90
 )
 target_link_libraries(core_deps PUBLIC MPI::MPI_Fortran)
 target_include_directories(core_deps PUBLIC

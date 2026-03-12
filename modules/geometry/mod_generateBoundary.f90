@@ -81,6 +81,7 @@ contains
     real(real64), intent(inout) :: h(3)
     real(real64), intent(inout) :: V(ngrid)
     integer,      intent(inout) :: dtype(0:ngrid)
+    integer                     :: i,j,k, somme_1
     type(GeometrySegments), intent(in) :: geo
 
     ! heating deposition window along x
@@ -94,7 +95,7 @@ contains
     integer :: igl,igr,cnt_hy,cnt_hz,cnt_yz_planes,ind_val
     integer :: flag_circz, flag_circx, flag_circx_tmp
     real(real64) :: xl,xr,yl,yr,zl,zr,x,y,z,yd,zd,R,Sh
-
+    somme_1 = 0
     ! -------------------
     ! Initialization block
     ! -------------------
@@ -421,6 +422,15 @@ contains
 
     close(10)
 
+
+    do i=0,n(1)+2,1
+      do j=0,n(2)+2,1
+        do k=0,n(3)+2,1
+          if (bcnd(i,j,k)==-1) somme_1 = somme_1+1
+        enddo
+      enddo
+    enddo
+    write(*,"(A,i)") "Number of plasma cells", somme_1
     ! write 2D files
     if (mpi_rank == 0 .and. inp%write_mco == 1) then
       izl = n(3)/2 + 1

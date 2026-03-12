@@ -11,7 +11,7 @@ module mod_particle_loader
 
 contains
 
-  subroutine load_particles_modular(cfg, mpi_rank, mpi_size, n, h, bcnd, kq, vt0, Nm, iseed, ntype_trk, part, np_thread)
+  subroutine load_particles_modular(cfg, mpi_rank, mpi_size, n, h, bcnd, kq, vt0, Nm, ni0, iseed, ntype_trk, part, np_thread)
     type(Config),   intent(in)    :: cfg
     integer,        intent(in)    :: mpi_rank, mpi_size
     integer(int32), intent(in)    :: n(3)
@@ -20,6 +20,7 @@ contains
     real(real64),   intent(in)    :: kq(0:n(1)+2,0:n(2)+2,0:n(3)+2)
     real(real64),   intent(in)    :: vt0(:)
     real(real64),   intent(in)    :: Nm(:)
+    real(real64),   intent(in)    :: ni0(:)
     integer(int32), intent(inout) :: iseed(:)
     integer(int32), intent(in)    :: ntype_trk
     type(ParticleSet), intent(inout) :: part(:,:)
@@ -39,7 +40,7 @@ contains
     real(real64), allocatable :: vxp(:,:,:,:), sum_dEk(:)
     integer(int32) :: iseed_omp
 
-    nproc = int(max(1, omp_get_max_threads()), int32)
+    nproc = int(size(part,2), int32)
 
     if (size(part,1) /= ntype_trk) error stop "load_particles_modular: wrong part dim 1"
     if (size(part,2) < nproc)      error stop "load_particles_modular: wrong part dim 2"
@@ -62,9 +63,22 @@ contains
     if (ix_load < 1_int32)      ix_load = 1_int32
     if (ix_load > n(1)+1_int32) ix_load = n(1)+1_int32
 
-    n_cell = (ix_load - 1_int32) * n(2) * n(3)
-    jmax   = nint(real(np_cell*n_cell, real64) / real(max(1, mpi_size*nproc), real64))
-    nmax   = int(1.3_real64 * real(max(1,jmax),real64), int32) + 32_int32
+    n_cell = 0_int32
+    do iz = 1, n(3)
+      do iy = 1, n(2)
+        do ix = 1, ix_load - 1
+          if ( bcnd(ix,iy,iz)       == -1 .or. bcnd(ix+1,iy,iz)     == -1 .or. &
+              bcnd(ix+1,iy+1,iz)   == -1 .or. bcnd(ix,iy+1,iz)     == -1 .or. &
+              bcnd(ix,iy,iz+1)     == -1 .or. bcnd(ix+1,iy,iz+1)   == -1 .or. &
+              bcnd(ix+1,iy+1,iz+1) == -1 .or. bcnd(ix,iy+1,iz+1)   == -1 ) then
+            n_cell = n_cell + 1_int32
+          end if
+        end do
+      end do
+    end do
+
+    jmax = nint(real(np_cell*n_cell, real64) / real(max(1, mpi_size*nproc), real64))
+    nmax = int(1.3_real64 * real(max(1,jmax),real64), int32) + 32_int32
 
     allocate(vxp(6, nmax, ntype_trk, nproc))
     allocate(np_tot(ntype_trk, nproc))
@@ -81,9 +95,18 @@ contains
       write(*,*) " "
       write(*,'(a)') "Loading particles..."
     end if
+    
+    if (mpi_rank == 0) then
+  	write(*,'(a,i0)') 'ntype_trk = ', ntype_trk
+  	write(*,'(a,i0)') 'nproc allocated = ', nproc
+  	write(*,'(a,i0)') 'omp_get_max_threads() = ', omp_get_max_threads()
+  	write(*,'(a,i0)') 'jmax = ', jmax
+  	write(*,'(a,i0)') 'nmax = ', nmax
+    end if
 
     !$omp parallel private(iproc, iseed_omp, ptype, j, k, ix, iy, iz, x, y, z, vx, vy, vt, rnd, vz_sav, has_vz_sav, px, py, pz, kp, ki)
     iproc = omp_get_thread_num() + 1
+    if (iproc > nproc) error stop 'iproc > nproc in load_particles_modular'
     iseed_omp = iseed(iproc)
 
     np_tot(:,iproc) = 0
@@ -116,7 +139,7 @@ contains
 
       do ptype = 1, ntype_trk
         rnd(1) = ran2(iseed_omp)
-        if (rnd(1) > 1.0_real64) cycle
+        if (rnd(1) > ni0(ptype)) cycle
 
         np_tot(ptype,iproc) = np_tot(ptype,iproc) + 1
         k = np_tot(ptype,iproc)

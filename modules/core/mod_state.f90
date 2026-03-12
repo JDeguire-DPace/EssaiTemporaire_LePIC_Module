@@ -209,6 +209,7 @@ contains
           kq        = self%fld%kq, &
           vt0       = self%params%vt0, &
           Nm        = self%params%Nm, &
+          ni0       = self%chem%ni0(1:self%ntype), &
           iseed     = self%params%iseed, &
           ntype_trk = ntype_trk, &
           part      = self%part, &

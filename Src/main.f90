@@ -65,7 +65,7 @@ program main
        sum_Nh_tmp,sum_Nh,n_neu,flag_sav,flag_wrt,igrid,flag_avg3D,&
        flag_nopart,nseq,nEf(3),i_pl,flag_diag,flag_updatephi
   real(kind=8):: h(3),h_B(3)
-  parameter (nmax_tmp=1*10**8)
+  parameter (nmax_tmp=6*10**8)
   ! Physical scales
   real(kind=8):: lbd_d,wp,kt,xl_pow,xr_pow,yl_pow,yr_pow,zl_pow,zr_pow,&
        wc,ni0(npart),Te,vt,sum_dEk_tmp,sum_dEk_tot,I_inj
@@ -601,7 +601,6 @@ program main
   !
   do iproc=1,nproc
      iseed(iproc)= 123456*iproc*(10*mpi_rank+1)
-     write(*,*) ' iseed(iproc) = ', iseed(iproc) 
   enddo
   
   !
@@ -756,14 +755,6 @@ program main
   call system_clock(cnt_f)
   dtime=REAL(cnt_f-cnt_i)/REAL(cnt_rate)
   if(mpi_rank.eq.0) print'(" *** Startup time (s): ",f5.1," ***")', dtime
-  
-  
-  
-  
-
-
-
-
 
   if(mpi_rank.eq.0) then
      print*, ' '
@@ -774,7 +765,6 @@ program main
   ! Start iteration 
   !
   do it=1,ntmax
-     if (it.eq.2) call stop_calculation
 
      time= time + dt
      if(time.ge.tmax) exit ! Stop calculation
@@ -852,15 +842,6 @@ program main
      !
      call calc_rho(n,np,rhs_dom,bcnd,ntype,nproc,nproc_mpi,mpi_rank)
      ctime(1)= ctime(1) + MSTIMER()
-
-
-     if (mpi_rank == 0) then
-         print*, ' '
-         print*, 'DEBUG LEGACY rho:'
-         write(*,'(a,es16.8)') 'rho sum = ', sum(rhs_dom)
-         write(*,'(a,es16.8)') 'rho max = ', maxval(rhs_dom)
-         write(*,'(a,es16.8)') 'rho min = ', minval(rhs_dom)
-      end if
 
      !
      ! Dielectric boundary conditions
@@ -963,9 +944,6 @@ program main
      !   
      call pdesolver(phi_dom,rhs_dom,bcnd_dom,h,n,ncycle,eps,omega,niter,&
           ksor,res,ng,mpi_rank,nproc_mpi)
-
-     
-     
 
      ! Concatenate *_dom()
      if(it.eq.1) then
@@ -1177,15 +1155,6 @@ program main
         if(flag_avg3D.eq.1) then
            call dens_red(n,np,np_red,bcnd,ntype,nproc,nproc_mpi)
            
-            if (mpi_rank == 0) then
-               print*, ' '
-               print*, 'DEBUG LEGACY reduced species density:'
-               write(*,'(a,i0,a,es16.8)') 'ptype ', 1, ' sum = ', sum(np_red(:,:,:,1))
-               write(*,'(a,i0,a,es16.8)') 'ptype ', 1, ' max = ', maxval(np_red(:,:,:,1))
-               write(*,'(a,i0,a,es16.8)') 'ptype ', 2, ' sum = ', sum(np_red(:,:,:,2))
-               write(*,'(a,i0,a,es16.8)') 'ptype ', 2, ' max = ', maxval(np_red(:,:,:,2))
-            end if
-
            !$OMP PARALLEL
            !$OMP DO
            do iz=1,n(3)+1
