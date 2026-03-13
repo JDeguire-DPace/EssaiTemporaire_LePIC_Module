@@ -12,6 +12,7 @@ module mod_particle_loader
 contains
 
   subroutine load_particles_modular(cfg, mpi_rank, mpi_size, n, h, bcnd, kq, vt0, Nm, ni0, iseed, ntype_trk, part, np_thread)
+
     type(Config),   intent(in)    :: cfg
     integer,        intent(in)    :: mpi_rank, mpi_size
     integer(int32), intent(in)    :: n(3)
@@ -23,21 +24,28 @@ contains
     real(real64),   intent(in)    :: ni0(:)
     integer(int32), intent(inout) :: iseed(:)
     integer(int32), intent(in)    :: ntype_trk
+
     type(ParticleSet), intent(inout) :: part(:,:)
+
     real(real64), intent(out) :: np_thread(0:n(1)+2,0:n(2)+2,0:n(3)+2,ntype_trk,size(part,2))
 
     integer(int32) :: nproc
     integer(int32) :: np_cell, n_cell, ix_load
     integer(int32) :: jmax, nmax
     real(real64)   :: x_load, ymax, zmax
-    integer        :: iproc, ptype, j, k
-    integer        :: ix, iy, iz
-    real(real64)   :: x, y, z, vx, vy, vt
-    real(real64)   :: rnd(2), vz_sav(ntype_trk)
-    logical        :: has_vz_sav(ntype_trk)
-    real(real64)   :: px, py, pz, kp, ki(8)
+
+    integer :: iproc, ptype, j, k
+    integer :: ix, iy, iz
+
+    real(real64) :: x, y, z, vx, vy, vt
+    real(real64) :: rnd(2)
+    real(real64) :: vz_sav(ntype_trk)
+
+    real(real64) :: px, py, pz, kp, ki(8)
+
     integer, allocatable      :: np_tot(:,:), Nh(:)
     real(real64), allocatable :: vxp(:,:,:,:), sum_dEk(:)
+
     integer(int32) :: iseed_omp
 
     nproc = int(size(part,2), int32)
@@ -63,14 +71,19 @@ contains
     if (ix_load < 1_int32)      ix_load = 1_int32
     if (ix_load > n(1)+1_int32) ix_load = n(1)+1_int32
 
+    ! Legacy-compatible count of loadable cells
     n_cell = 0_int32
     do iz = 1, n(3)
       do iy = 1, n(2)
         do ix = 1, ix_load - 1
-          if ( bcnd(ix,iy,iz)       == -1 .or. bcnd(ix+1,iy,iz)     == -1 .or. &
-              bcnd(ix+1,iy+1,iz)   == -1 .or. bcnd(ix,iy+1,iz)     == -1 .or. &
-              bcnd(ix,iy,iz+1)     == -1 .or. bcnd(ix+1,iy,iz+1)   == -1 .or. &
-              bcnd(ix+1,iy+1,iz+1) == -1 .or. bcnd(ix,iy+1,iz+1)   == -1 ) then
+          if ( bcnd(ix,iy,iz)       == -1 .or. &
+               bcnd(ix+1,iy,iz)     == -1 .or. &
+               bcnd(ix+1,iy+1,iz)   == -1 .or. &
+               bcnd(ix,iy+1,iz)     == -1 .or. &
+               bcnd(ix,iy,iz+1)     == -1 .or. &
+               bcnd(ix+1,iy,iz+1)   == -1 .or. &
+               bcnd(ix+1,iy+1,iz+1) == -1 .or. &
+               bcnd(ix,iy+1,iz+1)   == -1 ) then
             n_cell = n_cell + 1_int32
           end if
         end do
@@ -95,18 +108,12 @@ contains
       write(*,*) " "
       write(*,'(a)') "Loading particles..."
     end if
-    
-    if (mpi_rank == 0) then
-  	write(*,'(a,i0)') 'ntype_trk = ', ntype_trk
-  	write(*,'(a,i0)') 'nproc allocated = ', nproc
-  	write(*,'(a,i0)') 'omp_get_max_threads() = ', omp_get_max_threads()
-  	write(*,'(a,i0)') 'jmax = ', jmax
-  	write(*,'(a,i0)') 'nmax = ', nmax
-    end if
 
-    !$omp parallel private(iproc, iseed_omp, ptype, j, k, ix, iy, iz, x, y, z, vx, vy, vt, rnd, vz_sav, has_vz_sav, px, py, pz, kp, ki)
+    !$omp parallel private(iproc,iseed_omp,ptype,j,k,ix,iy,iz,x,y,z,vx,vy,vt,rnd,px,py,pz,kp,ki,vz_sav)
+
     iproc = omp_get_thread_num() + 1
     if (iproc > nproc) error stop 'iproc > nproc in load_particles_modular'
+
     iseed_omp = iseed(iproc)
 
     np_tot(:,iproc) = 0
@@ -114,7 +121,6 @@ contains
     sum_dEk(iproc) = 0.0_real64
     Nh(iproc) = 0
     vz_sav = 0.0_real64
-    has_vz_sav = .false.
 
     do j = 1, jmax
 
@@ -130,14 +136,19 @@ contains
       iy = int(y / h(2)) + 1
       iz = int(z / h(3)) + 1
 
-      if ( bcnd(ix,iy,iz)       >= 1 .and. bcnd(ix+1,iy,iz)     >= 1 .and. &
-           bcnd(ix+1,iy+1,iz)   >= 1 .and. bcnd(ix,iy+1,iz)     >= 1 .and. &
-           bcnd(ix,iy,iz+1)     >= 1 .and. bcnd(ix+1,iy,iz+1)   >= 1 .and. &
-           bcnd(ix+1,iy+1,iz+1) >= 1 .and. bcnd(ix,iy+1,iz+1)   >= 1 ) then
+      if ( bcnd(ix,iy,iz)       >= 1 .and. &
+           bcnd(ix+1,iy,iz)     >= 1 .and. &
+           bcnd(ix+1,iy+1,iz)   >= 1 .and. &
+           bcnd(ix,iy+1,iz)     >= 1 .and. &
+           bcnd(ix,iy,iz+1)     >= 1 .and. &
+           bcnd(ix+1,iy,iz+1)   >= 1 .and. &
+           bcnd(ix+1,iy+1,iz+1) >= 1 .and. &
+           bcnd(ix,iy+1,iz+1)   >= 1 ) then
         goto 70
       end if
 
       do ptype = 1, ntype_trk
+
         rnd(1) = ran2(iseed_omp)
         if (rnd(1) > ni0(ptype)) cycle
 
@@ -157,20 +168,19 @@ contains
 
         rnd(1) = ran2(iseed_omp)
         rnd(2) = ran2(iseed_omp)
-        call load_gauss(vx, vy, vt, rnd)
+        call load_gauss(vx,vy,vt,rnd)
         vxp(4,k,ptype,iproc) = vx
         vxp(5,k,ptype,iproc) = vy
 
-        if (.not. has_vz_sav(ptype)) then
+        ! Exact legacy behavior
+        if (vz_sav(ptype) == 0.0_real64) then
           rnd(1) = ran2(iseed_omp)
           rnd(2) = ran2(iseed_omp)
-          call load_gauss(vx, vy, vt, rnd)
+          call load_gauss(vx,vy,vt,rnd)
           vxp(6,k,ptype,iproc) = vx
           vz_sav(ptype) = vy
-          has_vz_sav(ptype) = .true.
         else
           vxp(6,k,ptype,iproc) = vz_sav(ptype)
-          has_vz_sav(ptype) = .false.
           vz_sav(ptype) = 0.0_real64
         end if
 
@@ -179,6 +189,7 @@ contains
         pz = (iz*h(3) - z)/h(3)
 
         kp = Nm(ptype)/(h(1)*h(2)*h(3))
+
         ki(1)= kp*px*py*pz
         ki(2)= kp*(1.d0-px)*py*pz
         ki(3)= kp*(1.d0-px)*(1.d0-py)*pz
@@ -196,10 +207,12 @@ contains
         np_thread(ix+1,iy,iz+1,ptype,iproc)   = np_thread(ix+1,iy,iz+1,ptype,iproc)   + kq(ix+1,iy,iz+1)*ki(6)
         np_thread(ix+1,iy+1,iz+1,ptype,iproc) = np_thread(ix+1,iy+1,iz+1,ptype,iproc) + kq(ix+1,iy+1,iz+1)*ki(7)
         np_thread(ix,iy+1,iz+1,ptype,iproc)   = np_thread(ix,iy+1,iz+1,ptype,iproc)   + kq(ix,iy+1,iz+1)*ki(8)
+
       end do
     end do
 
     iseed(iproc) = iseed_omp
+
     !$omp end parallel
 
     do iproc = 1, nproc
@@ -214,7 +227,21 @@ contains
       end do
     end if
 
+    ! if (mpi_rank == 0) then
+    !   write(*,*) " "
+    !   write(*,*) "DEBUG: first loaded particles on thread 1"
+    !   do ptype = 1, max(ntype_trk, 2)
+    !     write(*,'(a,i0)') "ptype = ", ptype
+    !     do k = 1, min(5, np_tot(ptype,1))
+    !       write(*,'(i4,6(1x,es16.8))') k, &
+    !            vxp(1,k,ptype,1), vxp(2,k,ptype,1), vxp(3,k,ptype,1), &
+    !            vxp(4,k,ptype,1), vxp(5,k,ptype,1), vxp(6,k,ptype,1)
+    !     end do
+    !   end do
+    ! end if
+
     deallocate(vxp, np_tot, Nh, sum_dEk)
+
   end subroutine load_particles_modular
 
 

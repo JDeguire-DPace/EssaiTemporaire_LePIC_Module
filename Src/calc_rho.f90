@@ -89,6 +89,8 @@ subroutine calc_rho(n,np,rhs_dom,bcnd,ntype,nproc,nproc_mpi,mpi_rank)
   !$OMP END DO NOWAIT
   !$OMP END PARALLEL  
 
+
+
   if(nproc_mpi.gt.1) then
      opt= 2
      if(opt.eq.1) then

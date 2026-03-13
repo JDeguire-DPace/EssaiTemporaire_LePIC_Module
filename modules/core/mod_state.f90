@@ -225,6 +225,7 @@ contains
          mpi_comm  = self%comm, &
          np_red    = self%fld%np )
 
+
     if (self%mpi_rank == 0) then
 
       do i = 1, self%ntype
@@ -252,6 +253,7 @@ contains
          charge = self%chem%charge(1:self%ntype), &
          ntype  = int(self%ntype), &
          rho    = self%fld%rho )
+         
     deallocate(np_thread)
 
   end subroutine init_particles
