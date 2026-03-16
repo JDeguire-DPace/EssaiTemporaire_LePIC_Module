@@ -43,7 +43,7 @@ target_include_directories(core_deps PUBLIC
 target_link_options(core_deps PRIVATE ${OMP_LINK_FLAG})
 
 # ============================================================
-# 1) Config base first
+# 1) Config base
 # ============================================================
 add_library(config_base STATIC
   ${MODULES_DIR}/config/mod_config.f90
@@ -87,9 +87,10 @@ add_library(pic_core_obj OBJECT
   ${MODULES_DIR}/core/mod_state.f90
 
   ${MODULES_DIR}/fields/mod_PoissonDecomposition.f90
-  ${MODULES_DIR}/fields/mod_rho_stub.f90
+  ${MODULES_DIR}/fields/mod_PoissonSolver_legacy.f90
   ${MODULES_DIR}/fields/mod_charge_weights.f90
   ${MODULES_DIR}/fields/mod_magneticField.f90
+  ${MODULES_DIR}/fields/mod_electricField.f90
 
   ${MODULES_DIR}/geometry/mod_generateBoundary.f90
   ${MODULES_DIR}/geometry/mod_boundary.f90
@@ -115,25 +116,9 @@ target_link_libraries(pic_core_obj PUBLIC
 target_include_directories(pic_core_obj PUBLIC ${CMAKE_Fortran_MODULE_DIRECTORY})
 add_dependencies(pic_core_obj core_deps config_base geometry_base fields_base)
 
-# ----------------------------
-# Poisson stub driver object
-# ----------------------------
-add_library(poisson_stub_driver_obj OBJECT
-  ${MODULES_DIR}/fields/mod_poisson_stub_driver.f90
-)
-target_link_libraries(poisson_stub_driver_obj PUBLIC
-  MPI::MPI_Fortran
-  core_deps
-  config_base
-  geometry_base
-  fields_base
-)
-target_include_directories(poisson_stub_driver_obj PUBLIC ${CMAKE_Fortran_MODULE_DIRECTORY})
-add_dependencies(poisson_stub_driver_obj pic_core_obj)
-
-# ----------------------------
-# Legacy multigrid
-# ----------------------------
+# ============================================================
+# 5) Legacy multigrid / Poisson core
+# ============================================================
 add_library(legacy_mg STATIC
   ${MODULES_DIR}/legacy/pdesolver.f90
   ${MODULES_DIR}/legacy/mg.f90
@@ -147,9 +132,9 @@ target_include_directories(legacy_mg PUBLIC
 add_dependencies(legacy_mg pic_core_obj)
 target_link_options(legacy_mg PRIVATE ${OMP_LINK_FLAG})
 
-# ----------------------------
-# Executables
-# ----------------------------
+# ============================================================
+# 6) Main executable
+# ============================================================
 add_executable(run_min
   ${MODULES_DIR}/main/main.f90
 )
@@ -159,21 +144,7 @@ target_link_libraries(run_min PRIVATE
   geometry_base
   config_base
   core_deps
-  MPI::MPI_Fortran
-)
-target_link_options(run_min PRIVATE ${OMP_LINK_FLAG})
-
-add_executable(run_poisson_quadPotential
-  ${MODULES_DIR}/main/main_poisson_stub.f90
-)
-target_link_libraries(run_poisson_quadPotential PRIVATE
-  pic_core_obj
-  fields_base
-  geometry_base
-  config_base
-  core_deps
-  poisson_stub_driver_obj
   legacy_mg
   MPI::MPI_Fortran
 )
-target_link_options(run_poisson_quadPotential PRIVATE ${OMP_LINK_FLAG})
+target_link_options(run_min PRIVATE ${OMP_LINK_FLAG})

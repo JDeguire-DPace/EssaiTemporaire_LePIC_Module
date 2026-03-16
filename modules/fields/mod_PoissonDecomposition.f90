@@ -36,6 +36,7 @@ module mod_poisson_decomp
     procedure :: scatter_from_global
     procedure :: gather_phi_to_global
     procedure :: gather_rhs_to_global
+    procedure :: scatter_rhs_from_global
   end type PoissonDecomp
 
 contains
@@ -109,23 +110,46 @@ contains
   subroutine scatter_from_global(self, phi, bcnd)
     class(PoissonDecomp), intent(inout) :: self
     real(real64), intent(in) :: phi(0:,0:,0:)
-    integer,      intent(in) :: bcnd(0:,0:,0:)     ! <--- default integer here
+    integer,      intent(in) :: bcnd(0:,0:,0:)
 
-    integer(int32) :: gk0, lbz
     integer :: iz0, iz1
 
-    gk0 = self%k0
-    lbz = int(lbound(phi,3), int32)
+    iz0 = self%k0
+    iz1 = self%k0 + self%m + 2
 
-    iz0 = int(lbz + gk0)
-    iz1 = int(lbz + gk0 + self%m + 2_int32)
+    if (iz0 < lbound(phi,3) .or. iz1 > ubound(phi,3)) then
+      write(*,*) 'scatter_from_global bounds error'
+      write(*,*) 'iz0, iz1 = ', iz0, iz1
+      write(*,*) 'phi z bounds = ', lbound(phi,3), ubound(phi,3)
+      error stop
+    end if
 
-    ! Optional safety check
-    if (iz0 < lbound(phi,3) .or. iz1 > ubound(phi,3)) error stop "scatter_from_global: bad z slice"
-
-    self%phi_dom(:,:,0:self%m+2)  = phi(:,:, iz0:iz1)
-    self%bcnd_dom(:,:,0:self%m+2) = int( bcnd(:,:, iz0:iz1), int32 )  ! <--- convert here
+    self%phi_dom(:,:,0:self%m+2)  = phi(:,:,iz0:iz1)
+    self%bcnd_dom(:,:,0:self%m+2) = int(bcnd(:,:,iz0:iz1), int32)
   end subroutine scatter_from_global
+
+
+
+
+  subroutine scatter_rhs_from_global(self, rhs)
+    class(PoissonDecomp), intent(inout) :: self
+    real(real64), intent(in) :: rhs(0:,0:,0:)
+
+    integer :: iz0, iz1
+
+    iz0 = self%k0
+    iz1 = self%k0 + self%m + 1
+
+    if (iz0 < lbound(rhs,3) .or. iz1 > ubound(rhs,3)) then
+      write(*,*) 'scatter_rhs_from_global bounds error'
+      write(*,*) 'iz0, iz1 = ', iz0, iz1
+      write(*,*) 'rhs z bounds = ', lbound(rhs,3), ubound(rhs,3)
+      error stop
+    end if
+
+    self%rhs_dom(:,:,0:self%m+1) = rhs(:,:,iz0:iz1)
+  end subroutine scatter_rhs_from_global
+
 
 
   subroutine gather_phi_to_global(self, phi)

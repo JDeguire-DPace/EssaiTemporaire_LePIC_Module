@@ -3,7 +3,7 @@ module mod_output_2d
   implicit none
   private
   public :: write_plane_xy_scalar, write_plane_xz_scalar, write_plane_yz_scalar
-  public :: write_density_planes
+  public :: write_density_planes, write_scalar_planes
 
 contains
 
@@ -85,5 +85,24 @@ contains
 
     deallocate(tmp)
   end subroutine write_density_planes
+
+
+  subroutine write_scalar_planes(f, n, ix_plane, iy_plane, iz_plane, every, prefix)
+    character(len=*), intent(in) :: prefix
+    integer(int32),   intent(in) :: n(3)
+    integer(int32),   intent(in) :: ix_plane, iy_plane, iz_plane
+    integer(int32),   intent(in) :: every
+    real(real64),     intent(in) :: f(0:n(1)+2,0:n(2)+2,0:n(3)+2)
+
+    character(len=256) :: fxy, fxz, fyz
+
+    write(fxy,'(a,"_xy.mco")') trim(prefix)
+    write(fxz,'(a,"_xz.mco")') trim(prefix)
+    write(fyz,'(a,"_yz.mco")') trim(prefix)
+
+    call write_plane_xy_scalar(fxy, f, n, iz_plane, every)
+    call write_plane_xz_scalar(fxz, f, n, iy_plane, every)
+    call write_plane_yz_scalar(fyz, f, n, ix_plane, every)
+  end subroutine write_scalar_planes
 
 end module mod_output_2d
