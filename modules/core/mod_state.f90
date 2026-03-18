@@ -24,6 +24,7 @@ module mod_state
   use mod_magneticField,  only: MagneticField
   use mod_simParams,      only: SimParams
   use mod_output_2d,      only: write_density_planes, write_scalar_planes
+  use mod_electricField,  only: calc_Efield_modular
 
   implicit none
   private
@@ -67,7 +68,6 @@ contains
 
     call read_input(self%cfg, self%mpi_rank)
 
-    ! Match legacy behavior: rescale global eps0 used by legacy Poisson solver
     eps0 = self%cfg%k_eps0 * 8.854187817d-12
     if (self%mpi_rank == 0 .and. self%cfg%k_eps0 /= 1.0_real64) then
       write(*,*) 'eps0 HAS BEEN RE-SCALED: k_eps0 = ', self%cfg%k_eps0
@@ -157,8 +157,9 @@ contains
     character(len=128) :: prefix
     character(len=10)  :: s
     integer(int32) :: ntype_trk, i
-    integer(int32) :: iy_plane_phi, iy_plane_density
+    integer(int32) :: iy_plane_phi, iy_plane_density, iy_plane_E
     real(real64), allocatable :: np_thread(:,:,:,:,:)
+    real(real64), allocatable :: Ex3(:,:,:), Ey3(:,:,:), Ez3(:,:,:)
 
     ntype_trk = int(self%rxn%ntype - self%rxn%n_neu, int32)
     if (ntype_trk < 1_int32) ntype_trk = 1_int32
@@ -199,17 +200,9 @@ contains
          mpi_comm  = self%comm, &
          np_red    = self%fld%np )
 
-    ! Legacy density output convention
     iy_plane_density = int(self%dom%n(2)/2 + 1, int32)
 
     if (self%mpi_rank == 0) then
-      write(*,*) 'DEBUG bcnd'
-      write(*,*) 'min bcnd = ', minval(self%dom%bcnd)
-      write(*,*) 'max bcnd = ', maxval(self%dom%bcnd)
-      write(*,*) 'count(bcnd==-1) = ', count(self%dom%bcnd == -1)
-      write(*,*) 'count(bcnd==0)  = ', count(self%dom%bcnd == 0)
-      write(*,*) 'count(bcnd>0)   = ', count(self%dom%bcnd > 0)
-
       do i = 1, self%ntype
         write(s,'(i0)') i
         prefix = '../Output/Output_2D/n'//trim(s)
@@ -233,15 +226,6 @@ contains
          ntype  = int(self%ntype), &
          rho    = self%fld%rho )
 
-    if (self%mpi_rank == 0) then
-      write(*,*) ' '
-      write(*,*) 'DEBUG MODULAR rho'
-      write(*,'(a,es16.8)') 'sum      = ', sum(self%fld%rho(0:self%dom%n(1)+1,0:self%dom%n(2)+1,0:self%dom%n(3)+1))
-      write(*,'(a,es16.8)') 'sum(abs) = ', sum(abs(self%fld%rho(0:self%dom%n(1)+1,0:self%dom%n(2)+1,0:self%dom%n(3)+1)))
-      write(*,'(a,es16.8)') 'max      = ', maxval(self%fld%rho(0:self%dom%n(1)+1,0:self%dom%n(2)+1,0:self%dom%n(3)+1))
-      write(*,'(a,es16.8)') 'min      = ', minval(self%fld%rho(0:self%dom%n(1)+1,0:self%dom%n(2)+1,0:self%dom%n(3)+1))
-    end if
-
     call solve_poisson_legacy( &
          pdec        = self%pdec, &
          phi_global  = self%fld%phi, &
@@ -256,7 +240,6 @@ contains
          flag_pbc_in = self%dom%flag_pbc, &
          flag_nmn_in = self%dom%flag_nmn )
 
-    ! Legacy phi_xz convention uses n(2)/2, not n(2)/2+1
     iy_plane_phi = int(self%dom%n(2)/2, int32)
 
     if (self%mpi_rank == 0) then
@@ -270,13 +253,52 @@ contains
         prefix   = '../Output/Output_2D/phi1' )
     end if
 
+    call calc_Efield_modular( &
+         n    = int(self%dom%n, int32), &
+         h    = self%dom%h, &
+         phi  = self%fld%phi, &
+         E    = self%fld%E, &
+         bcnd = self%dom%bcnd )
+
+    iy_plane_E = int(self%dom%n(2)/2 + 1, int32)
+
     if (self%mpi_rank == 0) then
-      write(*,*) ' '
-      write(*,*) 'DEBUG MODULAR phi'
-      write(*,'(a,es16.8)') 'sum      = ', sum(self%fld%phi)
-      write(*,'(a,es16.8)') 'sum(abs) = ', sum(abs(self%fld%phi))
-      write(*,'(a,es16.8)') 'max      = ', maxval(self%fld%phi)
-      write(*,'(a,es16.8)') 'min      = ', minval(self%fld%phi)
+      allocate(Ex3(0:self%dom%n(1)+2, 0:self%dom%n(2)+2, 0:self%dom%n(3)+2))
+      allocate(Ey3(0:self%dom%n(1)+2, 0:self%dom%n(2)+2, 0:self%dom%n(3)+2))
+      allocate(Ez3(0:self%dom%n(1)+2, 0:self%dom%n(2)+2, 0:self%dom%n(3)+2))
+
+      Ex3 = self%fld%E(1,:,:,:)
+      Ey3 = self%fld%E(2,:,:,:)
+      Ez3 = self%fld%E(3,:,:,:)
+
+      call write_scalar_planes( &
+        f        = Ex3, &
+        n        = int(self%dom%n, int32), &
+        ix_plane = self%params%ix_plot_plane, &
+        iy_plane = iy_plane_E, &
+        iz_plane = self%params%iz_plot_plane, &
+        every    = 1_int32, &
+        prefix   = '../Output/Output_2D/Ex' )
+
+      call write_scalar_planes( &
+        f        = Ey3, &
+        n        = int(self%dom%n, int32), &
+        ix_plane = self%params%ix_plot_plane, &
+        iy_plane = iy_plane_E, &
+        iz_plane = self%params%iz_plot_plane, &
+        every    = 1_int32, &
+        prefix   = '../Output/Output_2D/Ey' )
+
+      call write_scalar_planes( &
+        f        = Ez3, &
+        n        = int(self%dom%n, int32), &
+        ix_plane = self%params%ix_plot_plane, &
+        iy_plane = iy_plane_E, &
+        iz_plane = self%params%iz_plot_plane, &
+        every    = 1_int32, &
+        prefix   = '../Output/Output_2D/Ez' )
+
+      deallocate(Ex3, Ey3, Ez3)
     end if
 
     deallocate(np_thread)

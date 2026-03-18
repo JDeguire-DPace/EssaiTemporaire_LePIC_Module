@@ -1,28 +1,82 @@
 cmake_minimum_required(VERSION 3.23)
 project(LePIC_3D LANGUAGES Fortran)
 
-find_package(MPI REQUIRED COMPONENTS Fortran)
-
 set(CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/mod)
 
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release CACHE STRING "" FORCE)
 endif()
 
-# ----------------------------
-# Compiler + OpenMP flags
-# ----------------------------
-if(CMAKE_Fortran_COMPILER_ID MATCHES "IntelLLVM|Intel")
-  add_compile_options(-O3 -qopenmp)
-  set(OMP_LINK_FLAG "-qopenmp")
-elseif(CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
-  add_compile_options(-O3 -fopenmp)
-  set(OMP_LINK_FLAG "-fopenmp")
-else()
-  message(WARNING "Unknown Fortran compiler: ${CMAKE_Fortran_COMPILER_ID}. OpenMP may not link correctly.")
-  set(OMP_LINK_FLAG "")
+# ------------------------------------------------------------
+# Detect whether the selected Fortran compiler is an MPI wrapper
+# (e.g. mpiifx, mpif90, mpifort, etc.)
+# ------------------------------------------------------------
+get_filename_component(FORTRAN_COMPILER_NAME "${CMAKE_Fortran_COMPILER}" NAME)
+
+set(USING_MPI_WRAPPER FALSE)
+if(FORTRAN_COMPILER_NAME MATCHES "^(mpiifx|mpiifort|mpifort|mpif90|mpifc)$")
+  set(USING_MPI_WRAPPER TRUE)
 endif()
 
+message(STATUS "Fortran compiler          : ${CMAKE_Fortran_COMPILER}")
+message(STATUS "Fortran compiler ID       : ${CMAKE_Fortran_COMPILER_ID}")
+message(STATUS "Fortran compiler basename : ${FORTRAN_COMPILER_NAME}")
+message(STATUS "Using MPI wrapper         : ${USING_MPI_WRAPPER}")
+
+# ------------------------------------------------------------
+# MPI handling
+# - If using mpiifx, the wrapper already knows the MPI includes/libs
+# - If using plain ifx, find MPI normally
+# ------------------------------------------------------------
+if(USING_MPI_WRAPPER)
+  message(STATUS "MPI will be provided by the compiler wrapper: ${FORTRAN_COMPILER_NAME}")
+else()
+  find_package(MPI REQUIRED COMPONENTS Fortran)
+  message(STATUS "MPI_Fortran libraries: ${MPI_Fortran_LIBRARIES}")
+endif()
+
+# ------------------------------------------------------------
+# Compiler / OpenMP flags
+# ------------------------------------------------------------
+set(OMP_COMPILE_FLAG "")
+set(OMP_LINK_FLAG "")
+
+if(CMAKE_Fortran_COMPILER_ID MATCHES "IntelLLVM|Intel")
+  set(OMP_COMPILE_FLAG "-qopenmp")
+  set(OMP_LINK_FLAG "-qopenmp")
+  add_compile_options(-O3 ${OMP_COMPILE_FLAG})
+elseif(CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
+  set(OMP_COMPILE_FLAG "-fopenmp")
+  set(OMP_LINK_FLAG "-fopenmp")
+  add_compile_options(-O3 ${OMP_COMPILE_FLAG})
+else()
+  message(WARNING
+    "Unknown Fortran compiler: ${CMAKE_Fortran_COMPILER_ID}. "
+    "OpenMP flags may need adjustment."
+  )
+  add_compile_options(-O3)
+endif()
+
+# ------------------------------------------------------------
+# Common interface target for shared compile/link settings
+# ------------------------------------------------------------
+add_library(build_config INTERFACE)
+
+target_include_directories(build_config INTERFACE
+  ${CMAKE_Fortran_MODULE_DIRECTORY}
+)
+
+if(OMP_LINK_FLAG)
+  target_link_options(build_config INTERFACE ${OMP_LINK_FLAG})
+endif()
+
+if(NOT USING_MPI_WRAPPER)
+  target_link_libraries(build_config INTERFACE MPI::MPI_Fortran)
+endif()
+
+# ------------------------------------------------------------
+# Paths
+# ------------------------------------------------------------
 set(MODULES_DIR ${CMAKE_SOURCE_DIR}/modules)
 
 include_directories(${MODULES_DIR}/legacy)
@@ -35,12 +89,11 @@ add_library(core_deps STATIC
   ${MODULES_DIR}/core/mod_utils.f90
   ${MODULES_DIR}/core/mod_RNG.f90
 )
-target_link_libraries(core_deps PUBLIC MPI::MPI_Fortran)
+target_link_libraries(core_deps PUBLIC build_config)
 target_include_directories(core_deps PUBLIC
   ${CMAKE_Fortran_MODULE_DIRECTORY}
   ${MODULES_DIR}/legacy
 )
-target_link_options(core_deps PRIVATE ${OMP_LINK_FLAG})
 
 # ============================================================
 # 1) Config base
@@ -48,9 +101,10 @@ target_link_options(core_deps PRIVATE ${OMP_LINK_FLAG})
 add_library(config_base STATIC
   ${MODULES_DIR}/config/mod_config.f90
 )
-target_link_libraries(config_base PUBLIC MPI::MPI_Fortran core_deps)
-target_include_directories(config_base PUBLIC ${CMAKE_Fortran_MODULE_DIRECTORY})
-target_link_options(config_base PRIVATE ${OMP_LINK_FLAG})
+target_link_libraries(config_base PUBLIC build_config core_deps)
+target_include_directories(config_base PUBLIC
+  ${CMAKE_Fortran_MODULE_DIRECTORY}
+)
 
 # ============================================================
 # 2) Geometry base
@@ -58,9 +112,14 @@ target_link_options(config_base PRIVATE ${OMP_LINK_FLAG})
 add_library(geometry_base STATIC
   ${MODULES_DIR}/geometry/mod_domain.f90
 )
-target_link_libraries(geometry_base PUBLIC MPI::MPI_Fortran core_deps config_base)
-target_include_directories(geometry_base PUBLIC ${CMAKE_Fortran_MODULE_DIRECTORY})
-target_link_options(geometry_base PRIVATE ${OMP_LINK_FLAG})
+target_link_libraries(geometry_base PUBLIC
+  build_config
+  core_deps
+  config_base
+)
+target_include_directories(geometry_base PUBLIC
+  ${CMAKE_Fortran_MODULE_DIRECTORY}
+)
 add_dependencies(geometry_base config_base)
 
 # ============================================================
@@ -70,9 +129,15 @@ add_library(fields_base STATIC
   ${MODULES_DIR}/fields/mod_fields.f90
   ${MODULES_DIR}/fields/mod_density.f90
 )
-target_link_libraries(fields_base PUBLIC MPI::MPI_Fortran core_deps config_base geometry_base)
-target_include_directories(fields_base PUBLIC ${CMAKE_Fortran_MODULE_DIRECTORY})
-target_link_options(fields_base PRIVATE ${OMP_LINK_FLAG})
+target_link_libraries(fields_base PUBLIC
+  build_config
+  core_deps
+  config_base
+  geometry_base
+)
+target_include_directories(fields_base PUBLIC
+  ${CMAKE_Fortran_MODULE_DIRECTORY}
+)
 add_dependencies(fields_base geometry_base)
 
 # ============================================================
@@ -107,14 +172,21 @@ add_library(pic_core_obj OBJECT
   ${MODULES_DIR}/io/mod_output_2d.f90
 )
 target_link_libraries(pic_core_obj PUBLIC
-  MPI::MPI_Fortran
+  build_config
   core_deps
   config_base
   geometry_base
   fields_base
 )
-target_include_directories(pic_core_obj PUBLIC ${CMAKE_Fortran_MODULE_DIRECTORY})
-add_dependencies(pic_core_obj core_deps config_base geometry_base fields_base)
+target_include_directories(pic_core_obj PUBLIC
+  ${CMAKE_Fortran_MODULE_DIRECTORY}
+)
+add_dependencies(pic_core_obj
+  core_deps
+  config_base
+  geometry_base
+  fields_base
+)
 
 # ============================================================
 # 5) Legacy multigrid / Poisson core
@@ -124,13 +196,14 @@ add_library(legacy_mg STATIC
   ${MODULES_DIR}/legacy/mg.f90
   ${MODULES_DIR}/legacy/sors.f90
 )
-target_link_libraries(legacy_mg PUBLIC MPI::MPI_Fortran)
+target_link_libraries(legacy_mg PUBLIC
+  build_config
+)
 target_include_directories(legacy_mg PUBLIC
   ${MODULES_DIR}/legacy
   ${CMAKE_Fortran_MODULE_DIRECTORY}
 )
 add_dependencies(legacy_mg pic_core_obj)
-target_link_options(legacy_mg PRIVATE ${OMP_LINK_FLAG})
 
 # ============================================================
 # 6) Main executable
@@ -139,12 +212,11 @@ add_executable(run_min
   ${MODULES_DIR}/main/main.f90
 )
 target_link_libraries(run_min PRIVATE
+  build_config
   pic_core_obj
   fields_base
   geometry_base
   config_base
   core_deps
   legacy_mg
-  MPI::MPI_Fortran
 )
-target_link_options(run_min PRIVATE ${OMP_LINK_FLAG})
