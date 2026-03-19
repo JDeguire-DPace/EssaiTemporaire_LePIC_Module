@@ -11,20 +11,20 @@ module mod_state
 
   use mod_fields,         only: Fields
   use mod_poisson_decomp, only: PoissonDecomp
-  use mod_PoissonSolver_legacy, only: solve_poisson_legacy
   use mod_charge_weights, only: build_kq
   use mod_debug_checks,   only: checkpoint_poisson_decomp, checkpoint_kq
-  use mod_density,        only: reduce_species_density, build_rho_from_np
+  use mod_density,        only: reduce_species_density
 
   use mod_chemistryState, only: ChemistryState
   use mod_reactionsDB,    only: ReactionsDB
   use mod_part_info,      only: npart
   use mod_particles,      only: ParticleSet
-  use mod_particle_loader, only: load_particles_modular
-  use mod_magneticField,  only: MagneticField
-  use mod_simParams,      only: SimParams
-  use mod_output_2d,      only: write_density_planes, write_scalar_planes
-  use mod_electricField,  only: calc_Efield_modular
+  use mod_particle_loader,  only: load_particles_modular
+  use mod_particle_sorting, only: sort_particles_by_cell, check_particles_are_sorted, check_cell_indexing
+  use mod_particleMover,    only: move_particles_electrostatic
+  use mod_particleBC,       only: apply_particle_bc_legacy
+  use mod_magneticField,    only: MagneticField
+  use mod_simParams,        only: SimParams
 
   implicit none
   private
@@ -45,13 +45,20 @@ module mod_state
     integer :: mpi_rank = -1
     integer :: mpi_size = -1
     integer :: comm     = MPI_COMM_NULL
+
     integer(int32) :: ntype = 0
     integer(int32) :: nproc = 1
   contains
     procedure :: init
-    procedure :: build_boundary_only
     procedure :: init_chemistry
+    procedure :: init_domain_and_boundary
     procedure :: init_particles
+
+    procedure :: sort_particles_local
+    procedure :: move_particles_local
+    procedure :: apply_particle_bc_local
+
+    procedure :: finalize_particles_only
     procedure :: finalize
   end type State
 
@@ -80,10 +87,36 @@ contains
     call self%fld%zero()
 
     call self%init_chemistry()
+    call self%init_domain_and_boundary()
+
+    call self%params%build(self%cfg, self%dom, self%chem, self%rxn, self%magField, self%mpi_rank)
+
+    self%nproc = max(1_int32, int(self%cfg%omp_rank_max, int32))
+    call self%params%init_seeds(self%nproc, self%mpi_rank)
+    call self%params%print_summary(self%mpi_rank, self%cfg%nsav)
+
+    call self%init_particles()
   end subroutine init
 
 
-  subroutine build_boundary_only(self)
+  subroutine init_chemistry(self)
+    class(State), intent(inout) :: self
+
+    call self%chem%init(npart, self%rxn%ncol_mx, self%rxn%npt_mx)
+    self%chem%ngas = self%cfg%ngas
+    call self%rxn%load(self%chem, trim(self%cfg%rname), self%mpi_rank)
+
+    if (self%mpi_rank == 0) then
+      write(*,'(i0,a,i0,a,i0,a)') self%rxn%ntype, ' species:  (', &
+           self%rxn%ntype-self%rxn%n_neu, ' charged and ', self%rxn%n_neu, ' neutral)'
+      write(*,'(*(a,1x))') self%chem%pname
+      write(*,'(a,i0)') 'Total number of reactions: ', self%chem%ncol
+      write(*,*) '  '
+    end if
+  end subroutine init_chemistry
+
+
+  subroutine init_domain_and_boundary(self)
     class(State), intent(inout) :: self
     integer :: ierr
     real(real64), allocatable :: phi_rt(:,:,:)
@@ -124,42 +157,13 @@ contains
            self%dom%flag_pbc, self%dom%flag_pbcz, self%dom%flag_nmn, self%dom%flag_die
       write(*,*) '  '
     end if
-
-    call self%params%build(self%cfg, self%dom, self%chem, self%rxn, self%magField, self%mpi_rank)
-
-    self%nproc = max(1_int32, int(self%cfg%omp_rank_max, int32))
-    call self%params%init_seeds(self%nproc, self%mpi_rank)
-    call self%params%print_summary(self%mpi_rank, self%cfg%nsav)
-
-    call self%init_particles()
-  end subroutine build_boundary_only
-
-
-  subroutine init_chemistry(self)
-    class(State), intent(inout) :: self
-
-    call self%chem%init(npart, self%rxn%ncol_mx, self%rxn%npt_mx)
-    self%chem%ngas = self%cfg%ngas
-    call self%rxn%load(self%chem, trim(self%cfg%rname), self%mpi_rank)
-
-    if (self%mpi_rank == 0) then
-      write(*,'(i0,a,i0,a,i0,a)') self%rxn%ntype, ' species:  (', &
-           self%rxn%ntype-self%rxn%n_neu, ' charged and ', self%rxn%n_neu, ' neutral)'
-      write(*,'(*(a,1x))') self%chem%pname
-      write(*,'(a,i0)') 'Total number of reactions: ', self%chem%ncol
-      write(*,*) '  '
-    end if
-  end subroutine init_chemistry
+  end subroutine init_domain_and_boundary
 
 
   subroutine init_particles(self)
     class(State), intent(inout) :: self
-    character(len=128) :: prefix
-    character(len=10)  :: s
-    integer(int32) :: ntype_trk, i
-    integer(int32) :: iy_plane_phi, iy_plane_density, iy_plane_E
+    integer(int32) :: ntype_trk
     real(real64), allocatable :: np_thread(:,:,:,:,:)
-    real(real64), allocatable :: Ex3(:,:,:), Ey3(:,:,:), Ez3(:,:,:)
 
     ntype_trk = int(self%rxn%ntype - self%rxn%n_neu, int32)
     if (ntype_trk < 1_int32) ntype_trk = 1_int32
@@ -167,7 +171,9 @@ contains
     self%ntype = ntype_trk
     self%nproc = max(1_int32, int(self%cfg%omp_rank_max, int32))
 
-    if (allocated(self%part)) deallocate(self%part)
+    if (allocated(self%part)) then
+      call self%finalize_particles_only()
+    end if
     allocate(self%part(self%ntype, self%nproc))
 
     call self%fld%allocate_species_density(self%dom, self%ntype)
@@ -191,6 +197,8 @@ contains
           part      = self%part, &
           np_thread = np_thread )
 
+    call self%sort_particles_local()
+
     call reduce_species_density( &
          n         = int(self%dom%n, int32), &
          bcnd      = self%dom%bcnd, &
@@ -200,118 +208,140 @@ contains
          mpi_comm  = self%comm, &
          np_red    = self%fld%np )
 
-    iy_plane_density = int(self%dom%n(2)/2 + 1, int32)
-
-    if (self%mpi_rank == 0) then
-      do i = 1, self%ntype
-        write(s,'(i0)') i
-        prefix = '../Output/Output_2D/n'//trim(s)
-
-        call write_density_planes( &
-          np       = self%fld%np, &
-          n        = int(self%dom%n, int32), &
-          ptype    = i, &
-          ix_plane = self%params%ix_plot_plane, &
-          iy_plane = iy_plane_density, &
-          iz_plane = self%params%iz_plot_plane, &
-          every    = 1_int32, &
-          prefix   = prefix )
-      end do
-    end if
-
-    call build_rho_from_np( &
-         n      = int(self%dom%n, int32), &
-         np_red = self%fld%np, &
-         charge = self%chem%charge(1:self%ntype), &
-         ntype  = int(self%ntype), &
-         rho    = self%fld%rho )
-
-    call solve_poisson_legacy( &
-         pdec        = self%pdec, &
-         phi_global  = self%fld%phi, &
-         bcnd_global = self%dom%bcnd, &
-         rhs_global  = self%fld%rho(0:self%dom%n(1)+1,0:self%dom%n(2)+1,0:self%dom%n(3)+1), &
-         h           = self%dom%h, &
-         n_in        = int(self%dom%n, int32), &
-         ncycl       = 100, &
-         eps         = self%cfg%eps, &
-         omega       = self%cfg%omega, &
-         ng          = self%cfg%ng, &
-         flag_pbc_in = self%dom%flag_pbc, &
-         flag_nmn_in = self%dom%flag_nmn )
-
-    iy_plane_phi = int(self%dom%n(2)/2, int32)
-
-    if (self%mpi_rank == 0) then
-      call write_scalar_planes( &
-        f        = self%fld%phi, &
-        n        = int(self%dom%n, int32), &
-        ix_plane = self%params%ix_plot_plane, &
-        iy_plane = iy_plane_phi, &
-        iz_plane = self%params%iz_plot_plane, &
-        every    = 1_int32, &
-        prefix   = '../Output/Output_2D/phi1' )
-    end if
-
-    call calc_Efield_modular( &
-         n    = int(self%dom%n, int32), &
-         h    = self%dom%h, &
-         phi  = self%fld%phi, &
-         E    = self%fld%E, &
-         bcnd = self%dom%bcnd )
-
-    iy_plane_E = int(self%dom%n(2)/2 + 1, int32)
-
-    if (self%mpi_rank == 0) then
-      allocate(Ex3(0:self%dom%n(1)+2, 0:self%dom%n(2)+2, 0:self%dom%n(3)+2))
-      allocate(Ey3(0:self%dom%n(1)+2, 0:self%dom%n(2)+2, 0:self%dom%n(3)+2))
-      allocate(Ez3(0:self%dom%n(1)+2, 0:self%dom%n(2)+2, 0:self%dom%n(3)+2))
-
-      Ex3 = self%fld%E(1,:,:,:)
-      Ey3 = self%fld%E(2,:,:,:)
-      Ez3 = self%fld%E(3,:,:,:)
-
-      call write_scalar_planes( &
-        f        = Ex3, &
-        n        = int(self%dom%n, int32), &
-        ix_plane = self%params%ix_plot_plane, &
-        iy_plane = iy_plane_E, &
-        iz_plane = self%params%iz_plot_plane, &
-        every    = 1_int32, &
-        prefix   = '../Output/Output_2D/Ex' )
-
-      call write_scalar_planes( &
-        f        = Ey3, &
-        n        = int(self%dom%n, int32), &
-        ix_plane = self%params%ix_plot_plane, &
-        iy_plane = iy_plane_E, &
-        iz_plane = self%params%iz_plot_plane, &
-        every    = 1_int32, &
-        prefix   = '../Output/Output_2D/Ey' )
-
-      call write_scalar_planes( &
-        f        = Ez3, &
-        n        = int(self%dom%n, int32), &
-        ix_plane = self%params%ix_plot_plane, &
-        iy_plane = iy_plane_E, &
-        iz_plane = self%params%iz_plot_plane, &
-        every    = 1_int32, &
-        prefix   = '../Output/Output_2D/Ez' )
-
-      deallocate(Ex3, Ey3, Ez3)
-    end if
-
     deallocate(np_thread)
   end subroutine init_particles
 
 
+  subroutine sort_particles_local(self)
+    class(State), intent(inout) :: self
+    integer(int32) :: ptype, iproc
+    logical :: ok_sorted, ok_cells
+
+    if (.not. allocated(self%part)) return
+
+    do ptype = 1, self%ntype
+      do iproc = 1, self%nproc
+        if (.not. allocated(self%part(ptype,iproc)%x)) cycle
+        if (self%part(ptype,iproc)%n <= 1_int32) cycle
+
+        call sort_particles_by_cell( &
+             part = self%part(ptype,iproc), &
+             n    = int(self%dom%n, int32), &
+             h    = self%dom%h )
+
+        ok_sorted = check_particles_are_sorted(self%part(ptype,iproc))
+        if (.not. ok_sorted) then
+          write(*,'(a,3(i0,1x))') 'Sorting failed on rank, ptype, iproc = ', &
+               self%mpi_rank, ptype, iproc
+          error stop 'mod_state%sort_particles_local: particle sorting failed'
+        end if
+
+        ok_cells = check_cell_indexing(self%part(ptype,iproc), int(self%dom%n, int32))
+        if (.not. ok_cells) then
+          write(*,'(a,3(i0,1x))') 'Cell indexing failed on rank, ptype, iproc = ', &
+               self%mpi_rank, ptype, iproc
+          error stop 'mod_state%sort_particles_local: cell indexing failed'
+        end if
+      end do
+    end do
+  end subroutine sort_particles_local
+
+
+  subroutine move_particles_local(self)
+    class(State), intent(inout) :: self
+    integer(int32) :: ptype, iproc
+    real(real64)   :: q_species, m_species, dt_local
+
+    if (.not. allocated(self%part)) return
+
+    dt_local = self%params%dt
+
+    do ptype = 1, self%ntype
+      q_species = self%chem%charge(ptype)
+      m_species = self%chem%mass(ptype)
+
+      if (m_species <= 0.0_real64) cycle
+
+      do iproc = 1, self%nproc
+        if (.not. allocated(self%part(ptype,iproc)%x)) cycle
+        if (self%part(ptype,iproc)%n <= 0_int32) cycle
+
+        call move_particles_electrostatic( &
+             part = self%part(ptype,iproc), &
+             n    = int(self%dom%n, int32), &
+             h    = self%dom%h, &
+             E    = self%fld%E, &
+             q    = q_species, &
+             m    = m_species, &
+             dt   = dt_local )
+      end do
+    end do
+  end subroutine move_particles_local
+
+
+  subroutine apply_particle_bc_local(self)
+    class(State), intent(inout) :: self
+    integer(int32) :: ptype, iproc
+    integer(int32) :: tag_neg_local
+    integer(int32) :: ispec
+
+    if (.not. allocated(self%part)) return
+
+    tag_neg_local = -1_int32
+    do ispec = 1_int32, self%ntype
+      if (self%chem%charge(ispec) < 0.0_real64 .and. ispec /= 1_int32) then
+        tag_neg_local = ispec
+        exit
+      end if
+    end do
+
+    do ptype = 1, self%ntype
+      do iproc = 1, self%nproc
+        if (.not. allocated(self%part(ptype,iproc)%x)) cycle
+        if (self%part(ptype,iproc)%n <= 0_int32) cycle
+
+        call apply_particle_bc_legacy( &
+             part     = self%part(ptype,iproc), &
+             n        = int(self%dom%n, int32), &
+             h        = self%dom%h, &
+             bcnd     = self%dom%bcnd, &
+             xmax     = self%dom%xmax, &
+             ymax     = self%dom%ymax, &
+             zmax     = self%dom%zmax, &
+             flag_pbc = int(self%dom%flag_pbc, int32), &
+             flag_nmn = int(self%dom%flag_nmn, int32), &
+             ptype    = ptype, &
+             tag_neg  = tag_neg_local )
+      end do
+    end do
+  end subroutine apply_particle_bc_local
+
+
+  subroutine finalize_particles_only(self)
+    class(State), intent(inout) :: self
+    integer(int32) :: ptype, iproc
+
+    if (.not. allocated(self%part)) return
+
+    do ptype = 1, size(self%part,1)
+      do iproc = 1, size(self%part,2)
+        call self%part(ptype,iproc)%destroy()
+      end do
+    end do
+
+    deallocate(self%part)
+  end subroutine finalize_particles_only
+
+
   subroutine finalize(self)
     class(State), intent(inout) :: self
+
     call self%pdec%destroy()
     call self%fld%destroy()
     call self%rxn%destroy()
     call self%magField%destroy()
-    if (allocated(self%part)) deallocate(self%part)
+    call self%finalize_particles_only()
+
     if (allocated(self%params%iseed)) deallocate(self%params%iseed)
   end subroutine finalize
 

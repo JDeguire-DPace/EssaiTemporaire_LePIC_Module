@@ -9,7 +9,6 @@ endif()
 
 # ------------------------------------------------------------
 # Detect whether the selected Fortran compiler is an MPI wrapper
-# (e.g. mpiifx, mpif90, mpifort, etc.)
 # ------------------------------------------------------------
 get_filename_component(FORTRAN_COMPILER_NAME "${CMAKE_Fortran_COMPILER}" NAME)
 
@@ -25,14 +24,15 @@ message(STATUS "Using MPI wrapper         : ${USING_MPI_WRAPPER}")
 
 # ------------------------------------------------------------
 # MPI handling
-# - If using mpiifx, the wrapper already knows the MPI includes/libs
-# - If using plain ifx, find MPI normally
 # ------------------------------------------------------------
 if(USING_MPI_WRAPPER)
-  message(STATUS "MPI will be provided by the compiler wrapper: ${FORTRAN_COMPILER_NAME}")
+  message(STATUS "MPI will be provided by compiler wrapper: ${FORTRAN_COMPILER_NAME}")
 else()
   find_package(MPI REQUIRED COMPONENTS Fortran)
-  message(STATUS "MPI_Fortran libraries: ${MPI_Fortran_LIBRARIES}")
+  message(STATUS "MPI_Fortran_FOUND       : ${MPI_Fortran_FOUND}")
+  message(STATUS "MPI_Fortran_COMPILER    : ${MPI_Fortran_COMPILER}")
+  message(STATUS "MPI_Fortran_LIBRARIES   : ${MPI_Fortran_LIBRARIES}")
+  message(STATUS "MPI_Fortran_INCLUDE_DIRS: ${MPI_Fortran_INCLUDE_DIRS}")
 endif()
 
 # ------------------------------------------------------------
@@ -43,11 +43,11 @@ set(OMP_LINK_FLAG "")
 
 if(CMAKE_Fortran_COMPILER_ID MATCHES "IntelLLVM|Intel")
   set(OMP_COMPILE_FLAG "-qopenmp")
-  set(OMP_LINK_FLAG "-qopenmp")
+  set(OMP_LINK_FLAG    "-qopenmp")
   add_compile_options(-O3 ${OMP_COMPILE_FLAG})
 elseif(CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
   set(OMP_COMPILE_FLAG "-fopenmp")
-  set(OMP_LINK_FLAG "-fopenmp")
+  set(OMP_LINK_FLAG    "-fopenmp")
   add_compile_options(-O3 ${OMP_COMPILE_FLAG})
 else()
   message(WARNING
@@ -58,7 +58,7 @@ else()
 endif()
 
 # ------------------------------------------------------------
-# Common interface target for shared compile/link settings
+# Common interface target
 # ------------------------------------------------------------
 add_library(build_config INTERFACE)
 
@@ -72,6 +72,7 @@ endif()
 
 if(NOT USING_MPI_WRAPPER)
   target_link_libraries(build_config INTERFACE MPI::MPI_Fortran)
+  target_include_directories(build_config INTERFACE ${MPI_Fortran_INCLUDE_DIRS})
 endif()
 
 # ------------------------------------------------------------
@@ -149,11 +150,11 @@ add_library(pic_core_obj OBJECT
   ${MODULES_DIR}/core/mod_intro.f90
   ${MODULES_DIR}/core/mod_part_info.f90
   ${MODULES_DIR}/core/mod_debug_checks.f90
-  ${MODULES_DIR}/core/mod_state.f90
 
   ${MODULES_DIR}/fields/mod_PoissonDecomposition.f90
   ${MODULES_DIR}/fields/mod_PoissonSolver_legacy.f90
   ${MODULES_DIR}/fields/mod_charge_weights.f90
+  ${MODULES_DIR}/fields/mod_chargeDeposition.f90
   ${MODULES_DIR}/fields/mod_magneticField.f90
   ${MODULES_DIR}/fields/mod_electricField.f90
 
@@ -162,14 +163,19 @@ add_library(pic_core_obj OBJECT
 
   ${MODULES_DIR}/particles/mod_chemistryState.f90
   ${MODULES_DIR}/particles/mod_particles.f90
+  ${MODULES_DIR}/particles/mod_particle_sorting.f90
+  ${MODULES_DIR}/particles/mod_particleMover.f90
+  ${MODULES_DIR}/particles/mod_particleBC.f90
   ${MODULES_DIR}/particles/mod_particle_loader.f90
   ${MODULES_DIR}/particles/mod_reactions.f90
   ${MODULES_DIR}/particles/mod_reactionsDB.f90
 
   ${MODULES_DIR}/simulation/mod_simParams.f90
-  ${MODULES_DIR}/simulation/mod_simulation.f90
 
   ${MODULES_DIR}/io/mod_output_2d.f90
+
+  ${MODULES_DIR}/core/mod_state.f90
+  ${MODULES_DIR}/simulation/mod_simulation.f90
 )
 target_link_libraries(pic_core_obj PUBLIC
   build_config
@@ -211,6 +217,7 @@ add_dependencies(legacy_mg pic_core_obj)
 add_executable(run_min
   ${MODULES_DIR}/main/main.f90
 )
+
 target_link_libraries(run_min PRIVATE
   build_config
   pic_core_obj
@@ -220,3 +227,15 @@ target_link_libraries(run_min PRIVATE
   core_deps
   legacy_mg
 )
+
+target_include_directories(run_min PRIVATE
+  ${CMAKE_Fortran_MODULE_DIRECTORY}
+  ${MODULES_DIR}/legacy
+)
+
+set_target_properties(run_min PROPERTIES
+  OUTPUT_NAME "run_min"
+  RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
+)
+
+message(STATUS "Executable will be: ${CMAKE_BINARY_DIR}/run_min")
