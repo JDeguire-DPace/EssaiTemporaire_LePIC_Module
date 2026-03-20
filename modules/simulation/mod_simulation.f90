@@ -1,5 +1,5 @@
 module mod_simulation
-  use iso_fortran_env, only: int32, real64
+  use iso_fortran_env, only: int32, real64, int64
 
   use mod_state,                 only: State
   use mod_density,               only: reduce_species_density, build_rho_from_np
@@ -7,6 +7,8 @@ module mod_simulation
   use mod_PoissonSolver_legacy,  only: solve_poisson_legacy
   use mod_electricField,         only: calc_Efield_modular
   use mod_output_2d,             only: write_density_planes, write_scalar_planes
+  use mod_collisions, only: CollisionWorkspace, perform_collisions_step
+  use mpi
 
   implicit none
   private
@@ -14,11 +16,14 @@ module mod_simulation
 
   type :: Simulation
     type(State) :: state
+    type(CollisionWorkspace) :: coll_ws
   contains
     procedure :: init
     procedure :: build_initial_fields
     procedure :: write_initial_diagnostics
     procedure :: deposit_all_particles
+    procedure :: collisions_step
+    procedure :: output_step
     procedure :: advance_one_step
     procedure :: run
     procedure :: finalize
@@ -186,50 +191,134 @@ contains
     deallocate(np_thread)
   end subroutine deposit_all_particles
 
+  subroutine collisions_step(self)
+    class(Simulation), intent(inout) :: self
+
+    call perform_collisions_step( &
+        part       = self%state%part, &
+        n          = int(self%state%dom%n, int32), &
+        h          = self%state%dom%h, &
+        np_red     = self%state%fld%np, &
+        mass       = self%state%chem%mass(1:self%state%ntype), &
+        charge     = self%state%chem%charge(1:self%state%ntype), &
+        vt0        = self%state%params%vt0(1:self%state%ntype), &
+        Nm         = self%state%params%Nm(1:self%state%ntype), &
+        p_ncol     = self%state%chem%p_ncol(1:self%state%ntype), &
+        sig        = self%state%rxn%sig, &
+        sig_Er     = self%state%rxn%sig_Er, &
+        sig_list   = self%state%rxn%sig_list, &
+        sig_Eex    = self%state%rxn%sig_Eex, &
+        col_info   = self%state%rxn%col_info, &
+        sigv_mx    = self%state%rxn%sigv_mx, &
+        ns_coll    = self%state%params%nb_step_collisions, &
+        dt         = self%state%params%dt, &
+        nu_uplim   = self%state%params%nu_uplim(1:self%state%ntype), &
+        iseed      = self%state%params%iseed, &
+        nproc_mpi  = int(self%state%mpi_size, int32), &
+        mpi_rank   = int(self%state%mpi_rank, int32), &
+        workspace  = self%coll_ws )
+  end subroutine collisions_step
+
+  subroutine output_step(self, istep)
+    class(Simulation), intent(inout) :: self
+    integer(int32),    intent(in)    :: istep
+
+    integer(int32) :: ptype, iproc
+    integer(int64) :: np_local, np_total
+    integer :: ierr
+
+    if (self%state%mpi_rank == 0) then
+      write(*,'(a,i0)') '--- Output step at iteration ', istep
+    end if
+
+    do ptype = 1, self%state%ntype
+
+      np_local = 0_int64
+
+      do iproc = 1, self%state%nproc
+        np_local = np_local + int(self%state%part(ptype,iproc)%n, int64)
+      end do
+
+      call MPI_Allreduce(np_local, np_total, 1, MPI_INTEGER8, MPI_SUM, &
+                        self%state%comm, ierr)
+
+      if (self%state%mpi_rank == 0) then
+        write(*,'(a,i0,a,i0)') 'species ', ptype, ': N = ', np_total
+      end if
+
+    end do
+
+    if (self%state%mpi_rank == 0) then
+      write(*,*) 'rho max = ', maxval(self%state%fld%rho)
+    end if
+
+    if (self%state%mpi_rank == 0) then
+      write(*,*) 'phi max = ', maxval(self%state%fld%phi)
+    end if
+
+  end subroutine output_step
 
   subroutine advance_one_step(self, istep)
     class(Simulation), intent(inout) :: self
     integer(int32),    intent(in)    :: istep
 
-    call self%state%move_particles_local()
-    call self%state%apply_particle_bc_local()
-
-    if (mod(istep, self%state%params%nb_step_sort) == 0_int32) then
+    ! ------------------------------------------------------------
+    ! 1) Sort particles on legacy cadence
+    ! Legacy: MOD(it,nsort) == 1
+    ! ------------------------------------------------------------
+    if (mod(istep, self%state%params%nb_step_sort) == 1_int32) then
       call self%state%sort_particles_local()
     end if
 
+    ! ------------------------------------------------------------
+    ! 2) Collisions before mover
+    ! Legacy: it > 1 and MOD(it,ns_coll) == 1
+    ! ------------------------------------------------------------
+    if (istep > 1_int32) then
+
+      if (mod(istep, self%state%params%nb_step_collisions) == 1_int32) then
+        if(self%state%mpi_rank == 0) write (*,'(a)') "Performing collisions"
+        call self%collisions_step()
+      end if
+    end if
+
+    if (mod(istep, self%state%cfg%nsav) == 1_int32) then
+      call self%output_step(istep)
+    end if
+    
+    call self%state%move_particles_local()
+    call self%state%apply_particle_bc_local()
     call self%deposit_all_particles()
 
     call build_rho_from_np( &
-         n      = int(self%state%dom%n, int32), &
-         np_red = self%state%fld%np, &
-         charge = self%state%chem%charge(1:self%state%ntype), &
-         ntype  = int(self%state%ntype), &
-         rho    = self%state%fld%rho )
-
+        n      = int(self%state%dom%n, int32), &
+        np_red = self%state%fld%np, &
+        charge = self%state%chem%charge(1:self%state%ntype), &
+        ntype  = int(self%state%ntype), &
+        rho    = self%state%fld%rho )
+        
     call solve_poisson_legacy( &
-         pdec        = self%state%pdec, &
-         phi_global  = self%state%fld%phi, &
-         bcnd_global = self%state%dom%bcnd, &
-         rhs_global  = self%state%fld%rho(0:self%state%dom%n(1)+1, &
+        pdec        = self%state%pdec, &
+        phi_global  = self%state%fld%phi, &
+        bcnd_global = self%state%dom%bcnd, &
+        rhs_global  = self%state%fld%rho(0:self%state%dom%n(1)+1, &
                                           0:self%state%dom%n(2)+1, &
                                           0:self%state%dom%n(3)+1), &
-         h           = self%state%dom%h, &
-         n_in        = int(self%state%dom%n, int32), &
-         ncycl       = 100, &
-         eps         = self%state%cfg%eps, &
-         omega       = self%state%cfg%omega, &
-         ng          = self%state%cfg%ng, &
-         flag_pbc_in = self%state%dom%flag_pbc, &
-         flag_nmn_in = self%state%dom%flag_nmn )
+        h           = self%state%dom%h, &
+        n_in        = int(self%state%dom%n, int32), &
+        ncycl       = 100, &
+        eps         = self%state%cfg%eps, &
+        omega       = self%state%cfg%omega, &
+        ng          = self%state%cfg%ng, &
+        flag_pbc_in = self%state%dom%flag_pbc, &
+        flag_nmn_in = self%state%dom%flag_nmn )
 
     call calc_Efield_modular( &
-         n    = int(self%state%dom%n, int32), &
-         h    = self%state%dom%h, &
-         phi  = self%state%fld%phi, &
-         E    = self%state%fld%E, &
-         bcnd = self%state%dom%bcnd )
-
+        n    = int(self%state%dom%n, int32), &
+        h    = self%state%dom%h, &
+        phi  = self%state%fld%phi, &
+        E    = self%state%fld%E, &
+        bcnd = self%state%dom%bcnd )
 
   end subroutine advance_one_step
 
@@ -241,9 +330,12 @@ contains
 
     call self%build_initial_fields()
     call self%write_initial_diagnostics()
-
+    if(self%state%mpi_rank == 0) then
+      write (*,*) " "
+      write (*,'(a)') 'Entering the PIC loop'
+    end if
     do istep = 1_int32, int(nsteps, int32)
-      write(*,'(a,i0)') "Iteration # ", istep
+      if(self%state%mpi_rank == 0) write(*,'(a,i0)') "Iteration # ", istep
       call self%advance_one_step(istep)
     end do
   end subroutine run

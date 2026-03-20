@@ -145,12 +145,21 @@ add_dependencies(fields_base geometry_base)
 # 4) Core object library
 # ============================================================
 add_library(pic_core_obj OBJECT
+  # -------------------------
+  # Config / input
+  # -------------------------
   ${MODULES_DIR}/config/mod_readConditions.f90
 
+  # -------------------------
+  # Core
+  # -------------------------
   ${MODULES_DIR}/core/mod_intro.f90
   ${MODULES_DIR}/core/mod_part_info.f90
   ${MODULES_DIR}/core/mod_debug_checks.f90
 
+  # -------------------------
+  # Fields
+  # -------------------------
   ${MODULES_DIR}/fields/mod_PoissonDecomposition.f90
   ${MODULES_DIR}/fields/mod_PoissonSolver_legacy.f90
   ${MODULES_DIR}/fields/mod_charge_weights.f90
@@ -158,22 +167,38 @@ add_library(pic_core_obj OBJECT
   ${MODULES_DIR}/fields/mod_magneticField.f90
   ${MODULES_DIR}/fields/mod_electricField.f90
 
+  # -------------------------
+  # Geometry / boundaries
+  # -------------------------
   ${MODULES_DIR}/geometry/mod_generateBoundary.f90
   ${MODULES_DIR}/geometry/mod_boundary.f90
 
+  # -------------------------
+  # Particles / chemistry
+  # -------------------------
   ${MODULES_DIR}/particles/mod_chemistryState.f90
   ${MODULES_DIR}/particles/mod_particles.f90
   ${MODULES_DIR}/particles/mod_particle_sorting.f90
   ${MODULES_DIR}/particles/mod_particleMover.f90
   ${MODULES_DIR}/particles/mod_particleBC.f90
   ${MODULES_DIR}/particles/mod_particle_loader.f90
+  ${MODULES_DIR}/particles/mod_collisions.f90
   ${MODULES_DIR}/particles/mod_reactions.f90
   ${MODULES_DIR}/particles/mod_reactionsDB.f90
 
+  # -------------------------
+  # Simulation
+  # -------------------------
   ${MODULES_DIR}/simulation/mod_simParams.f90
 
+  # -------------------------
+  # IO
+  # -------------------------
   ${MODULES_DIR}/io/mod_output_2d.f90
 
+  # -------------------------
+  # High-level orchestration
+  # -------------------------
   ${MODULES_DIR}/core/mod_state.f90
   ${MODULES_DIR}/simulation/mod_simulation.f90
 )

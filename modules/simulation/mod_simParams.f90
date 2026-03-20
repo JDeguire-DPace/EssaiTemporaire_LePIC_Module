@@ -22,8 +22,8 @@ module mod_simParams
     real(real64) :: Nm (npart) = 0.0_real64
 
     real(real64)   :: dt    = 0.0_real64
-    integer(int32) :: nb_step_sort           = 10
-    integer(int32) :: nb_step_collisions     = 10
+    integer(int32) :: nb_step_sort           = 2
+    integer(int32) :: nb_step_collisions     = 2
     integer(int32) :: nb_step_heating        = 4
     integer(int32) :: nb_step_averaging      = 0
     integer(int32) :: nb_step_Neg_PE         = 1
@@ -129,7 +129,7 @@ contains
     end if
     self%dt = cfg%kt * hmin / self%vt0(1)
 
-    self%nb_step_sort       = 10
+    self%nb_step_sort       = 2
     self%nb_step_collisions = 1 * self%nb_step_sort
 
     self%nb_step_heating = 4

@@ -1,5 +1,5 @@
 module mod_particle_sorting
-  use iso_fortran_env, only: int32, real64
+  use iso_fortran_env, only: int32, real64, int8
   use mod_particles,   only: ParticleSet
   implicit none
   private
@@ -113,6 +113,9 @@ contains
     real(real64), allocatable :: vx_new(:), vy_new(:), vz_new(:)
     real(real64), allocatable :: w_new(:)
 
+    integer(int8),  allocatable :: flag_dead_new(:)
+    integer(int32), allocatable :: flag_cex_new(:)
+
     if (.not. allocated(part%x)) return
 
     np     = part%n
@@ -136,6 +139,9 @@ contains
     allocate(sp_new(np))
     allocate(cell_id_new(np))
 
+    allocate(flag_dead_new(np))
+    allocate(flag_cex_new(np))
+
     do i = 1, np
       ic  = part%cell_id(i)
       pos = next_slot(ic)
@@ -149,6 +155,8 @@ contains
       w_new(pos)       = part%w(i)
       sp_new(pos)      = part%sp(i)
       cell_id_new(pos) = ic
+      flag_dead_new(pos) = part%flag_dead(i)
+      flag_cex_new(pos)  = part%flag_cex(i)
 
       next_slot(ic) = next_slot(ic) + 1_int32
     end do
@@ -162,11 +170,14 @@ contains
     part%w(1:np)       = w_new
     part%sp(1:np)      = sp_new
     part%cell_id(1:np) = cell_id_new
+    part%flag_dead(1:np) = flag_dead_new
+    part%flag_cex(1:np)  = flag_cex_new
 
     deallocate(next_slot)
     deallocate(x_new, y_new, z_new)
     deallocate(vx_new, vy_new, vz_new)
     deallocate(w_new, sp_new, cell_id_new)
+    deallocate(flag_dead_new, flag_cex_new)
   end subroutine sort_particles_by_cell
 
 

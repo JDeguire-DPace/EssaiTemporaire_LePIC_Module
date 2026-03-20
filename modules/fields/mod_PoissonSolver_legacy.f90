@@ -68,14 +68,14 @@ contains
     bcnd_loc(:,:,0:m+2) = pdec%bcnd_dom(:,:,0:m+2)
     b_loc(:,:,:)        = pdec%rhs_dom(:,:,:)
 
-    if (pdec%rank == 0) then
-      write(*,*) 'DEBUG LEGACY-DRIVER flags: flag_pbc, flag_nmn = ', flag_pbc, flag_nmn
-      write(*,*) 'DEBUG LEGACY-DRIVER phi before pdesolver'
-      write(*,'(a,es16.8)') 'sum      = ', sum(u_mg)
-      write(*,'(a,es16.8)') 'sum(abs) = ', sum(abs(u_mg))
-      write(*,'(a,es16.8)') 'max      = ', maxval(u_mg)
-      write(*,'(a,es16.8)') 'min      = ', minval(u_mg)
-    end if
+    ! if (pdec%rank == 0) then
+    !   write(*,*) 'DEBUG LEGACY-DRIVER flags: flag_pbc, flag_nmn = ', flag_pbc, flag_nmn
+    !   write(*,*) 'DEBUG LEGACY-DRIVER phi before pdesolver'
+    !   write(*,'(a,es16.8)') 'sum      = ', sum(u_mg)
+    !   write(*,'(a,es16.8)') 'sum(abs) = ', sum(abs(u_mg))
+    !   write(*,'(a,es16.8)') 'max      = ', maxval(u_mg)
+    !   write(*,'(a,es16.8)') 'min      = ', minval(u_mg)
+    ! end if
 
     k_it = 0
     ktot = 0.0_real64
@@ -84,13 +84,13 @@ contains
     call pdesolver(u_mg, b_loc, bcnd_loc, h_leg, n_leg, ncycl, eps, omega, &
                    k_it, ktot, res, ng, pdec%rank, pdec%nproc)
 
-    if (pdec%rank == 0) then
-      write(*,*) 'DEBUG LEGACY-DRIVER phi after pdesolver'
-      write(*,'(a,es16.8)') 'sum      = ', sum(u_mg)
-      write(*,'(a,es16.8)') 'sum(abs) = ', sum(abs(u_mg))
-      write(*,'(a,es16.8)') 'max      = ', maxval(u_mg)
-      write(*,'(a,es16.8)') 'min      = ', minval(u_mg)
-    end if
+    ! if (pdec%rank == 0) then
+    !   write(*,*) 'DEBUG LEGACY-DRIVER phi after pdesolver'
+    !   write(*,'(a,es16.8)') 'sum      = ', sum(u_mg)
+    !   write(*,'(a,es16.8)') 'sum(abs) = ', sum(abs(u_mg))
+    !   write(*,'(a,es16.8)') 'max      = ', maxval(u_mg)
+    !   write(*,'(a,es16.8)') 'min      = ', minval(u_mg)
+    ! end if
 
     pdec%phi_dom(:,:,0:m+2) = u_mg(:,:,0:m+2)
     call pdec%gather_phi_to_global(phi_global)
