@@ -223,38 +223,94 @@ contains
     class(Simulation), intent(inout) :: self
     integer(int32),    intent(in)    :: istep
 
-    integer(int32) :: ptype, iproc
-    integer(int64) :: np_local, np_total
-    integer :: ierr
+    integer(int32) :: i
+    integer(int32) :: iy_plane_density, iy_plane_phi, iy_plane_E
+    character(len=256) :: prefix
+    character(len=16)  :: sstep, sspecies
+    real(real64), allocatable :: Ex3(:,:,:), Ey3(:,:,:), Ez3(:,:,:)
 
-    if (self%state%mpi_rank == 0) then
-      write(*,'(a,i0)') '--- Output step at iteration ', istep
-    end if
+    if (self%state%mpi_rank /= 0) return
 
-    do ptype = 1, self%state%ntype
+    iy_plane_density = int(self%state%dom%n(2)/2 + 1, int32)
+    iy_plane_phi     = int(self%state%dom%n(2)/2,     int32)
+    iy_plane_E       = int(self%state%dom%n(2)/2 + 1, int32)
 
-      np_local = 0_int64
+    write(sstep,'(i0)') istep
 
-      do iproc = 1, self%state%nproc
-        np_local = np_local + int(self%state%part(ptype,iproc)%n, int64)
-      end do
+    ! ------------------------------------------------------------
+    ! Species densities
+    ! ------------------------------------------------------------
+    do i = 1, self%state%ntype
+      write(sspecies,'(i0)') i
+      prefix = '../Output/Output_2D/it' // trim(sstep) // '_n' // trim(sspecies)
 
-      call MPI_Allreduce(np_local, np_total, 1, MPI_INTEGER8, MPI_SUM, &
-                        self%state%comm, ierr)
-
-      if (self%state%mpi_rank == 0) then
-        write(*,'(a,i0,a,i0)') 'species ', ptype, ': N = ', np_total
-      end if
-
+      call write_density_planes( &
+        np       = self%state%fld%np, &
+        n        = int(self%state%dom%n, int32), &
+        ptype    = i, &
+        ix_plane = self%state%params%ix_plot_plane, &
+        iy_plane = iy_plane_density, &
+        iz_plane = self%state%params%iz_plot_plane, &
+        every    = 1_int32, &
+        prefix   = prefix )
     end do
 
-    if (self%state%mpi_rank == 0) then
-      write(*,*) 'rho max = ', maxval(self%state%fld%rho)
-    end if
+    ! ------------------------------------------------------------
+    ! Potential
+    ! ------------------------------------------------------------
+    prefix = '../Output/Output_2D/it' // trim(sstep) // '_phi'
 
-    if (self%state%mpi_rank == 0) then
-      write(*,*) 'phi max = ', maxval(self%state%fld%phi)
-    end if
+    call write_scalar_planes( &
+      f        = self%state%fld%phi, &
+      n        = int(self%state%dom%n, int32), &
+      ix_plane = self%state%params%ix_plot_plane, &
+      iy_plane = iy_plane_phi, &
+      iz_plane = self%state%params%iz_plot_plane, &
+      every    = 1_int32, &
+      prefix   = prefix )
+
+    ! ------------------------------------------------------------
+    ! Electric field components
+    ! ------------------------------------------------------------
+    allocate(Ex3(0:self%state%dom%n(1)+2,0:self%state%dom%n(2)+2,0:self%state%dom%n(3)+2))
+    allocate(Ey3(0:self%state%dom%n(1)+2,0:self%state%dom%n(2)+2,0:self%state%dom%n(3)+2))
+    allocate(Ez3(0:self%state%dom%n(1)+2,0:self%state%dom%n(2)+2,0:self%state%dom%n(3)+2))
+
+    Ex3 = self%state%fld%E(1,:,:,:)
+    Ey3 = self%state%fld%E(2,:,:,:)
+    Ez3 = self%state%fld%E(3,:,:,:)
+
+    prefix = '../Output/Output_2D/it' // trim(sstep) // '_Ex'
+    call write_scalar_planes( &
+      f        = Ex3, &
+      n        = int(self%state%dom%n, int32), &
+      ix_plane = self%state%params%ix_plot_plane, &
+      iy_plane = iy_plane_E, &
+      iz_plane = self%state%params%iz_plot_plane, &
+      every    = 1_int32, &
+      prefix   = prefix )
+
+    prefix = '../Output/Output_2D/it' // trim(sstep) // '_Ey'
+    call write_scalar_planes( &
+      f        = Ey3, &
+      n        = int(self%state%dom%n, int32), &
+      ix_plane = self%state%params%ix_plot_plane, &
+      iy_plane = iy_plane_E, &
+      iz_plane = self%state%params%iz_plot_plane, &
+      every    = 1_int32, &
+      prefix   = prefix )
+
+    prefix = '../Output/Output_2D/it' // trim(sstep) // '_Ez'
+    call write_scalar_planes( &
+      f        = Ez3, &
+      n        = int(self%state%dom%n, int32), &
+      ix_plane = self%state%params%ix_plot_plane, &
+      iy_plane = iy_plane_E, &
+      iz_plane = self%state%params%iz_plot_plane, &
+      every    = 1_int32, &
+      prefix   = prefix )
+
+    deallocate(Ex3, Ey3, Ez3)
 
   end subroutine output_step
 
@@ -319,6 +375,10 @@ contains
         phi  = self%state%fld%phi, &
         E    = self%state%fld%E, &
         bcnd = self%state%dom%bcnd )
+
+    if (mod(istep, self%state%cfg%nsav) == 1_int32) then
+      call self%output_step(istep)
+    end if
 
   end subroutine advance_one_step
 
