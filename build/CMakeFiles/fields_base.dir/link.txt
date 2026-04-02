@@ -1,2 +1,0 @@
-/cvmfs/soft.computecanada.ca/gentoo/2023/x86-64-v3/usr/bin/ar qc libfields_base.a CMakeFiles/fields_base.dir/modules/fields/mod_fields.f90.o CMakeFiles/fields_base.dir/modules/fields/mod_density.f90.o
-/cvmfs/soft.computecanada.ca/gentoo/2023/x86-64-v3/usr/bin/ranlib libfields_base.a
