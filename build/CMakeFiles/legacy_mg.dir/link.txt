@@ -1,0 +1,2 @@
+/cvmfs/soft.computecanada.ca/gentoo/2023/x86-64-v3/usr/bin/ar qc liblegacy_mg.a CMakeFiles/legacy_mg.dir/modules/legacy/pdesolver.f90.o CMakeFiles/legacy_mg.dir/modules/legacy/mg.f90.o CMakeFiles/legacy_mg.dir/modules/legacy/sors.f90.o
+/cvmfs/soft.computecanada.ca/gentoo/2023/x86-64-v3/usr/bin/ranlib liblegacy_mg.a
