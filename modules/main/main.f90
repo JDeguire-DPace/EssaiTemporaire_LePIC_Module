@@ -11,7 +11,7 @@ program main
   call MPI_Init(ierr)
 
   call sim%init(MPI_COMM_WORLD)
-  call sim%run(300)
+  call sim%run(2002)
   call sim%finalize()
 
   call MPI_Finalize(ierr)

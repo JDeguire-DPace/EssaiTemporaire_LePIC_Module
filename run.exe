@@ -7,11 +7,11 @@ rm -f DATA/DATA_2D/*.*
 echo '*** Start calculation ... ***'
 ulimit -s "unlimited"
 #export FI_PROVIDER=tcp
-export OMP_NUM_THREADS=16
+export OMP_NUM_THREADS=24
 export OMP_PROC_BIND=true
 #export I_MPI_PIN_DOMAIN=omp
 #export KMP_AFFINITY="verbose,explicit,proclist=[1,2,3]"
-time mpirun -np 4 ./3dphpic.exe
+time mpirun -np 1 ./3dphpic.exe
 
 set k=$0
 j=$( date +%s )

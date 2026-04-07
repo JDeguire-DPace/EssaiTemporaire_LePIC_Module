@@ -185,6 +185,7 @@ add_library(pic_core_obj OBJECT
   ${MODULES_DIR}/particles/mod_collisions.f90
   ${MODULES_DIR}/particles/mod_reactions.f90
   ${MODULES_DIR}/particles/mod_reactionsDB.f90
+  ${MODULES_DIR}/particles/mod_heating.f90
 
   # -------------------------
   # Simulation

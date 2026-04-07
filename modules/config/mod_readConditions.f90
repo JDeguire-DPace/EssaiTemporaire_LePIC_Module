@@ -39,6 +39,8 @@ module mod_readConditions
         xl_pow = cfg%xl_pow; xr_pow = cfg%xr_pow
         yl_pow = cfg%yl_pow; yr_pow = cfg%yr_pow
         zl_pow = cfg%zl_pow; zr_pow = cfg%zr_pow
+
+
         nsav = cfg%nsav
         eps = cfg%eps
         omega = cfg%omega

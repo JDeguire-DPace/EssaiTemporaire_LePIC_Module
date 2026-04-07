@@ -25,6 +25,7 @@ module mod_state
   use mod_particleBC,       only: apply_particle_bc_legacy
   use mod_magneticField,    only: MagneticField
   use mod_simParams,        only: SimParams
+  use mod_heating,         only: apply_electron_heating
 
   implicit none
   private
@@ -42,12 +43,22 @@ module mod_state
     type(SimParams)      :: params
     type(ParticleSet), allocatable :: part(:,:)
 
+    real(real64), allocatable :: np_thread(:,:,:,:,:) 
+
     integer :: mpi_rank = -1
     integer :: mpi_size = -1
     integer :: comm     = MPI_COMM_NULL
 
     integer(int32) :: ntype = 0
     integer(int32) :: nproc = 1
+
+
+    ! P_loss(1,:,:) wall losses
+    ! P_loss(2,:,:) heating power
+    ! P_loss(3,:,:) collision power exchange
+    ! P_loss(4,:,:) injected/secondary power
+    real(real64) :: p_loss_heating_local
+    real(real64), allocatable :: P_loss(:,:,:)
   contains
     procedure :: init
     procedure :: init_chemistry
@@ -57,6 +68,7 @@ module mod_state
     procedure :: sort_particles_local
     procedure :: move_particles_local
     procedure :: apply_particle_bc_local
+    procedure :: apply_electron_heating_local
 
     procedure :: finalize_particles_only
     procedure :: finalize
@@ -96,6 +108,13 @@ contains
     call self%params%print_summary(self%mpi_rank, self%cfg%nsav)
 
     call self%init_particles()
+    allocate(self%np_thread(0:self%dom%n(1)+2, &
+                        0:self%dom%n(2)+2, &
+                        0:self%dom%n(3)+2, &
+                        self%ntype, self%nproc))
+    self%np_thread = 0.0_real64
+    allocate(self%P_loss(4, self%ntype, self%nproc))
+    self%P_loss = 0.0_real64
   end subroutine init
 
 
@@ -246,8 +265,45 @@ contains
     end do
   end subroutine sort_particles_local
 
+  subroutine apply_electron_heating_local(self, vt)
+    class(State), intent(inout) :: self
+    real(real64), intent(in)    :: vt
+
+    integer(int32) :: iproc
+
+    if (.not. allocated(self%part)) return
+    if (self%ntype < 1) return
+    if (.not. allocated(self%P_loss)) return
+    if(self%cfg%flag_circxh.eq.1) self%cfg%R_ahp= self%cfg%yr_pow-self%dom%ymax/2.d0
+    !$omp parallel do private(iproc) schedule(static)
+    do iproc = 1, self%nproc
+      if (.not. allocated(self%part(1,iproc)%x)) cycle
+      if (self%part(1,iproc)%n <= 0_int32) cycle
+
+      call apply_electron_heating( &
+          part           = self%part(1,iproc), &
+          h              = self%dom%h, &
+          vt             = vt, &
+          iseed          = self%params%iseed(iproc), &
+          nudt           = self%params%nudt, &
+          xl_pow        = self%cfg%xl_pow, &
+          xr_pow        = self%cfg%xr_pow, &
+          flag_circxh    = self%cfg%flag_circxh, &
+          flag_ahp       = self%cfg%flag_ahp, &
+          R_ahp          = self%cfg%R_ahp, &
+          ymax           = self%dom%ymax, &
+          zmax           = self%dom%zmax, &
+          Nm_e           = self%params%Nm(1), &
+          mass_e         = self%chem%mass(1), &
+          p_loss_heating = self%P_loss(2,1,iproc) )
+    end do
+    !$omp end parallel do
+
+  end subroutine apply_electron_heating_local
+
 
   subroutine move_particles_local(self)
+    use omp_lib, only: omp_get_max_threads
     class(State), intent(inout) :: self
     integer(int32) :: ptype, iproc
     real(real64)   :: q_species, m_species, dt_local
@@ -256,26 +312,27 @@ contains
 
     dt_local = self%params%dt
 
+    !$omp parallel do collapse(2) private(ptype,iproc,q_species,m_species) schedule(static)
     do ptype = 1, self%ntype
-      q_species = self%chem%charge(ptype)
-      m_species = self%chem%mass(ptype)
-
-      if (m_species <= 0.0_real64) cycle
-
       do iproc = 1, self%nproc
+        q_species = self%chem%charge(ptype)
+        m_species = self%chem%mass(ptype)
+
+        if (m_species <= 0.0_real64) cycle
         if (.not. allocated(self%part(ptype,iproc)%x)) cycle
         if (self%part(ptype,iproc)%n <= 0_int32) cycle
 
         call move_particles_electrostatic( &
-             part = self%part(ptype,iproc), &
-             n    = int(self%dom%n, int32), &
-             h    = self%dom%h, &
-             E    = self%fld%E, &
-             q    = q_species, &
-             m    = m_species, &
-             dt   = dt_local )
+            part = self%part(ptype,iproc), &
+            n    = int(self%dom%n, int32), &
+            h    = self%dom%h, &
+            E    = self%fld%E, &
+            q    = q_species, &
+            m    = m_species, &
+            dt   = dt_local )
       end do
     end do
+    !$omp end parallel do
   end subroutine move_particles_local
 
 
@@ -295,25 +352,27 @@ contains
       end if
     end do
 
+    !$omp parallel do collapse(2) private(ptype,iproc) schedule(static)
     do ptype = 1, self%ntype
       do iproc = 1, self%nproc
         if (.not. allocated(self%part(ptype,iproc)%x)) cycle
         if (self%part(ptype,iproc)%n <= 0_int32) cycle
 
         call apply_particle_bc_legacy( &
-             part     = self%part(ptype,iproc), &
-             n        = int(self%dom%n, int32), &
-             h        = self%dom%h, &
-             bcnd     = self%dom%bcnd, &
-             xmax     = self%dom%xmax, &
-             ymax     = self%dom%ymax, &
-             zmax     = self%dom%zmax, &
-             flag_pbc = int(self%dom%flag_pbc, int32), &
-             flag_nmn = int(self%dom%flag_nmn, int32), &
-             ptype    = ptype, &
-             tag_neg  = tag_neg_local )
+            part     = self%part(ptype,iproc), &
+            n        = int(self%dom%n, int32), &
+            h        = self%dom%h, &
+            bcnd     = self%dom%bcnd, &
+            xmax     = self%dom%xmax, &
+            ymax     = self%dom%ymax, &
+            zmax     = self%dom%zmax, &
+            flag_pbc = int(self%dom%flag_pbc, int32), &
+            flag_nmn = int(self%dom%flag_nmn, int32), &
+            ptype    = ptype, &
+            tag_neg  = tag_neg_local )
       end do
     end do
+    !$omp end parallel do
   end subroutine apply_particle_bc_local
 
 

@@ -109,10 +109,10 @@ contains
       write(*,'(a)') "Loading particles..."
     end if
 
-    !$omp parallel private(iproc,iseed_omp,ptype,j,k,ix,iy,iz,x,y,z,vx,vy,vt,rnd,px,py,pz,kp,ki,vz_sav)
+    !$omp parallel num_threads(nproc) &
+    !$omp private(iproc,iseed_omp,ptype,j,k,ix,iy,iz,x,y,z,vx,vy,vt,rnd,px,py,pz,kp,ki,vz_sav)
 
     iproc = omp_get_thread_num() + 1
-    print*, nproc
     if (iproc > nproc) error stop 'iproc > nproc in load_particles_modular'
 
     iseed_omp = iseed(iproc)

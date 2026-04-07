@@ -549,7 +549,7 @@ program main
 
   nsort=10 ! Frequency of calls to sorting subroutine
   ns_coll= 1*nsort ! Frequency of calls to collision subroutine
-  ns_heat=4 ! Frequency of calls to heating subroutine
+  ns_heat=1000 ! Frequency of calls to heating subroutine
   if( kt.ge.0.05 .and. kt.lt.0.1 ) ns_heat=20
   if(kt.lt.0.05) ns_heat=40
   if(flag_bak.eq.0) then ! Frequency for averaging
@@ -765,7 +765,8 @@ program main
   ! Start iteration 
   !
   do it=1,ntmax
-
+     
+     if (it.eq.600) call stop_calculation
      time= time + dt
      if(time.ge.tmax) exit ! Stop calculation
 

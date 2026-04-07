@@ -9,6 +9,7 @@ module mod_simulation
   use mod_output_2d,             only: write_density_planes, write_scalar_planes
   use mod_collisions, only: CollisionWorkspace, perform_collisions_step
   use mpi
+  use omp_lib, only: omp_get_wtime
 
   implicit none
   private
@@ -153,42 +154,38 @@ contains
 
   subroutine deposit_all_particles(self)
     class(Simulation), intent(inout) :: self
-
     integer(int32) :: ptype, iproc
-    real(real64), allocatable :: np_thread(:,:,:,:,:)
 
-    allocate(np_thread(0:self%state%dom%n(1)+2, &
-                       0:self%state%dom%n(2)+2, &
-                       0:self%state%dom%n(3)+2, &
-                       self%state%ntype, self%state%nproc))
+    call clear_np_thread(int(self%state%dom%n, int32), &
+                        self%state%ntype, &
+                        self%state%nproc, &
+                        self%state%np_thread)
 
-    call clear_np_thread(int(self%state%dom%n, int32), self%state%ntype, self%state%nproc, np_thread)
-
+    !$omp parallel do collapse(2) private(ptype,iproc) schedule(static)
     do ptype = 1, self%state%ntype
       do iproc = 1, self%state%nproc
         if (.not. allocated(self%state%part(ptype,iproc)%x)) cycle
         if (self%state%part(ptype,iproc)%n <= 0_int32) cycle
 
         call deposit_particle_set_to_np_thread( &
-             part       = self%state%part(ptype,iproc), &
-             n          = int(self%state%dom%n, int32), &
-             h          = self%state%dom%h, &
-             kq         = self%state%fld%kq, &
-             Nm_species = self%state%params%Nm(ptype), &
-             np_local   = np_thread(:,:,:,ptype,iproc) )
+            part       = self%state%part(ptype,iproc), &
+            n          = int(self%state%dom%n, int32), &
+            h          = self%state%dom%h, &
+            kq         = self%state%fld%kq, &
+            Nm_species = self%state%params%Nm(ptype), &
+            np_local   = self%state%np_thread(:,:,:,ptype,iproc) )
       end do
     end do
+    !$omp end parallel do
 
     call reduce_species_density( &
-         n         = int(self%state%dom%n, int32), &
-         bcnd      = self%state%dom%bcnd, &
-         np_thread = np_thread, &
-         ntype     = int(self%state%ntype), &
-         nproc     = int(self%state%nproc), &
-         mpi_comm  = self%state%comm, &
-         np_red    = self%state%fld%np )
-
-    deallocate(np_thread)
+        n         = int(self%state%dom%n, int32), &
+        bcnd      = self%state%dom%bcnd, &
+        np_thread = self%state%np_thread, &
+        ntype     = int(self%state%ntype), &
+        nproc     = int(self%state%nproc), &
+        mpi_comm  = self%state%comm, &
+        np_red    = self%state%fld%np )
   end subroutine deposit_all_particles
 
   subroutine collisions_step(self)
@@ -317,10 +314,12 @@ contains
   subroutine advance_one_step(self, istep)
     class(Simulation), intent(inout) :: self
     integer(int32),    intent(in)    :: istep
+    real(real64) :: t0,t1
+    real(real64) :: t_move,t_bc,t_sort,t_dep, t_rho, t_poisson, t_coll
+    integer :: i
 
     ! ------------------------------------------------------------
     ! 1) Sort particles on legacy cadence
-    ! Legacy: MOD(it,nsort) == 1
     ! ------------------------------------------------------------
     if (mod(istep, self%state%params%nb_step_sort) == 1_int32) then
       call self%state%sort_particles_local()
@@ -328,20 +327,24 @@ contains
 
     ! ------------------------------------------------------------
     ! 2) Collisions before mover
-    ! Legacy: it > 1 and MOD(it,ns_coll) == 1
     ! ------------------------------------------------------------
     if (istep > 1_int32) then
-
       if (mod(istep, self%state%params%nb_step_collisions) == 1_int32) then
-        if(self%state%mpi_rank == 0) write (*,'(a)') "Performing collisions"
         call self%collisions_step()
       end if
     end if
 
-    if (mod(istep, self%state%cfg%nsav) == 1_int32) then
-      call self%output_step(istep)
+    ! ------------------------------------------------------------
+    ! 3) Electron heating before mover
+    ! Legacy: eheating is applied before part_mover
+    ! ------------------------------------------------------------
+    if (mod(istep, self%state%params%nb_step_heating) == 0_int32) then
+      call self%state%apply_electron_heating_local(self%state%params%vt0(1))
+      if (self%state%mpi_rank == 0 .and. mod(istep, 1000) == 0_int32) then
+        write(*,'(a,es12.4)') 'Total heating power accumulator = ', sum(self%state%P_loss(2,1,:))
+      end if
     end if
-    
+
     call self%state%move_particles_local()
     call self%state%apply_particle_bc_local()
     call self%deposit_all_particles()
@@ -352,14 +355,14 @@ contains
         charge = self%state%chem%charge(1:self%state%ntype), &
         ntype  = int(self%state%ntype), &
         rho    = self%state%fld%rho )
-        
+
     call solve_poisson_legacy( &
         pdec        = self%state%pdec, &
         phi_global  = self%state%fld%phi, &
         bcnd_global = self%state%dom%bcnd, &
         rhs_global  = self%state%fld%rho(0:self%state%dom%n(1)+1, &
-                                          0:self%state%dom%n(2)+1, &
-                                          0:self%state%dom%n(3)+1), &
+                                        0:self%state%dom%n(2)+1, &
+                                        0:self%state%dom%n(3)+1), &
         h           = self%state%dom%h, &
         n_in        = int(self%state%dom%n, int32), &
         ncycl       = 100, &
@@ -376,7 +379,7 @@ contains
         E    = self%state%fld%E, &
         bcnd = self%state%dom%bcnd )
 
-    if (mod(istep, self%state%cfg%nsav) == 1_int32) then
+    if (mod(istep, 1000) == 1_int32) then
       call self%output_step(istep)
     end if
 
@@ -395,7 +398,7 @@ contains
       write (*,'(a)') 'Entering the PIC loop'
     end if
     do istep = 1_int32, int(nsteps, int32)
-      if(self%state%mpi_rank == 0) write(*,'(a,i0)') "Iteration # ", istep
+      if(self%state%mpi_rank == 0 .and. mod(istep, 250) == 0_int32) write(*,'(a,i0)') "Iteration # ", istep
       call self%advance_one_step(istep)
     end do
   end subroutine run

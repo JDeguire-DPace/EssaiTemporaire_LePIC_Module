@@ -10,6 +10,7 @@ module mod_domain
 
     ! geometry extents (filled by legacy generate_boundary for now)
     real(real64) :: xmax = 0.0_real64, ymax = 0.0_real64, zmax = 0.0_real64
+    real(real64) :: xmin = 0.0_real64, ymin = 0.0_real64, zmin = 0.0_real64
 
     ! ---- NEW: boundary/geometry metadata produced by generate_boundary ----
     real(real64) :: Lgy = 0.0_real64, Lgz = 0.0_real64
@@ -48,6 +49,9 @@ contains
     self%xmax = 0.0_real64
     self%ymax = 0.0_real64
     self%zmax = 0.0_real64
+    self%xmin = 0.0_real64
+    self%ymin = 0.0_real64
+    self%zmin = 0.0_real64
   end subroutine init_from_config
 
   subroutine allocate_masks_domain(self)

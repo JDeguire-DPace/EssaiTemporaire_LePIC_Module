@@ -13,6 +13,8 @@ module mod_config
     real(real64)      :: tmax      = 0.0_real64
     real(real64)      :: xl_pow    = 0.0_real64, xr_pow = 0.0_real64
     real(real64)      :: yl_pow    = 0.0_real64, yr_pow = 0.0_real64
+    integer           :: flag_circxh = 0
+    real(real64)      :: R_ahp    = 0.0_real64
     real(real64)      :: zl_pow    = 0.0_real64, zr_pow = 0.0_real64
     integer           :: nsav      = 0
     real(real64)      :: eps       = 0.0_real64
