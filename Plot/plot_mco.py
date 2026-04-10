@@ -89,7 +89,7 @@ def main() -> int:
     #     return A * np.exp(-((x-x0)**2 + (y-y0)**2 + (z-z0)**2)/(2*sig2))
     
     script_dir = Path(__file__).resolve().parent
-    default_dir = (script_dir.parent / "DATA" / "DATA_2D")
+    default_dir = (script_dir.parent )
     initial_dir = default_dir if default_dir.is_dir() else script_dir.parent
 
     # xo = np.linspace(0, 0.4, 128)
@@ -139,7 +139,10 @@ def main() -> int:
     ax1.set_ylabel("z cell")
 
     # --- 1D slice plot (right) ---
-    ax2.plot(np.arange(arr.shape[1]), arr[16, :], label="LePIC potential", color="skyblue", linewidth=4)
+    average = np.zeros(arr.shape[1])
+    for i in range(0, arr.shape[0]):
+        average += arr[i, :]/arr.shape[0]
+    ax2.plot(np.arange(arr.shape[1]), average, label="LePIC potential", color="skyblue", linewidth=4)
     ax2.set_xlabel("x cell")
     ax2.set_ylabel(rf"$\phi$ (V)")
 
@@ -170,9 +173,9 @@ def main() -> int:
     L = 0.10
 
     phi_x = np.sin(4*np.pi*(x)/L)
-    ax2.plot(x*(128/0.1),phi_x)
-    ax2.plot(x*(128/0.1), phi_x, label="Analytical", color="red", linestyle=(0, (5, 10)), linewidth=4)
-    ax2.legend()
+    #ax2.plot(x*(128/0.1),phi_x)
+    # ax2.plot(x*(128/0.1), phi_x, label="Analytical", color="red", linestyle=(0, (5, 10)), linewidth=4)
+    # ax2.legend()
     plt.tight_layout()
     plt.show()
 
