@@ -6,7 +6,8 @@ module mod_simulation
   use mod_chargeDeposition,      only: clear_np_thread, deposit_particle_set_to_np_thread
   use mod_PoissonSolver_legacy,  only: solve_poisson_legacy
   use mod_electricField,         only: calc_Efield_modular
-  use mod_output_2d,             only: write_density_planes, write_scalar_planes
+  use mod_output_2d, only: write_density_planes, write_scalar_planes, &
+                         write_plane_xy_scalar_2d, write_plane_xz_scalar_2d, write_plane_yz_scalar_2d  
   use mod_collisions, only: CollisionWorkspace, perform_collisions_step
   use mpi
   use omp_lib, only: omp_get_wtime
@@ -228,6 +229,8 @@ contains
 
     if (self%state%mpi_rank /= 0) return
 
+    call self%state%compute_plane_moments_local()
+
     iy_plane_density = int(self%state%dom%n(2)/2 + 1, int32)
     iy_plane_phi     = int(self%state%dom%n(2)/2,     int32)
     iy_plane_E       = int(self%state%dom%n(2)/2 + 1, int32)
@@ -239,8 +242,8 @@ contains
     ! ------------------------------------------------------------
     do i = 1, self%state%ntype
       write(sspecies,'(i0)') i
-      prefix = '../Output/Output_2D/it' // trim(sstep) // '_n' // trim(sspecies)
 
+      prefix = '../Output/Output_2D/it' // trim(sstep) // '_n' // trim(sspecies)
       call write_density_planes( &
         np       = self%state%fld%np, &
         n        = int(self%state%dom%n, int32), &
@@ -250,6 +253,41 @@ contains
         iz_plane = self%state%params%iz_plot_plane, &
         every    = 1_int32, &
         prefix   = prefix )
+
+      ! ----------------------------------------------------------
+      ! Species particle temperature (eV) from particle velocities
+      ! First concrete version: XZ plane written by the helper
+      ! ----------------------------------------------------------
+      prefix = '../Output/Output_2D/it' // trim(sstep) // '_T' // trim(sspecies)
+      
+      ! ----------------------------------------------------------
+      ! Temperature from plane moments (LEGACY-COMPATIBLE)
+      ! ----------------------------------------------------------
+
+      ! XY plane
+      write(prefix,'(a,"/it",i0,"_T",i0,"_xy.mco")') '../Output/Output_2D', istep, i
+      call write_plane_xy_scalar_2d( &
+          prefix, &
+          self%state%data_pavg_xy(2,:,:,i), &
+          int(self%state%dom%n, int32), &
+          1_int32 )
+
+      ! XZ plane
+      write(prefix,'(a,"/it",i0,"_T",i0,"_xz.mco")') '../Output/Output_2D', istep, i
+      call write_plane_xz_scalar_2d( &
+          prefix, &
+          self%state%data_pavg_xz(2,:,:,i), &
+          int(self%state%dom%n, int32), &
+          1_int32 )
+
+      ! YZ plane
+      write(prefix,'(a,"/it",i0,"_T",i0,"_yz.mco")') '../Output/Output_2D', istep, i
+      call write_plane_yz_scalar_2d( &
+          prefix, &
+          self%state%data_pavg_yz(2,:,:,i), &
+          int(self%state%dom%n, int32), &
+          1_int32 )
+
     end do
 
     ! ------------------------------------------------------------
@@ -317,6 +355,7 @@ contains
     real(real64) :: t0,t1
     real(real64) :: t_move,t_bc,t_sort,t_dep, t_rho, t_poisson, t_coll
     integer :: i
+    real(real64) :: vt_heat
 
     ! ------------------------------------------------------------
     ! 1) Sort particles on legacy cadence
@@ -336,13 +375,14 @@ contains
 
     ! ------------------------------------------------------------
     ! 3) Electron heating before mover
-    ! Legacy: eheating is applied before part_mover
+    ! Legacy: compute self-consistent vt, then call eheating
     ! ------------------------------------------------------------
     if (mod(istep, self%state%params%nb_step_heating) == 0_int32) then
-      call self%state%apply_electron_heating_local(self%state%params%vt0(1))
-      if (self%state%mpi_rank == 0 .and. mod(istep, 1000) == 0_int32) then
-        write(*,'(a,es12.4)') 'Total heating power accumulator = ', sum(self%state%P_loss(2,1,:))
-      end if
+
+      call self%state%compute_heating_region_moments()
+      call self%state%update_heating_vt(vt_heat)
+
+      call self%state%apply_electron_heating_local(vt_heat)
     end if
 
     call self%state%move_particles_local()
@@ -379,7 +419,7 @@ contains
         E    = self%state%fld%E, &
         bcnd = self%state%dom%bcnd )
 
-    if (mod(istep, 1000) == 1_int32) then
+    if (mod(istep, 100) == 1_int32) then
       call self%output_step(istep)
     end if
 

@@ -82,6 +82,10 @@ contains
         error stop 'deposit_particle_set_to_np_thread: NaN position'
       end if
 
+      xp_new = min(max(xp_new, 0.0_real64), xmax_loc - 1e-12)
+      yp_new = min(max(yp_new, 0.0_real64), ymax_loc - 1e-12)
+      zp_new = min(max(zp_new, 0.0_real64), zmax_loc - 1e-12)
+
       ! --------------------------------------------------------
       ! Physical-domain guard
       ! We allow x==xmax etc. because legacy can place particles on

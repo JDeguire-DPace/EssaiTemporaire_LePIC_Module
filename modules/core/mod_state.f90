@@ -5,7 +5,7 @@ module mod_state
   use mod_config,         only: Config
   use mod_readConditions, only: read_input
 
-  use mod_constants,      only: eps0
+  use mod_constants,      only: eps0,qe
   use mod_domain,         only: Domain
   use mod_boundary,       only: build_boundary
 
@@ -26,6 +26,7 @@ module mod_state
   use mod_magneticField,    only: MagneticField
   use mod_simParams,        only: SimParams
   use mod_heating,         only: apply_electron_heating
+  use mod_planeMoments,   only: compute_particle_plane_moments_species
 
   implicit none
   private
@@ -43,6 +44,8 @@ module mod_state
     type(SimParams)      :: params
     type(ParticleSet), allocatable :: part(:,:)
 
+    
+
     real(real64), allocatable :: np_thread(:,:,:,:,:) 
 
     integer :: mpi_rank = -1
@@ -51,6 +54,8 @@ module mod_state
 
     integer(int32) :: ntype = 0
     integer(int32) :: nproc = 1
+    integer(int32), allocatable :: Nh(:)
+    real(real64), allocatable :: sum_dEk(:)
 
 
     ! P_loss(1,:,:) wall losses
@@ -59,6 +64,12 @@ module mod_state
     ! P_loss(4,:,:) injected/secondary power
     real(real64) :: p_loss_heating_local
     real(real64), allocatable :: P_loss(:,:,:)
+
+    real(real64), allocatable :: data_pavg_xy(:,:,:,:)
+    real(real64), allocatable :: data_pavg_xz(:,:,:,:)
+    real(real64), allocatable :: data_pavg_yz(:,:,:,:)
+    
+
   contains
     procedure :: init
     procedure :: init_chemistry
@@ -69,6 +80,9 @@ module mod_state
     procedure :: move_particles_local
     procedure :: apply_particle_bc_local
     procedure :: apply_electron_heating_local
+    procedure :: compute_heating_region_moments
+    procedure :: update_heating_vt
+    procedure :: compute_plane_moments_local
 
     procedure :: finalize_particles_only
     procedure :: finalize
@@ -115,8 +129,24 @@ contains
     self%np_thread = 0.0_real64
     allocate(self%P_loss(4, self%ntype, self%nproc))
     self%P_loss = 0.0_real64
-  end subroutine init
 
+    allocate(self%Nh(self%nproc))
+    allocate(self%sum_dEk(self%nproc))
+
+
+
+    self%Nh      = 0_int32
+    self%sum_dEk = 0.0_real64
+  
+    allocate(self%data_pavg_xy(5, 0:self%dom%n(1)+2, 0:self%dom%n(2)+2, self%ntype))
+    allocate(self%data_pavg_xz(5, 0:self%dom%n(1)+2, 0:self%dom%n(3)+2, self%ntype))
+    allocate(self%data_pavg_yz(5, 0:self%dom%n(2)+2, 0:self%dom%n(3)+2, self%ntype))
+
+    self%data_pavg_xy = 0.0_real64
+    self%data_pavg_xz = 0.0_real64
+    self%data_pavg_yz = 0.0_real64
+  
+  end subroutine init
 
   subroutine init_chemistry(self)
     class(State), intent(inout) :: self
@@ -375,6 +405,123 @@ contains
     !$omp end parallel do
   end subroutine apply_particle_bc_local
 
+
+  subroutine compute_heating_region_moments(self)
+    class(State), intent(inout) :: self
+
+    integer(int32) :: iproc, i, ix
+    real(real64)   :: x, y, z, v2
+    real(real64)   :: ymax_half, zmax_half
+
+    if (.not. allocated(self%part)) return
+    if (.not. allocated(self%Nh)) return
+    if (.not. allocated(self%sum_dEk)) return
+
+    self%Nh      = 0_int32
+    self%sum_dEk = 0.0_real64
+
+    ymax_half = self%dom%ymax / 2.0_real64
+    zmax_half = self%dom%zmax / 2.0_real64
+
+    !$omp parallel do private(iproc,i,ix,x,y,z,v2) schedule(static)
+    do iproc = 1, self%nproc
+      if (.not. allocated(self%part(1,iproc)%x)) cycle
+      if (self%part(1,iproc)%n <= 0_int32) cycle
+
+      do i = 1, self%part(1,iproc)%n
+        x  = self%part(1,iproc)%x(i)
+        ix = int(x / self%dom%h(1), int32) + 1_int32
+
+        if (ix < self%cfg%xl_pow/self%dom%h(1) .or. ix > self%cfg%xr_pow/self%dom%h(1)) cycle
+
+        if (self%cfg%flag_circxh == 1) then
+          y = self%part(1,iproc)%y(i)
+          z = self%part(1,iproc)%z(i)
+
+          if (self%cfg%flag_ahp == 0) then
+            if ( ((y-ymax_half)**2 + (z-zmax_half)**2) > self%cfg%R_ahp**2 ) cycle
+          else
+            if ( ((y-ymax_half)**2 + (z-zmax_half)**2) < self%cfg%R_ahp**2 ) cycle
+          end if
+        end if
+
+        v2 = self%part(1,iproc)%vx(i)**2 + &
+            self%part(1,iproc)%vy(i)**2 + &
+            self%part(1,iproc)%vz(i)**2
+
+        self%sum_dEk(iproc) = self%sum_dEk(iproc) + &
+            0.5_real64 * self%params%Nm(1) * self%chem%mass(1) * v2
+
+        self%Nh(iproc) = self%Nh(iproc) + 1_int32
+      end do
+    end do
+    !$omp end parallel do
+
+  end subroutine compute_heating_region_moments
+  
+  subroutine update_heating_vt(self, vt_heat)
+    use mpi
+    class(State), intent(inout) :: self
+    real(real64), intent(out)   :: vt_heat
+
+    integer :: ierr
+    integer(int32) :: sum_Nh, sum_Nh_global
+    real(real64)   :: sum_dEk_tot, sum_dEk_global
+    real(real64)   :: Te
+
+    vt_heat = self%params%vt0(1)
+
+    if (.not. allocated(self%Nh)) return
+    if (.not. allocated(self%sum_dEk)) return
+
+    sum_Nh    = sum(self%Nh)
+    sum_dEk_tot = sum(self%sum_dEk)
+
+    sum_Nh_global   = sum_Nh
+    sum_dEk_global  = sum_dEk_tot
+
+    if (self%mpi_size > 1) then
+      call MPI_Allreduce(sum_Nh, sum_Nh_global, 1, MPI_INTEGER, MPI_SUM, self%comm, ierr)
+      call MPI_Allreduce(sum_dEk_tot, sum_dEk_global, 1, MPI_DOUBLE_PRECISION, MPI_SUM, self%comm, ierr)
+    end if
+
+    if (sum_Nh_global <= 0) return
+
+    Te = (2.0_real64/3.0_real64) * &
+        (sum_dEk_global + self%cfg%Pabs / self%cfg%nu_h) / &
+        (self%params%Nm(1) * qe * real(sum_Nh_global, real64))
+
+    if (Te > 0.0_real64) then
+      vt_heat = sqrt(2.0_real64 * qe * Te / abs(self%chem%mass(1)))
+    end if
+  end subroutine update_heating_vt
+
+  subroutine compute_plane_moments_local(self)
+    class(State), intent(inout) :: self
+    integer(int32) :: ptype
+
+    if (.not. allocated(self%part)) return
+
+    self%data_pavg_xy = 0.0_real64
+    self%data_pavg_xz = 0.0_real64
+    self%data_pavg_yz = 0.0_real64
+
+    do ptype = 1, self%ntype
+      call compute_particle_plane_moments_species( &
+          part         = self%part(ptype,:), &
+          nproc        = self%nproc, &
+          n            = int(self%dom%n, int32), &
+          h            = self%dom%h, &
+          ptype        = ptype, &
+          mass_species = self%chem%mass(ptype), &
+          ix_plane     = self%params%ix_plot_plane, &
+          iy_plane     = int(self%dom%n(2)/2 + 1, int32), &
+          iz_plane     = self%params%iz_plot_plane, &
+          data_xy      = self%data_pavg_xy(:,:,:,ptype), &
+          data_xz      = self%data_pavg_xz(:,:,:,ptype), &
+          data_yz      = self%data_pavg_yz(:,:,:,ptype) )
+    end do
+  end subroutine compute_plane_moments_local
 
   subroutine finalize_particles_only(self)
     class(State), intent(inout) :: self
