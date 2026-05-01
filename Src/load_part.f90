@@ -50,6 +50,15 @@ subroutine load_part(n,h,bcnd,np,vxp,ntype,nmax,kq,&
                vxp(1,k,ptype,1), vxp(2,k,ptype,1), vxp(3,k,ptype,1), &
                vxp(4,k,ptype,1), vxp(5,k,ptype,1), vxp(6,k,ptype,1)
          end do
+          write(*,*) " "
+          write (*,*) " ..."
+          write(*,*) " "
+         do k=np_tot(ptype,1)-4, np_tot(ptype,1)
+               write(*,'(i0,6(1x,es16.8))') k, &
+               vxp(1,k,ptype,1), vxp(2,k,ptype,1), vxp(3,k,ptype,1), &
+               vxp(4,k,ptype,1), vxp(5,k,ptype,1), vxp(6,k,ptype,1)
+
+         end do
       end do
      end if
 

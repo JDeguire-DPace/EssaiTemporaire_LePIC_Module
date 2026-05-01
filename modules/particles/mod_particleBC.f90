@@ -1,25 +1,82 @@
 module mod_particleBC
-  use iso_fortran_env, only: int32, int8, real64
+  use iso_fortran_env, only: int32, int64, int8, real64
   use mod_particles,   only: ParticleSet
+
   implicit none
   private
 
   public :: apply_particle_bc_legacy
+  public :: particle_is_lost_legacy
+
+  ! Debug counters
+  public :: dbg_loss_xright_s1, dbg_loss_xright_s2
+  public :: dbg_loss_zlow_s1,   dbg_loss_zlow_s2
+  public :: dbg_loss_zhigh_s1,  dbg_loss_zhigh_s2
+
+  integer(int64), save :: dbg_loss_xright_s1 = 0_int64
+  integer(int64), save :: dbg_loss_xright_s2 = 0_int64
+  integer(int64), save :: dbg_loss_zlow_s1   = 0_int64
+  integer(int64), save :: dbg_loss_zlow_s2   = 0_int64
+  integer(int64), save :: dbg_loss_zhigh_s1  = 0_int64
+  integer(int64), save :: dbg_loss_zhigh_s2  = 0_int64
 
 contains
 
-  subroutine apply_particle_bc_legacy(part, n, h, bcnd, xmax, ymax, zmax, flag_pbc, flag_nmn, ptype, tag_neg)
+  logical function particle_is_lost_legacy(bcnd, ix, iy, iz, n) result(is_lost)
+    use iso_fortran_env, only: int32
+    implicit none
+
+    integer(int32), intent(in) :: ix, iy, iz
+    integer(int32), intent(in) :: n(3)
+    integer(int32), intent(in) :: bcnd(0:n(1)+2,0:n(2)+2,0:n(3)+2)
+
+    logical :: face_x_wall
+    logical :: all8_wall
+
+    ! +x face test: important for absorbing x-boundaries
+    face_x_wall = &
+         bcnd(ix+1,iy  ,iz  ) >= 1_int32 .and. &
+         bcnd(ix+1,iy+1,iz  ) >= 1_int32 .and. &
+         bcnd(ix+1,iy  ,iz+1) >= 1_int32 .and. &
+         bcnd(ix+1,iy+1,iz+1) >= 1_int32
+
+    ! Full 8-corner solid test: important for embedded solids
+    all8_wall = &
+         bcnd(ix  ,iy  ,iz  ) >= 1_int32 .and. &
+         bcnd(ix+1,iy  ,iz  ) >= 1_int32 .and. &
+         bcnd(ix+1,iy+1,iz  ) >= 1_int32 .and. &
+         bcnd(ix  ,iy+1,iz  ) >= 1_int32 .and. &
+         bcnd(ix  ,iy  ,iz+1) >= 1_int32 .and. &
+         bcnd(ix+1,iy  ,iz+1) >= 1_int32 .and. &
+         bcnd(ix+1,iy+1,iz+1) >= 1_int32 .and. &
+         bcnd(ix  ,iy+1,iz+1) >= 1_int32
+
+    is_lost = face_x_wall .or. all8_wall
+  end function particle_is_lost_legacy
+
+
+  subroutine apply_particle_bc_legacy( part, n, h, bcnd, xmax, ymax, zmax, &
+                                       flag_pbc, flag_nmn, ptype, tag_neg, &
+                                       flag_die, dtype, qmacro, &
+                                       sum_q_xz_local, sum_q_yz_local )
+
     !===========================================================
-    ! Legacy-style particle boundary handling:
+    ! Legacy-closer particle boundary handling
     !
-    ! Implemented:
-    !   - explicit box-crossing loss detection
-    !   - solid-region loss detection using 8-corner bcnd test
-    !   - special negative-ion loss rule at x < 0 if flag_nmn=1
-    !   - Neumann reflection at x=0 for surviving particles
-    !   - periodic wrap in y and z if flag_pbc=1
-    !   - compaction of surviving particles
+    ! Included:
+    !   - remove flag_dead particles first
+    !   - BC-dependent loss using helper particle_is_lost_legacy
+    !   - negative-ion special case at x < 0 with Neumann BC
+    !   - dielectric wall-charge accumulation
+    !   - Neumann reflection for surviving particles
+    !   - periodic wrap in y and z
+    !   - survivor compaction
+    !
+    ! Still not included:
+    !   - secondary emission
+    !   - legacy wall/power diagnostics
     !===========================================================
+
     class(ParticleSet), intent(inout) :: part
     integer(int32),     intent(in)    :: n(3)
     real(real64),       intent(in)    :: h(3)
@@ -30,13 +87,23 @@ contains
     integer(int32),     intent(in)    :: ptype
     integer(int32),     intent(in)    :: tag_neg
 
+    integer(int32),     intent(in)    :: flag_die
+    integer(int32),     intent(in)    :: dtype(:)
+    real(real64),       intent(in)    :: qmacro
+
+    real(real64),       intent(inout) :: sum_q_xz_local(0:n(1)+2,0:n(3)+2)
+    real(real64),       intent(inout) :: sum_q_yz_local(2,0:n(2)+2,0:n(3)+2)
+
     integer(int32) :: i, i_shift
     integer(int32) :: ix, iy, iz
     integer(int32) :: flag_lost
     integer(int32) :: np_lost
+    integer(int32) :: igrid, d_ind
 
     real(real64) :: xp_new, yp_new, zp_new
     real(real64) :: vpx_new, vpy_new, vpz_new
+    real(real64) :: px, py, pz
+    real(real64) :: ki4(4)
 
     if (.not. allocated(part%x)) return
     if (part%n <= 0_int32) return
@@ -52,109 +119,180 @@ contains
       vpy_new = part%vy(i)
       vpz_new = part%vz(i)
 
+      ! --------------------------------------------------------
+      ! 0) Remove particles already marked dead
+      ! --------------------------------------------------------
+      if (allocated(part%flag_dead)) then
+        if (part%flag_dead(i) == 1_int8) then
+          np_lost = np_lost + 1_int32
+          cycle
+        end if
+      end if
+
+      ! --------------------------------------------------------
+      ! 1) Determine post-move cell and clamp indices
+      ! --------------------------------------------------------
+      ix = floor(xp_new / h(1)) + 1_int32
+      iy = floor(yp_new / h(2)) + 1_int32
+      iz = floor(zp_new / h(3)) + 1_int32
+
+      if (ix < 0_int32)      ix = 0_int32
+      if (ix > n(1)+1_int32) ix = n(1)+1_int32
+      if (iy < 0_int32)      iy = 0_int32
+      if (iy > n(2)+1_int32) iy = n(2)+1_int32
+      if (iz < 0_int32)      iz = 0_int32
+      if (iz > n(3)+1_int32) iz = n(3)+1_int32
+
+      ! --------------------------------------------------------
+      ! 2) BC-dependent loss test (ONLY if NOT periodic in X)
+      ! --------------------------------------------------------
       flag_lost = 0_int32
 
-      ! --------------------------------------------------------
-      ! 1) Explicit box-crossing tests
-      ! --------------------------------------------------------
-
-      ! X boundaries
-      if (xp_new < 0.0_real64) then
-        if (flag_nmn == 1_int32) then
-          ! For negative ions, legacy can force loss at x<0
-          if (tag_neg > 0_int32 .and. ptype == tag_neg) then
-            flag_lost = 2_int32
-          end if
-        else
-          flag_lost = 1_int32
-        end if
-      end if
-
-      if (xp_new > xmax) then
-        flag_lost = 1_int32
-      end if
-
-      ! Y/Z boundaries
       if (flag_pbc /= 1_int32) then
-        if (yp_new < 0.0_real64 .or. yp_new > ymax) flag_lost = 1_int32
-        if (zp_new < 0.0_real64 .or. zp_new > zmax) flag_lost = 1_int32
+          if (particle_is_lost_legacy(bcnd, ix, iy, iz, n)) then
+              flag_lost = 1_int32
+          end if
       end if
 
       ! --------------------------------------------------------
-      ! 2) Legacy solid-region test with clamped indices
-      ! Only do this if particle was not already lost by box exit
+      ! 3) Negative ions with Neumann BC:
+      !    no specular reflection, they are lost at x < 0
       ! --------------------------------------------------------
-      if (flag_lost == 0_int32) then
+      if (ptype == tag_neg) then
+        if (xp_new < 0.0_real64 .and. flag_nmn == 1_int32) flag_lost = 2_int32
+      end if
 
-        ix = floor(xp_new / h(1)) + 1_int32
-        iy = floor(yp_new / h(2)) + 1_int32
-        iz = floor(zp_new / h(3)) + 1_int32
+      ! --------------------------------------------------------
+      ! 4) Lost particles: debug counters + dielectric charge
+      ! --------------------------------------------------------
+      if (flag_lost >= 1_int32) then
 
-        if (ix < 0_int32)      ix = 0_int32
-        if (ix > n(1)+1_int32) ix = n(1)+1_int32
-        if (iy < 0_int32)      iy = 0_int32
-        if (iy > n(2)+1_int32) iy = n(2)+1_int32
-        if (iz < 0_int32)      iz = 0_int32
-        if (iz > n(3)+1_int32) iz = n(3)+1_int32
-
-        if ( bcnd(ix  ,iy  ,iz  ) >= 1_int32 .and. &
-             bcnd(ix+1,iy  ,iz  ) >= 1_int32 .and. &
-             bcnd(ix+1,iy+1,iz  ) >= 1_int32 .and. &
-             bcnd(ix  ,iy+1,iz  ) >= 1_int32 .and. &
-             bcnd(ix  ,iy  ,iz+1) >= 1_int32 .and. &
-             bcnd(ix+1,iy  ,iz+1) >= 1_int32 .and. &
-             bcnd(ix+1,iy+1,iz+1) >= 1_int32 .and. &
-             bcnd(ix  ,iy+1,iz+1) >= 1_int32 ) then
-          flag_lost = 1_int32
+        ! Debug classification
+        if (ptype == 1_int32) then
+          if (xp_new > xmax - h(1)) dbg_loss_xright_s1 = dbg_loss_xright_s1 + 1_int64
+          if (zp_new < h(3))        dbg_loss_zlow_s1   = dbg_loss_zlow_s1   + 1_int64
+          if (zp_new > zmax-h(3))   dbg_loss_zhigh_s1  = dbg_loss_zhigh_s1  + 1_int64
+        else if (ptype == 2_int32) then
+          if (xp_new > xmax - h(1)) dbg_loss_xright_s2 = dbg_loss_xright_s2 + 1_int64
+          if (zp_new < h(3))        dbg_loss_zlow_s2   = dbg_loss_zlow_s2   + 1_int64
+          if (zp_new > zmax-h(3))   dbg_loss_zhigh_s2  = dbg_loss_zhigh_s2  + 1_int64
         end if
 
-      end if
+        if (flag_die == 1_int32) then
 
-      ! --------------------------------------------------------
-      ! 3) Surviving particles: apply BCs and compact
-      ! --------------------------------------------------------
-      if (flag_lost == 0_int32) then
+          igrid = bcnd(ix,iy,iz)
 
-        ! Neumann BC on LHS only: specular reflection
-        if (flag_nmn == 1_int32) then
-          if (xp_new <= 0.0_real64) then
-            xp_new  = -xp_new
-            vpx_new = -vpx_new
+          ! Negative ion lost at x<0 with Neumann BC
+          if (flag_lost == 2_int32 .and. ptype == tag_neg) igrid = 0_int32
+
+          if (igrid > 0_int32) then
+            if (dtype(igrid) > 1_int32) then
+
+              ! Legacy periodic correction in z before wall interpolation
+              if (flag_pbc == 1_int32) then
+                if (zp_new >= zmax) then
+                  zp_new = zp_new - zmax
+                  iz = floor(zp_new / h(3)) + 1_int32
+                end if
+                if (zp_new <= 0.0_real64) then
+                  zp_new = zmax + zp_new
+                  iz = floor(zp_new / h(3)) + 1_int32
+                end if
+              end if
+
+              if (ix < 0_int32)      ix = 0_int32
+              if (ix > n(1)+1_int32) ix = n(1)+1_int32
+              if (iy < 0_int32)      iy = 0_int32
+              if (iy > n(2)+1_int32) iy = n(2)+1_int32
+              if (iz < 0_int32)      iz = 0_int32
+              if (iz > n(3)+1_int32) iz = n(3)+1_int32
+
+              pz = (real(iz,real64)*h(3) - zp_new) / h(3)
+
+              ! Y = constant dielectric planes -> xz accumulation
+              if (dtype(igrid) == 2_int32) then
+                px = (real(ix,real64)*h(1) - xp_new) / h(1)
+
+                ki4(1) = qmacro * px               * pz
+                ki4(2) = qmacro * (1.0_real64-px) * pz
+                ki4(3) = qmacro * (1.0_real64-px) * (1.0_real64-pz)
+                ki4(4) = qmacro * px              * (1.0_real64-pz)
+
+                sum_q_xz_local(ix  ,iz  ) = sum_q_xz_local(ix  ,iz  ) + ki4(1)
+                sum_q_xz_local(ix+1,iz  ) = sum_q_xz_local(ix+1,iz  ) + ki4(2)
+                sum_q_xz_local(ix+1,iz+1) = sum_q_xz_local(ix+1,iz+1) + ki4(3)
+                sum_q_xz_local(ix  ,iz+1) = sum_q_xz_local(ix  ,iz+1) + ki4(4)
+              end if
+
+              ! X = constant dielectric planes -> yz accumulation
+              if (dtype(igrid) == 3_int32 .or. dtype(igrid) == 4_int32) then
+                py = (real(iy,real64)*h(2) - yp_new) / h(2)
+
+                ki4(1) = qmacro * py               * pz
+                ki4(2) = qmacro * (1.0_real64-py) * pz
+                ki4(3) = qmacro * (1.0_real64-py) * (1.0_real64-pz)
+                ki4(4) = qmacro * py              * (1.0_real64-pz)
+
+                d_ind = dtype(igrid)
+
+                sum_q_yz_local(d_ind-2,iy  ,iz  ) = sum_q_yz_local(d_ind-2,iy  ,iz  ) + ki4(1)
+                sum_q_yz_local(d_ind-2,iy+1,iz  ) = sum_q_yz_local(d_ind-2,iy+1,iz  ) + ki4(2)
+                sum_q_yz_local(d_ind-2,iy+1,iz+1) = sum_q_yz_local(d_ind-2,iy+1,iz+1) + ki4(3)
+                sum_q_yz_local(d_ind-2,iy  ,iz+1) = sum_q_yz_local(d_ind-2,iy  ,iz+1) + ki4(4)
+              end if
+
+            end if
           end if
         end if
 
-        ! Periodic BCs in y and z
-        if (flag_pbc == 1_int32) then
-          if (yp_new >= ymax) yp_new = yp_new - ymax
-          if (yp_new <  0.0_real64) yp_new = ymax + yp_new
-          if (zp_new >= zmax) zp_new = zp_new - zmax
-          if (zp_new <  0.0_real64) zp_new = zmax + zp_new
-        end if
-
-        i_shift = i - np_lost
-
-        part%x(i_shift)  = xp_new
-        part%y(i_shift)  = yp_new
-        part%z(i_shift)  = zp_new
-        part%vx(i_shift) = vpx_new
-        part%vy(i_shift) = vpy_new
-        part%vz(i_shift) = vpz_new
-
-        if (allocated(part%w))         part%w(i_shift)         = part%w(i)
-        if (allocated(part%sp))        part%sp(i_shift)        = part%sp(i)
-        if (allocated(part%flag_dead)) part%flag_dead(i_shift) = part%flag_dead(i)
-        if (allocated(part%flag_cex))  part%flag_cex(i_shift)  = part%flag_cex(i)
-
-      else
         np_lost = np_lost + 1_int32
+        cycle
       end if
+
+      ! --------------------------------------------------------
+      ! 5) Surviving particles: apply BCs and compact
+      ! --------------------------------------------------------
+
+      ! Neumann BC on LHS only: specular reflection
+      if (flag_nmn == 1_int32) then
+        if (xp_new <= 0.0_real64) then
+          xp_new  = -xp_new
+          vpx_new = -vpx_new
+        end if
+      end if
+
+      ! Periodic BCs in y and z (legacy uses <= 0 on lower side)
+      if (flag_pbc == 1_int32) then
+        if (yp_new >= ymax) yp_new = yp_new - ymax
+        if (yp_new <= 0.0_real64) yp_new = ymax + yp_new
+        if (zp_new >= zmax) zp_new = zp_new - zmax
+        if (zp_new <= 0.0_real64) zp_new = zmax + zp_new
+      end if
+
+      if (flag_pbc == 1_int32) then
+          if (xp_new >= xmax) xp_new = xp_new - xmax
+          if (xp_new <= 0.0_real64) xp_new = xmax + xp_new
+      end if
+
+      i_shift = i - np_lost
+
+      part%x(i_shift)  = xp_new
+      part%y(i_shift)  = yp_new
+      part%z(i_shift)  = zp_new
+      part%vx(i_shift) = vpx_new
+      part%vy(i_shift) = vpy_new
+      part%vz(i_shift) = vpz_new
+
+      if (allocated(part%w))         part%w(i_shift)         = part%w(i)
+      if (allocated(part%sp))        part%sp(i_shift)        = part%sp(i)
+      if (allocated(part%flag_dead)) part%flag_dead(i_shift) = 0_int8
+      if (allocated(part%flag_cex))  part%flag_cex(i_shift)  = part%flag_cex(i)
 
     end do
 
     part%n = part%n - np_lost
     if (part%n < 0_int32) part%n = 0_int32
 
-    ! Optional cleanup of inactive tail
     if (allocated(part%flag_dead)) then
       if (part%n < part%nmax) part%flag_dead(part%n+1:part%nmax) = 0_int8
     end if
@@ -162,7 +300,6 @@ contains
       if (part%n < part%nmax) part%flag_cex(part%n+1:part%nmax) = 0_int32
     end if
 
-    ! Invalidate sorting metadata after compaction / BC handling
     if (allocated(part%cell_id))    part%cell_id    = 0_int32
     if (allocated(part%cell_count)) part%cell_count = 0_int32
     if (allocated(part%cell_start)) part%cell_start = 0_int32

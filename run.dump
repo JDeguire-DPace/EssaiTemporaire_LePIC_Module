@@ -3,8 +3,8 @@
  +                                                                          +
  +   3D explicit parallel particle in cell code                             +
  +                                                                          +
- + LePIC 3D algorithm version: 3.3.1                                        +
- + Last modifications: Dec/2023                                             +
+ + LePIC 3D algorithm version: 3.3.6.2                                      +
+ + Last modifications: Sep/2024                                             +
  +                                                                          +
  + Copyright or © or Copr. Gwenael Fubiani (2022/11/22)                     +
  +                                                                          +
@@ -41,73 +41,71 @@
  + knowledge of the CeCILL-C license and that you accept its terms.         +
  ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
                                                    
- Number of OpenMP threads=  16
- Number of MPI threads=   2
+ Number of OpenMP threads=  24
+ Number of MPI threads=   1
  Input file was read correctly ...
- eps0 HAS BEEN RE-SCALED: k_eps0=   36000.0000000000     
  Gas chemistry read correctly (end of file reached)
- Total number of reactions:          61
- Type of wall surfaces (1=metal, 2 & 3= dielectric):  1  1  1  1  0
- Gaussian magnetic filter field profile
- Bmax @ location:         125           0           0
+ Total number of reactions:           1
+ Type of wall surfaces (1=metal, 2 & 3= dielectric):  1  1
+ Bmax @ location:           0           0           0
+ Macroparticle weigth for particle =    3667.97814002404     
+ Macroparticle weigth for particle =    3667.97814002404     
  Frequency of calls to collision subroutine=  10
  Frequency of calls to electron (Maxwellian) heating subroutine=   4
  Frequency of calls to sort subroutine=  10
  Frequency for averaging=    50
- Heating region: ix<=  1, ix>=   51
- Injection region: ix<=  1, ix>=   51, iy<=  1, iy>=   97, iz<=  1, iz>=  193
- Particle loading region: nx<= 128
+ Heating region: ix<=  1, ix>=  129
+ Injection region: ix<=  1, ix>=  129, iy<=  1, iy>=   17, iz<=  1, iz>=   17
+ Particle loading region: nx<= 129
  Loading particles ...
- Particles: [e]   [H2+] [H-]  [H3+] [H+] 
- np=  36353280  16351207         0   9083420  10905517
- lde (mm)=   5.83998920113031     
- lpe (mm)=   10708.4415408690     
- vt (m/s)=   1452784.98634840       0.000000000000000E+000
-  0.000000000000000E+000  0.000000000000000E+000  0.000000000000000E+000
- <|v|> (m/s)=   1639292.31286467     
- dx (mm)=   3.14062500000000      dy (mm)=   3.33333333333333      dz (mm)=
-   3.02083333333333     
- dx/lde=  0.537779247843839      dy/lde=  0.570777311144373      dz/lde=
-  0.517266938224588     
- Nm=   553426106.770833     
- dt (s)=  6.238018760628004E-010 , wpe*dt=  0.109728887910663     
- vte*dt/dx=  0.300000000000000     
+  
+ DEBUG LEGACY: first loaded particles on thread 1
+ ptype =            1
+   1   9.66212243E-02   1.61466253E-03   1.33211375E-04   3.69630686E+05  -7.21991187E+05   1.96663223E+06
+   2   1.34477278E-02   1.99520071E-03   8.33835482E-03   9.02656245E+05  -2.16231194E+05  -1.04150449E+06
+   3   7.00420533E-02   1.20986640E-02   4.74543283E-03   2.48369421E+05   1.27625666E+06   5.07995520E+05
+   4   4.84621112E-02   3.37964058E-04   5.16192023E-03  -6.49999568E+05   2.92696381E+05   1.19502187E+06
+   5   8.77164775E-02   6.35456637E-03   1.19697393E-03  -1.11290271E+06  -8.80135068E+05   5.51186397E+05
+ ptype =            2
+   1   9.66212243E-02   1.61466253E-03   1.33211375E-04  -2.27291543E+03  -2.49722643E+03  -6.36564108E+02
+   2   1.34477278E-02   1.99520071E-03   8.33835482E-03   4.16730027E+02   1.71102454E+03  -9.72663481E+02
+   3   7.00420533E-02   1.20986640E-02   4.74543283E-03  -5.58045373E+03   4.22921463E+03  -8.39524661E+02
+   4   4.84621112E-02   3.37964058E-04   5.16192023E-03  -1.56322987E+03   5.02916620E+03  -5.33163033E+03
+   5   8.77164775E-02   6.35456637E-03   1.19697393E-03  -5.77162484E+03   3.30240683E+03  -2.68595237E+03
+ Particles: [e]   [H+] 
+ np=   2129928   2129928
+ lde (mm)=  0.743394238108454     
+ lpe (mm)=   1493.22083062034     
+ vt (m/s)=   1326205.18037975        4392.84268275340     
+ <|v|> (m/s)=   1496462.29683466     
+ dx (mm)=  0.781250000000000      dy (mm)=  0.781250000000000      dz (mm)=
+  0.781250000000000     
+ dx/lde=   1.05092286158670      dy/lde=   1.05092286158670      dz/lde=
+   1.05092286158670     
+ Nm=   3667.97814002404     
+ dt (s)=  4.418151193107385E-010 , wpe*dt=  0.557336011448944     
+ vte*dt/dx=  0.750000000000000     
  Figures in the YZ plane are drawn at the location ix=   65
- Figures in the XY plane are drawn at the location ix=   97
- Bm(G)=     75., wc*dt=   0.82, wc (/s)=   1.3191E+09, re (mm)=  1.10
- err: w*/wc=  0.95, r*/re=  1.08
- Multigrid PDE Solver is used, eps=   1.00E-08
- ng= 6, omega=   1.6
- nx= 128, ny=  96, nz= 192, # of cells:  1817664
+ Figures in the XY plane are drawn at the location iz=    9
+ Multigrid PDE Solver is used, eps=   1.00E-07
+ ng= 4, omega=   1.4
+ nx= 128, ny=  16, nz=  16, # of cells:    32768
  Save 3D density, potential and E-field maps option on
  Source/sink plotting option on
- *** Startup time (s):   3.2 ***
+ *** Startup time (s):   1.1 ***
   
  Running simulation ...
- Negative ion current generated by neutral atoms on the extraction electrode: IH-(A)=   53.940, jH-(A/m2)=  600.0
- Pwall (W)=  -2.53E+05, Pabs (W)=   4.28E+04, Pcoll (W)=  -1.69E+06, Pinj (W)=   1.13E+02, I_w (A)=  -2.21E+04    2.84E+00  , Ek_w (eV)=   1.14E+01    2.15E-01
- it=        1, t (us)=    0.0, np=   36332258    16277194        3062     9278529    10921808
- Saving 3D potentiel and density maps ...
- Backing up simulation data ...
- Done!
- Pwall (W)=  -2.32E+04, Pabs (W)=   6.09E+04, Pcoll (W)=  -3.46E+04, Pinj (W)=   1.08E+02, I_w (A)=  -1.32E+03    5.33E+02  , Ek_w (eV)=   1.55E+01    5.54E+00
- it=     1001, t (us)=    0.6, np=   30634207    12893281      324742    12766659    10585673
- <t> (ms): E/rho=  271.9, poisson=  117.2, sorting=   37.2, avg/write=  226.6, MC=  286.9, mover=  1039.9, bck=    1.1, total=  1981.0
+ Pwall (W)=  -9.42E-02, Pabs (W)=   0.00E+00, Pcoll (W)=   0.00E+00, Pinj (W)=   0.00E+00, I_w (A)=  -9.45E-03    2.93E-05  , Ek_w (eV)=   9.96E+00    2.76E-01
+ it=        1, t (us)=    0.0, np=    2122822     2129906
  Saving 3D potentiel and density maps ...
 
 ===================================================================================
 =   BAD TERMINATION OF ONE OF YOUR APPLICATION PROCESSES
-=   RANK 0 PID 734087 RUNNING AT gre6
+=   RANK 0 PID 1485756 RUNNING AT DPACE-S0222-Phy
 =   KILLED BY SIGNAL: 9 (Killed)
 ===================================================================================
 
-===================================================================================
-=   BAD TERMINATION OF ONE OF YOUR APPLICATION PROCESSES
-=   RANK 1 PID 734088 RUNNING AT gre6
-=   KILLED BY SIGNAL: 9 (Killed)
-===================================================================================
-
-real	51m13.867s
-user	1625m38.853s
-sys	5m33.292s
- Total calculation time : 51 min 13 sec
+real	0m58.691s
+user	22m49.495s
+sys	0m6.769s
+ Total calculation time : 0 min 59 sec

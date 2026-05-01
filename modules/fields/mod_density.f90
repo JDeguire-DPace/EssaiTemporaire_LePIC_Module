@@ -48,6 +48,15 @@ contains
     ! ------------------------------------------------------------
     call apply_periodic_density_bc(n, bcnd, np_thread, ntype, nproc)
 
+    ! print *, 'THREAD nx-1 sum p1/p2 = ', &
+    !   sum(np_thread(n(1)-1,:,:,1,:)), sum(np_thread(n(1)-1,:,:,2,:))
+
+    ! print *, 'THREAD nx sum p1/p2 = ', &
+    !   sum(np_thread(n(1),:,:,1,:)), sum(np_thread(n(1),:,:,2,:))
+
+    ! print *, 'THREAD nx+1 sum p1/p2 = ', &
+    !   sum(np_thread(n(1)+1,:,:,1,:)), sum(np_thread(n(1)+1,:,:,2,:))
+
     ! ------------------------------------------------------------
     ! OpenMP-thread reduction: np_thread -> np_red
     ! Legacy loops only over 1:n+1 active nodes
@@ -73,6 +82,9 @@ contains
       call MPI_Allreduce(MPI_IN_PLACE, np_red, &
            (n(1)+3)*(n(2)+3)*(n(3)+3)*ntype, MPI_DOUBLE_PRECISION, MPI_SUM, mpi_comm, ierr)
     end if
+
+    ! print *, 'CHECK nx+1 np1 = ', sum(np_red(n(1)+1,:,: ,1))
+    ! print *, 'CHECK nx+1 np2 = ', sum(np_red(n(1)+1,:,: ,2))
 
   end subroutine reduce_species_density
 

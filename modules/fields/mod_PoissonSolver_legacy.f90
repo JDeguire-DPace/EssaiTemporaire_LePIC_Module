@@ -81,6 +81,8 @@ contains
     ktot = 0.0_real64
     res  = 0.0_real64
 
+
+
     call pdesolver(u_mg, b_loc, bcnd_loc, h_leg, n_leg, ncycl, eps, omega, &
                    k_it, ktot, res, ng, pdec%rank, pdec%nproc)
 

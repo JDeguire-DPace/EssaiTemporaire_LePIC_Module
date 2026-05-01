@@ -25,8 +25,8 @@ module mod_state
   use mod_particleBC,       only: apply_particle_bc_legacy
   use mod_magneticField,    only: MagneticField
   use mod_simParams,        only: SimParams
-  use mod_heating,         only: apply_electron_heating
-  use mod_planeMoments,   only: compute_particle_plane_moments_species
+  use mod_heating,          only: apply_electron_heating
+  use mod_planeMoments,     only: compute_particle_plane_moments_species
 
   implicit none
   private
@@ -44,9 +44,9 @@ module mod_state
     type(SimParams)      :: params
     type(ParticleSet), allocatable :: part(:,:)
 
-    
-
-    real(real64), allocatable :: np_thread(:,:,:,:,:) 
+    real(real64), allocatable :: np_thread(:,:,:,:,:)
+    real(real64), allocatable :: sum_q_xz(:,:,:,:)
+    real(real64), allocatable :: sum_q_yz(:,:,:,:,:)
 
     integer :: mpi_rank = -1
     integer :: mpi_size = -1
@@ -56,7 +56,6 @@ module mod_state
     integer(int32) :: nproc = 1
     integer(int32), allocatable :: Nh(:)
     real(real64), allocatable :: sum_dEk(:)
-
 
     ! P_loss(1,:,:) wall losses
     ! P_loss(2,:,:) heating power
@@ -68,7 +67,16 @@ module mod_state
     real(real64), allocatable :: data_pavg_xy(:,:,:,:)
     real(real64), allocatable :: data_pavg_xz(:,:,:,:)
     real(real64), allocatable :: data_pavg_yz(:,:,:,:)
-    
+
+    real(real64), allocatable :: np_avg_xy(:,:,:)
+    real(real64), allocatable :: np_avg_xz(:,:,:)
+    real(real64), allocatable :: np_avg_yz(:,:,:)
+
+    real(real64), allocatable :: phi_avg_xy(:,:)
+    real(real64), allocatable :: phi_avg_xz(:,:)
+    real(real64), allocatable :: phi_avg_yz(:,:)
+
+integer(int32) :: cnt_avg = 0_int32
 
   contains
     procedure :: init
@@ -83,6 +91,8 @@ module mod_state
     procedure :: compute_heating_region_moments
     procedure :: update_heating_vt
     procedure :: compute_plane_moments_local
+    procedure :: apply_dielectric_bc_to_phi
+    procedure :: accumulate_2d_averages
 
     procedure :: finalize_particles_only
     procedure :: finalize
@@ -122,22 +132,56 @@ contains
     call self%params%print_summary(self%mpi_rank, self%cfg%nsav)
 
     call self%init_particles()
+
     allocate(self%np_thread(0:self%dom%n(1)+2, &
-                        0:self%dom%n(2)+2, &
-                        0:self%dom%n(3)+2, &
-                        self%ntype, self%nproc))
+                            0:self%dom%n(2)+2, &
+                            0:self%dom%n(3)+2, &
+                            self%ntype, self%nproc))
     self%np_thread = 0.0_real64
+
+    allocate(self%sum_q_xz(0:self%dom%n(1)+2, &
+                           0:self%dom%n(3)+2, &
+                           self%ntype, self%nproc))
+    self%sum_q_xz = 0.0_real64
+
+    allocate(self%sum_q_yz(2, &
+                           0:self%dom%n(2)+2, &
+                           0:self%dom%n(3)+2, &
+                           self%ntype, self%nproc))
+    self%sum_q_yz = 0.0_real64
+
     allocate(self%P_loss(4, self%ntype, self%nproc))
     self%P_loss = 0.0_real64
 
     allocate(self%Nh(self%nproc))
     allocate(self%sum_dEk(self%nproc))
-
-
-
     self%Nh      = 0_int32
     self%sum_dEk = 0.0_real64
-  
+
+    allocate(self%np_avg_xy(0:self%dom%n(1)+2,0:self%dom%n(2)+2,self%ntype))
+    allocate(self%np_avg_xz(0:self%dom%n(1)+2,0:self%dom%n(3)+2,self%ntype))
+    allocate(self%np_avg_yz(0:self%dom%n(2)+2,0:self%dom%n(3)+2,self%ntype))
+
+    allocate(self%phi_avg_xy(0:self%dom%n(1)+2,0:self%dom%n(2)+2))
+    allocate(self%phi_avg_xz(0:self%dom%n(1)+2,0:self%dom%n(3)+2))
+    allocate(self%phi_avg_yz(0:self%dom%n(2)+2,0:self%dom%n(3)+2))
+
+    self%np_avg_xy = 0.0_real64
+    self%np_avg_xz = 0.0_real64
+    self%np_avg_yz = 0.0_real64
+    self%phi_avg_xy = 0.0_real64
+    self%phi_avg_xz = 0.0_real64
+    self%phi_avg_yz = 0.0_real64
+    self%cnt_avg = 0_int32
+
+    self%np_avg_xy = 0.0_real64
+    self%np_avg_xz = 0.0_real64
+    self%np_avg_yz = 0.0_real64
+    self%phi_avg_xy = 0.0_real64
+    self%phi_avg_xz = 0.0_real64
+    self%phi_avg_yz = 0.0_real64
+    self%cnt_avg = 0_int32
+
     allocate(self%data_pavg_xy(5, 0:self%dom%n(1)+2, 0:self%dom%n(2)+2, self%ntype))
     allocate(self%data_pavg_xz(5, 0:self%dom%n(1)+2, 0:self%dom%n(3)+2, self%ntype))
     allocate(self%data_pavg_yz(5, 0:self%dom%n(2)+2, 0:self%dom%n(3)+2, self%ntype))
@@ -145,8 +189,9 @@ contains
     self%data_pavg_xy = 0.0_real64
     self%data_pavg_xz = 0.0_real64
     self%data_pavg_yz = 0.0_real64
-  
+
   end subroutine init
+
 
   subroutine init_chemistry(self)
     class(State), intent(inout) :: self
@@ -211,7 +256,7 @@ contains
 
   subroutine init_particles(self)
     class(State), intent(inout) :: self
-    integer(int32) :: ntype_trk
+    integer(int32) :: ntype_trk,i, ptype
     real(real64), allocatable :: np_thread(:,:,:,:,:)
 
     ntype_trk = int(self%rxn%ntype - self%rxn%n_neu, int32)
@@ -245,6 +290,32 @@ contains
           ntype_trk = ntype_trk, &
           part      = self%part, &
           np_thread = np_thread )
+
+
+    !!! TEST Modifications
+    do ptype=1, self%ntype
+    write(*,*) " "
+    write(*,*) " "
+      write(*,"(a,i0)") "type : ", ptype
+      do i = 1, 5, 1
+        if (self%mpi_rank ==0) then
+          write(*,"(a,i0,a,ES14.7,a,ES14.7,a,ES14.7,a,ES14.7,a,ES14.7,a,ES14.7)") " Particle ", i, " x = ", self%part(ptype,1)%x(i), " y = ", self%part(ptype,1)%y(i), &
+               " z = ", self%part(ptype,1)%z(i), " vx = ", self%part(ptype,1)%vx(i), &
+               " vy = ", self%part(ptype,1)%vy(i), " vz = ", self%part(ptype,1)%vz(i)
+        end if      
+      end do
+      write(*,*) " "
+      write (*,*) " ..."
+      write(*,*) " "
+
+      if (self%mpi_rank ==0) then
+        do i = size(self%part(ptype,1)%x(:))-4, size(self%part(ptype,1)%x(:)), 1
+          write(*,"(a,i0,a,ES14.7,a,ES14.7,a,ES14.7,a,ES14.7,a,ES14.7,a,ES14.7)") " Particle ", i, " x = ", self%part(ptype,1)%x(i), " y = ", self%part(ptype,1)%y(i), &
+               " z = ", self%part(ptype,1)%z(i), " vx = ", self%part(ptype,1)%vx(i), &
+               " vy = ", self%part(ptype,1)%vy(i), " vz = ", self%part(ptype,1)%vz(i)
+        end do      
+      end if
+    end do
 
     call self%sort_particles_local()
 
@@ -295,6 +366,7 @@ contains
     end do
   end subroutine sort_particles_local
 
+
   subroutine apply_electron_heating_local(self, vt)
     class(State), intent(inout) :: self
     real(real64), intent(in)    :: vt
@@ -305,6 +377,7 @@ contains
     if (self%ntype < 1) return
     if (.not. allocated(self%P_loss)) return
     if(self%cfg%flag_circxh.eq.1) self%cfg%R_ahp= self%cfg%yr_pow-self%dom%ymax/2.d0
+
     !$omp parallel do private(iproc) schedule(static)
     do iproc = 1, self%nproc
       if (.not. allocated(self%part(1,iproc)%x)) cycle
@@ -316,8 +389,8 @@ contains
           vt             = vt, &
           iseed          = self%params%iseed(iproc), &
           nudt           = self%params%nudt, &
-          xl_pow        = self%cfg%xl_pow, &
-          xr_pow        = self%cfg%xr_pow, &
+          xl_pow         = self%cfg%xl_pow, &
+          xr_pow         = self%cfg%xr_pow, &
           flag_circxh    = self%cfg%flag_circxh, &
           flag_ahp       = self%cfg%flag_ahp, &
           R_ahp          = self%cfg%R_ahp, &
@@ -330,6 +403,63 @@ contains
     !$omp end parallel do
 
   end subroutine apply_electron_heating_local
+
+
+  subroutine apply_dielectric_bc_to_phi(self)
+    use iso_fortran_env, only: int32, real64
+    class(State), intent(inout) :: self
+
+    integer(int32) :: ix, iy, iz, ptype, iproc
+    integer(int32) :: igrid
+    real(real64)   :: Ca
+    real(real64)   :: qsum_xz, qsum_yz_1, qsum_yz_2
+
+    if (self%dom%flag_die /= 1) return
+    if (.not. allocated(self%sum_q_xz)) return
+    if (.not. allocated(self%sum_q_yz)) return
+
+    Ca = self%params%Ca_cell
+
+    do iz = 0, self%dom%n(3)+2
+      do iy = 0, self%dom%n(2)+2
+        do ix = 0, self%dom%n(1)+2
+
+          igrid = self%dom%bcnd(ix,iy,iz)
+          if (igrid <= 0) cycle
+
+          do ptype = 1, self%ntype
+
+            if (self%dom%dtype(igrid) == 2) then
+              qsum_xz = 0.0_real64
+              do iproc = 1, self%nproc
+                qsum_xz = qsum_xz + self%sum_q_xz(ix,iz,ptype,iproc)
+              end do
+              self%fld%phi(ix,iy,iz) = self%fld%phi(ix,iy,iz) + qsum_xz / (2.0_real64 * Ca)
+            end if
+
+            if (self%dom%dtype(igrid) == 3) then
+              qsum_yz_1 = 0.0_real64
+              do iproc = 1, self%nproc
+                qsum_yz_1 = qsum_yz_1 + self%sum_q_yz(1,iy,iz,ptype,iproc)
+              end do
+              self%fld%phi(ix,iy,iz) = self%fld%phi(ix,iy,iz) + qsum_yz_1 / Ca
+            end if
+
+            if (self%dom%dtype(igrid) == 4) then
+              qsum_yz_2 = 0.0_real64
+              do iproc = 1, self%nproc
+                qsum_yz_2 = qsum_yz_2 + self%sum_q_yz(2,iy,iz,ptype,iproc)
+              end do
+              self%fld%phi(ix,iy,iz) = self%fld%phi(ix,iy,iz) + qsum_yz_2 / Ca
+            end if
+
+          end do
+
+        end do
+      end do
+    end do
+
+  end subroutine apply_dielectric_bc_to_phi
 
 
   subroutine move_particles_local(self)
@@ -367,10 +497,16 @@ contains
 
 
   subroutine apply_particle_bc_local(self)
+    use iso_fortran_env, only: int32, real64
     class(State), intent(inout) :: self
+
     integer(int32) :: ptype, iproc
     integer(int32) :: tag_neg_local
     integer(int32) :: ispec
+    real(real64)   :: qmacro
+
+    real(real64), allocatable :: sum_q_xz_local(:,:)
+    real(real64), allocatable :: sum_q_yz_local(:,:,:)
 
     if (.not. allocated(self%part)) return
 
@@ -382,27 +518,49 @@ contains
       end if
     end do
 
-    !$omp parallel do collapse(2) private(ptype,iproc) schedule(static)
+    !$omp parallel do collapse(2) private(ptype,iproc,qmacro,sum_q_xz_local,sum_q_yz_local) schedule(static)
     do ptype = 1, self%ntype
       do iproc = 1, self%nproc
+
         if (.not. allocated(self%part(ptype,iproc)%x)) cycle
         if (self%part(ptype,iproc)%n <= 0_int32) cycle
 
+        allocate(sum_q_xz_local(0:self%dom%n(1)+2,0:self%dom%n(3)+2))
+        allocate(sum_q_yz_local(2,0:self%dom%n(2)+2,0:self%dom%n(3)+2))
+
+        sum_q_xz_local = 0.0_real64
+        sum_q_yz_local = 0.0_real64
+
+        qmacro = self%params%Nm(ptype) * self%chem%charge(ptype)
+
         call apply_particle_bc_legacy( &
-            part     = self%part(ptype,iproc), &
-            n        = int(self%dom%n, int32), &
-            h        = self%dom%h, &
-            bcnd     = self%dom%bcnd, &
-            xmax     = self%dom%xmax, &
-            ymax     = self%dom%ymax, &
-            zmax     = self%dom%zmax, &
-            flag_pbc = int(self%dom%flag_pbc, int32), &
-            flag_nmn = int(self%dom%flag_nmn, int32), &
-            ptype    = ptype, &
-            tag_neg  = tag_neg_local )
+            part           = self%part(ptype,iproc), &
+            n              = int(self%dom%n, int32), &
+            h              = self%dom%h, &
+            bcnd           = self%dom%bcnd, &
+            xmax           = self%dom%xmax, &
+            ymax           = self%dom%ymax, &
+            zmax           = self%dom%zmax, &
+            flag_pbc       = int(self%dom%flag_pbc, int32), &
+            flag_nmn       = int(self%dom%flag_nmn, int32), &
+            ptype          = ptype, &
+            tag_neg        = tag_neg_local, &
+            flag_die       = int(self%dom%flag_die, int32), &
+            dtype          = self%dom%dtype, &
+            qmacro         = qmacro, &
+            sum_q_xz_local = sum_q_xz_local, &
+            sum_q_yz_local = sum_q_yz_local )
+
+        self%sum_q_xz(:,:,ptype,iproc) = self%sum_q_xz(:,:,ptype,iproc) + sum_q_xz_local(:,:)
+        self%sum_q_yz(:,:,:,ptype,iproc) = self%sum_q_yz(:,:,:,ptype,iproc) + sum_q_yz_local(:,:,:)
+
+        deallocate(sum_q_xz_local)
+        deallocate(sum_q_yz_local)
+
       end do
     end do
     !$omp end parallel do
+
   end subroutine apply_particle_bc_local
 
 
@@ -446,8 +604,8 @@ contains
         end if
 
         v2 = self%part(1,iproc)%vx(i)**2 + &
-            self%part(1,iproc)%vy(i)**2 + &
-            self%part(1,iproc)%vz(i)**2
+             self%part(1,iproc)%vy(i)**2 + &
+             self%part(1,iproc)%vz(i)**2
 
         self%sum_dEk(iproc) = self%sum_dEk(iproc) + &
             0.5_real64 * self%params%Nm(1) * self%chem%mass(1) * v2
@@ -458,7 +616,8 @@ contains
     !$omp end parallel do
 
   end subroutine compute_heating_region_moments
-  
+
+
   subroutine update_heating_vt(self, vt_heat)
     use mpi
     class(State), intent(inout) :: self
@@ -474,11 +633,11 @@ contains
     if (.not. allocated(self%Nh)) return
     if (.not. allocated(self%sum_dEk)) return
 
-    sum_Nh    = sum(self%Nh)
-    sum_dEk_tot = sum(self%sum_dEk)
+    sum_Nh       = sum(self%Nh)
+    sum_dEk_tot  = sum(self%sum_dEk)
 
-    sum_Nh_global   = sum_Nh
-    sum_dEk_global  = sum_dEk_tot
+    sum_Nh_global  = sum_Nh
+    sum_dEk_global = sum_dEk_tot
 
     if (self%mpi_size > 1) then
       call MPI_Allreduce(sum_Nh, sum_Nh_global, 1, MPI_INTEGER, MPI_SUM, self%comm, ierr)
@@ -488,13 +647,14 @@ contains
     if (sum_Nh_global <= 0) return
 
     Te = (2.0_real64/3.0_real64) * &
-        (sum_dEk_global + self%cfg%Pabs / self%cfg%nu_h) / &
-        (self%params%Nm(1) * qe * real(sum_Nh_global, real64))
+         (sum_dEk_global + self%cfg%Pabs / self%cfg%nu_h) / &
+         (self%params%Nm(1) * qe * real(sum_Nh_global, real64))
 
     if (Te > 0.0_real64) then
       vt_heat = sqrt(2.0_real64 * qe * Te / abs(self%chem%mass(1)))
     end if
   end subroutine update_heating_vt
+
 
   subroutine compute_plane_moments_local(self)
     class(State), intent(inout) :: self
@@ -523,6 +683,43 @@ contains
     end do
   end subroutine compute_plane_moments_local
 
+  subroutine accumulate_2d_averages(self)
+    class(State), intent(inout) :: self
+    integer(int32) :: ptype
+    integer(int32) :: ix_plane, iy_density, iy_phi, iz_plane
+
+    ix_plane   = self%params%ix_plot_plane
+    iy_density = int(self%dom%n(2)/2 + 1, int32)
+    iy_phi     = int(self%dom%n(2)/2,     int32)
+    iz_plane   = self%params%iz_plot_plane
+
+    ! Density: legacy-style plot planes
+    do ptype = 1, self%ntype
+      self%np_avg_xy(:,:,ptype) = self%np_avg_xy(:,:,ptype) + self%fld%np(:,:,iz_plane,ptype)
+      self%np_avg_xz(:,:,ptype) = self%np_avg_xz(:,:,ptype) + self%fld%np(:,iy_density,:,ptype)
+      self%np_avg_yz(:,:,ptype) = self%np_avg_yz(:,:,ptype) + self%fld%np(ix_plane,:,:,ptype)
+    end do
+
+    ! Legacy-style right boundary density for output/averaging
+    do ptype = 1, self%ntype
+      self%np_avg_xz(self%dom%n(1)+1,:,ptype) = &
+          self%np_avg_xz(self%dom%n(1)+1,:,ptype) + &
+          self%fld%np(self%dom%n(1),iy_density,:,ptype)
+
+      self%np_avg_xy(self%dom%n(1)+1,:,ptype) = &
+          self%np_avg_xy(self%dom%n(1)+1,:,ptype) + &
+          self%fld%np(self%dom%n(1),:,iz_plane,ptype)
+    end do
+
+    ! Potential: legacy averages raw phi directly
+    self%phi_avg_xy(:,:) = self%phi_avg_xy(:,:) + self%fld%phi(:,:,iz_plane)
+    self%phi_avg_xz(:,:) = self%phi_avg_xz(:,:) + self%fld%phi(:,iy_phi,:)
+    self%phi_avg_yz(:,:) = self%phi_avg_yz(:,:) + self%fld%phi(ix_plane,:,:)
+
+    self%cnt_avg = self%cnt_avg + 1_int32
+  end subroutine accumulate_2d_averages
+
+
   subroutine finalize_particles_only(self)
     class(State), intent(inout) :: self
     integer(int32) :: ptype, iproc
@@ -547,6 +744,16 @@ contains
     call self%rxn%destroy()
     call self%magField%destroy()
     call self%finalize_particles_only()
+
+    if (allocated(self%np_thread))    deallocate(self%np_thread)
+    if (allocated(self%sum_q_xz))     deallocate(self%sum_q_xz)
+    if (allocated(self%sum_q_yz))     deallocate(self%sum_q_yz)
+    if (allocated(self%P_loss))       deallocate(self%P_loss)
+    if (allocated(self%Nh))           deallocate(self%Nh)
+    if (allocated(self%sum_dEk))      deallocate(self%sum_dEk)
+    if (allocated(self%data_pavg_xy)) deallocate(self%data_pavg_xy)
+    if (allocated(self%data_pavg_xz)) deallocate(self%data_pavg_xz)
+    if (allocated(self%data_pavg_yz)) deallocate(self%data_pavg_yz)
 
     if (allocated(self%params%iseed)) deallocate(self%params%iseed)
   end subroutine finalize

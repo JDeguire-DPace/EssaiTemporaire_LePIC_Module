@@ -22,7 +22,7 @@ module mod_simParams
     real(real64) :: Nm (npart) = 0.0_real64
 
     real(real64)   :: dt    = 0.0_real64
-    integer(int32) :: nb_step_sort           = 2
+    integer(int32) :: nb_step_sort           = 10
     integer(int32) :: nb_step_collisions     = 2
     integer(int32) :: nb_step_heating        = 4
     integer(int32) :: nb_step_averaging      = 0
@@ -129,14 +129,14 @@ contains
     end if
     self%dt = cfg%kt * hmin / self%vt0(1)
 
-    self%nb_step_sort       = 2
+    self%nb_step_sort       = 10
     self%nb_step_collisions = 1 * self%nb_step_sort
 
     self%nb_step_heating = 4
     if (cfg%kt >= 0.05_real64 .and. cfg%kt < 0.1_real64) self%nb_step_heating = 20
     if (cfg%kt <  0.05_real64)                           self%nb_step_heating = 40
 
-    if (.not. bak_mode) then
+    if (bak_mode) then
       self%nb_step_averaging = 5 * self%nb_step_sort
     else
       self%nb_step_averaging = cfg%nsav
@@ -214,11 +214,10 @@ contains
     write(*,'(a,i0)') "Frequency of calls to collision subroutine = ", self%nb_step_collisions
     write(*,'(a,i0)') "Frequency of calls to electron (Maxwellian) heating subroutine= ", self%nb_step_heating
     write(*,'(a,i0)') "Frequency of calls to sort subroutine= ", self%nb_step_sort
+    write(*,'(a,i0)') "Frequency of averaging= ", self%nb_step_averaging
 
     if (self%nb_step_averaging == nsav) then
       write(*,'(a)') "Data will not be averaged!"
-    else
-      write(*,'(1x,"Frequency for averaging= ",i0)') self%nb_step_averaging
     end if
   end subroutine print_summary
 
