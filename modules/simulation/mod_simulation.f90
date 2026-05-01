@@ -345,8 +345,8 @@ contains
     if (allocated(self%state%sum_q_yz)) self%state%sum_q_yz = 0.0_real64
 
     call self%state%move_particles_local()
-    call self%deposit_all_particles()
     call self%state%apply_particle_bc_local()
+    call self%deposit_all_particles()
 
     if (mod(istep, 250_int32)==1_int32) then
       print *, 'CHECK NPART after BC:'
@@ -449,6 +449,7 @@ contains
 
       !!! MODIFICATION TEST
       if (self%state%mpi_rank == 0 .and. istep == 1_int32) then
+        write (*,'(a,i0)') "Iteration # ", istep
         do ptype=1, self%state%ntype
         write(*,*) " "
         write(*,*) " "

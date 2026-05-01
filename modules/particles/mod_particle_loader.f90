@@ -48,7 +48,7 @@ contains
 
     integer(int32) :: iseed_omp
 
-    nproc = int(size(part,2), int32)
+    nproc = omp_get_max_threads()
 
     if (size(part,1) /= ntype_trk) error stop "load_particles_modular: wrong part dim 1"
     if (size(part,2) < nproc)      error stop "load_particles_modular: wrong part dim 2"
@@ -109,7 +109,7 @@ contains
       write(*,'(a)') "Loading particles..."
     end if
 
-    !$omp parallel num_threads(nproc) &
+    !$omp parallel  &
     !$omp private(iproc,iseed_omp,ptype,j,k,ix,iy,iz,x,y,z,vx,vy,vt,rnd,px,py,pz,kp,ki,vz_sav)
 
     iproc = omp_get_thread_num() + 1

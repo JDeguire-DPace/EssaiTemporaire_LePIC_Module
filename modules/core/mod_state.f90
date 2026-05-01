@@ -293,31 +293,31 @@ contains
 
 
     !!! TEST Modifications
-    do ptype=1, self%ntype
-    write(*,*) " "
-    write(*,*) " "
-      write(*,"(a,i0)") "type : ", ptype
-      do i = 1, 5, 1
-        if (self%mpi_rank ==0) then
-          write(*,"(a,i0,a,ES14.7,a,ES14.7,a,ES14.7,a,ES14.7,a,ES14.7,a,ES14.7)") " Particle ", i, " x = ", self%part(ptype,1)%x(i), " y = ", self%part(ptype,1)%y(i), &
-               " z = ", self%part(ptype,1)%z(i), " vx = ", self%part(ptype,1)%vx(i), &
-               " vy = ", self%part(ptype,1)%vy(i), " vz = ", self%part(ptype,1)%vz(i)
-        end if      
-      end do
-      write(*,*) " "
-      write (*,*) " ..."
-      write(*,*) " "
+    ! do ptype=1, self%ntype
+    ! write(*,*) " "
+    ! write(*,*) " "
+    !   write(*,"(a,i0)") "type : ", ptype
+    !   do i = 1, 5, 1
+    !     if (self%mpi_rank ==0) then
+    !       write(*,"(a,i0,a,ES14.7,a,ES14.7,a,ES14.7,a,ES14.7,a,ES14.7,a,ES14.7)") " Particle ", i, " x = ", self%part(ptype,1)%x(i), " y = ", self%part(ptype,1)%y(i), &
+    !            " z = ", self%part(ptype,1)%z(i), " vx = ", self%part(ptype,1)%vx(i), &
+    !            " vy = ", self%part(ptype,1)%vy(i), " vz = ", self%part(ptype,1)%vz(i)
+    !     end if      
+    !   end do
+    !   write(*,*) " "
+    !   write (*,*) " ..."
+    !   write(*,*) " "
 
-      if (self%mpi_rank ==0) then
-        do i = size(self%part(ptype,1)%x(:))-4, size(self%part(ptype,1)%x(:)), 1
-          write(*,"(a,i0,a,ES14.7,a,ES14.7,a,ES14.7,a,ES14.7,a,ES14.7,a,ES14.7)") " Particle ", i, " x = ", self%part(ptype,1)%x(i), " y = ", self%part(ptype,1)%y(i), &
-               " z = ", self%part(ptype,1)%z(i), " vx = ", self%part(ptype,1)%vx(i), &
-               " vy = ", self%part(ptype,1)%vy(i), " vz = ", self%part(ptype,1)%vz(i)
-        end do      
-      end if
-    end do
+    !   if (self%mpi_rank ==0) then
+    !     do i = size(self%part(ptype,1)%x(:))-4, size(self%part(ptype,1)%x(:)), 1
+    !       write(*,"(a,i0,a,ES14.7,a,ES14.7,a,ES14.7,a,ES14.7,a,ES14.7,a,ES14.7)") " Particle ", i, " x = ", self%part(ptype,1)%x(i), " y = ", self%part(ptype,1)%y(i), &
+    !            " z = ", self%part(ptype,1)%z(i), " vx = ", self%part(ptype,1)%vx(i), &
+    !            " vy = ", self%part(ptype,1)%vy(i), " vz = ", self%part(ptype,1)%vz(i)
+    !     end do      
+    !   end if
+    ! end do
 
-    call self%sort_particles_local()
+    !call self%sort_particles_local()
 
     call reduce_species_density( &
          n         = int(self%dom%n, int32), &

@@ -776,9 +776,9 @@ program main
 
 
     !!! MODIFICATION
-    if (it==2) then
+    if (it==1) then
       if (mpi_rank == 0) then
-         print*, " "
+         print*, " Step =  ", it
 
       do ptype = 1, max(ntype, 2)
          print*, "ptype = ", ptype
