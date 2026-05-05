@@ -107,6 +107,7 @@ program main
        phi0_RF,f0_RF,phi1_RF,f1_RF
   character:: rname*20,name*20,pnum*1,pnum_bck*3,plnum*3,corrnum*3
   integer(kind=8) :: dbg_loss_xright_s1, dbg_loss_xright_s2
+  integer(kind=8) :: dbg_ran2_mover = 0
 
   CALL MPI_Init(ierr)                             ! starts MPI
   CALL MPI_Comm_rank(MPI_COMM_WORLD, mpi_rank, ierr)  ! get current process id
@@ -774,6 +775,7 @@ program main
   !
   ! Start iteration 
   !
+  print *, "DEBUG eps omega ng nsav navg = ", eps, omega, ng, nsav, navg
   do it=1,ntmax
 
 
@@ -1316,8 +1318,9 @@ program main
               if(flag_thr.eq.1) sav_np(2)= p_mac(ptype,np_loss,ind_g,iproc)
               call part_mover(n,h,Ei,Bi,p_mac,P_loss,vxp,bcnd,nmax,ntype,ngrid,flag_dead,&
                    nproc,np_tot,iproc,ptype,flag_cex,cnt_cex,cnt_dead,beam_div,sum_q_xz,&
-                   sum_q_yz,dtype,iseed_OMP,n_B,h_B, dbg_loss_xright_s1, dbg_loss_xright_s2)
-              if(ABS(opt_inj).eq.2) N_inj(ptype,iproc)= N_inj(ptype,iproc) + &
+                   sum_q_yz,dtype,iseed_OMP,n_B,h_B, dbg_loss_xright_s1, dbg_loss_xright_s2, dbg_ran2_mover)
+            if (it .eq. 2001) write(*,*), "Number debug called mover = ", dbg_ran2_mover
+            if(ABS(opt_inj).eq.2) N_inj(ptype,iproc)= N_inj(ptype,iproc) + &
                    ( SUM(p_mac(ptype,np_loss,0:ngrid,iproc)) - sav_np(1) )
               if(flag_thr.eq.1) N_flx(ptype,iproc)= N_flx(ptype,iproc) + &
                    ( p_mac(ptype,np_loss,ind_g,iproc) - sav_np(2) )

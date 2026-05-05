@@ -483,7 +483,7 @@ contains
       write (*,*) " "
       write (*,'(a)') 'Entering the PIC loop'
     end if
-
+    print *, "DEBUG eps omega ng nsav navg = ", self%state%cfg%eps, self%state%cfg%omega, self%state%cfg%ng, self%state%cfg%nsav, self%state%params%nb_step_averaging
     do istep = 1_int32, int(nsteps, int32)
       call self%advance_one_step(istep)
       if (istep == 2001) then
