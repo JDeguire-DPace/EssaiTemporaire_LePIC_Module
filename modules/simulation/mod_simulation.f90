@@ -2,7 +2,7 @@ module mod_simulation
   use iso_fortran_env, only: int32, real64, int64
 
   use mod_state,                 only: State
-  use mod_density,               only: reduce_species_density, build_rho_from_np
+  use mod_density,               only: reduce_species_density, build_rho_from_np, build_rho_from_np_thread
   use mod_chargeDeposition,      only: clear_np_thread, deposit_particle_set_to_np_thread
   use mod_PoissonSolver_legacy,  only: solve_poisson_legacy
   use mod_electricField,         only: calc_Efield_modular
@@ -12,6 +12,7 @@ module mod_simulation
   use mpi
   use omp_lib, only: omp_get_wtime
   use mod_constants, only: eps0
+  use mod_particleBC, only: dbg_loss_xright_s1, dbg_loss_xright_s2
 
   implicit none
   private
@@ -46,12 +47,16 @@ contains
   subroutine build_initial_fields(self)
     class(Simulation), intent(inout) :: self
 
+    ! Keep this available for optional initial diagnostics. The main PIC loop
+    ! rebuilds rho from np_thread before every Poisson solve.
     call build_rho_from_np( &
-         n      = int(self%state%dom%n, int32), &
-         np_red = self%state%fld%np, &
-         charge = self%state%chem%charge(1:self%state%ntype), &
-         ntype  = int(self%state%ntype), &
-         rho    = self%state%fld%rho )
+         n        = int(self%state%dom%n, int32), &
+         np_red   = self%state%fld%np, &
+         charge   = self%state%chem%charge(1:self%state%ntype), &
+         ntype    = int(self%state%ntype), &
+         rho      = self%state%fld%rho, &
+         bcnd     = self%state%dom%bcnd, &
+         flag_pbc = int(self%state%dom%flag_pbc, int32))
 
     call solve_poisson_legacy( &
          pdec        = self%state%pdec, &
@@ -75,6 +80,10 @@ contains
          phi  = self%state%fld%phi, &
          E    = self%state%fld%E, &
          bcnd = self%state%dom%bcnd )
+
+    if (self%state%mpi_rank == 0) then
+      print *, "MOD charges = ", self%state%chem%charge(1:self%state%ntype)
+    end if
   end subroutine build_initial_fields
 
 
@@ -143,11 +152,12 @@ contains
   subroutine deposit_all_particles(self)
     class(Simulation), intent(inout) :: self
     integer(int32) :: ptype, iproc
+    integer :: ix
 
     call clear_np_thread(int(self%state%dom%n, int32), &
-                        self%state%ntype, &
-                        self%state%nproc, &
-                        self%state%np_thread)
+                         self%state%ntype, &
+                         self%state%nproc, &
+                         self%state%np_thread)
 
     !$omp parallel do collapse(2) private(ptype,iproc) schedule(static)
     do ptype = 1, self%state%ntype
@@ -230,6 +240,7 @@ contains
     integer(int32) :: ix_plane, iy_plane_density, iy_plane_phi, iy_plane_E, iz_plane
     character(len=256) :: prefix
     character(len=16)  :: sstep, sspecies
+    real(real64) :: avg_factor
     real(real64), allocatable :: Ex3(:,:,:), Ey3(:,:,:), Ez3(:,:,:)
     real(real64), allocatable :: tmp_xy(:,:), tmp_xz(:,:), tmp_yz(:,:)
 
@@ -241,34 +252,27 @@ contains
     iy_plane_phi     = int(self%state%dom%n(2)/2,     int32)
     iy_plane_E       = int(self%state%dom%n(2)/2 + 1, int32)
 
+    avg_factor = real(max(1_int32, self%state%cnt_avg), real64)
+
     allocate(tmp_xy(0:self%state%dom%n(1)+2,0:self%state%dom%n(2)+2))
     allocate(tmp_xz(0:self%state%dom%n(1)+2,0:self%state%dom%n(3)+2))
     allocate(tmp_yz(0:self%state%dom%n(2)+2,0:self%state%dom%n(3)+2))
-
-    if (istep == 2001_int32) then
-      print *, 'CHECK np1 xz center line = ', &
-        self%state%fld%np(:, self%state%dom%n(2)/2+1, self%state%dom%n(3)/2+1, 1)
-
-      print *, 'CHECK np1 xy center line = ', &
-        self%state%fld%np(:, self%state%dom%n(2)/2+1, self%state%params%iz_plot_plane, 1)
-
-      print *, 'CHECK np1 yz center line = ', &
-        self%state%fld%np(self%state%params%ix_plot_plane, :, self%state%dom%n(3)/2+1, 1)
-    end if
 
     write(sstep,'(i0)') istep
 
     do i = 1, self%state%ntype
       write(sspecies,'(i0)') i
 
-      ! DEBUG / parity test:
-      ! Write directly from instantaneous 3D density, not np_avg_*.
-      tmp_xy = self%state%fld%np(:,:,iz_plane,i)
-      tmp_xz = self%state%fld%np(:,iy_plane_density,:,i)
-      tmp_yz = self%state%fld%np(ix_plane+1,:,:,i)
+      ! Legacy-style averaged density planes.
+      tmp_xy = self%state%np_avg_xy(:,:,i) / avg_factor
+      tmp_xz = self%state%np_avg_xz(:,:,i) / avg_factor
+      tmp_yz = self%state%np_avg_yz(:,:,i) / avg_factor
 
       prefix = '../Output/Output_2D/it' // trim(sstep) // '_n' // trim(sspecies)
-
+      if (istep == 2001_int32 .and. self%state%mpi_rank == 0) then
+        print *, "OUTPUT AVG n1 x tail xy = ", tmp_xy(125:129,9)
+        print *, "OUTPUT AVG n1 x tail xz = ", tmp_xz(125:129,9)
+      end if
       call write_plane_xy_scalar_2d(trim(prefix)//'_xy.mco', tmp_xy, int(self%state%dom%n, int32), 1_int32)
       call write_plane_xz_scalar_2d(trim(prefix)//'_xz.mco', tmp_xz, int(self%state%dom%n, int32), 1_int32)
       call write_plane_yz_scalar_2d(trim(prefix)//'_yz.mco', tmp_yz, int(self%state%dom%n, int32), 1_int32)
@@ -283,11 +287,10 @@ contains
       call write_plane_yz_scalar_2d(prefix, self%state%data_pavg_yz(2,:,:,i), int(self%state%dom%n, int32), 1_int32)
     end do
 
-    ! DEBUG / parity test:
-    ! Write directly from instantaneous 3D phi, not phi_avg_*.
-    tmp_xy = self%state%fld%phi(:,:,iz_plane)
-    tmp_xz = self%state%fld%phi(:,iy_plane_phi,:)
-    tmp_yz = self%state%fld%phi(ix_plane+1,:,:)
+    ! Legacy-style averaged potential planes.
+    tmp_xy = self%state%phi_avg_xy / avg_factor
+    tmp_xz = self%state%phi_avg_xz / avg_factor
+    tmp_yz = self%state%phi_avg_yz / avg_factor
 
     prefix = '../Output/Output_2D/it' // trim(sstep) // '_phi'
 
@@ -315,14 +318,19 @@ contains
     call write_scalar_planes(Ez3, int(self%state%dom%n, int32), &
                             ix_plane, iy_plane_E, iz_plane, 1_int32, prefix)
 
+    write(*,*) "cnt_avg MOD = ", self%state%cnt_avg
+
     deallocate(Ex3, Ey3, Ez3)
     deallocate(tmp_xy, tmp_xz, tmp_yz)
 
   end subroutine output_step
 
+
   subroutine advance_one_step(self, istep)
     class(Simulation), intent(inout) :: self
     integer(int32),    intent(in)    :: istep
+    integer :: imax(3), ix
+
     real(real64) :: vt_heat
 
     if (mod(istep, self%state%params%nb_step_sort) == 1_int32) then
@@ -341,45 +349,30 @@ contains
     !   call self%state%apply_electron_heating_local(vt_heat)
     ! end if
 
-    if (allocated(self%state%sum_q_xz)) self%state%sum_q_xz = 0.0_real64
-    if (allocated(self%state%sum_q_yz)) self%state%sum_q_yz = 0.0_real64
+    call reduce_species_density( &
+        n         = int(self%state%dom%n, int32), &
+        bcnd      = self%state%dom%bcnd, &
+        np_thread = self%state%np_thread, &
+        ntype     = int(self%state%ntype), &
+        nproc     = int(self%state%nproc), &
+        mpi_comm  = self%state%comm, &
+        np_red    = self%state%fld%np )
 
-    call self%state%move_particles_local()
-    call self%state%apply_particle_bc_local()
-    call self%deposit_all_particles()
+    call build_rho_from_np_thread( &
+        n         = int(self%state%dom%n, int32), &
+        np_thread = self%state%np_thread, &
+        charge    = self%state%chem%charge(1:self%state%ntype), &
+        ntype     = int(self%state%ntype), &
+        nproc     = int(self%state%nproc), &
+        rho       = self%state%fld%rho, &
+        bcnd      = self%state%dom%bcnd, &
+        flag_pbc  = int(self%state%dom%flag_pbc, int32) )
 
-    if (mod(istep, 250_int32)==1_int32) then
-      print *, 'CHECK NPART after BC:'
-      print *, ' electrons = ', sum(self%state%part(1,:)%n)
-      print *, ' ions      = ', sum(self%state%part(2,:)%n)
-    end if
-
-    call build_rho_from_np( &
-        n      = int(self%state%dom%n, int32), &
-        np_red = self%state%fld%np, &
-        charge = self%state%chem%charge(1:self%state%ntype), &
-        ntype  = int(self%state%ntype), &
-        rho    = self%state%fld%rho )
-
-    if (istep == 2001_int32 .and. self%state%mpi_rank == 0) then
-      print *, 'MOD sum np1 = ', sum(self%state%fld%np(:,:,:,1))
-      print *, 'MOD sum np2 = ', sum(self%state%fld%np(:,:,:,2))
-      print *, 'MOD rho min/max/sum = ', minval(self%state%fld%rho), &
-          maxval(self%state%fld%rho), sum(self%state%fld%rho)
-    end if
-
-    if (istep == 2001_int32 .and. self%state%mpi_rank == 0) then
-      print *, 'MOD center nx-1 np1/np2 = ', &
-        self%state%fld%np(self%state%dom%n(1)-1,self%state%dom%n(2)/2+1,self%state%dom%n(3)/2+1,1), &
-        self%state%fld%np(self%state%dom%n(1)-1,self%state%dom%n(2)/2+1,self%state%dom%n(3)/2+1,2)
-
-      print *, 'MOD center nx np1/np2 = ', &
-        self%state%fld%np(self%state%dom%n(1),self%state%dom%n(2)/2+1,self%state%dom%n(3)/2+1,1), &
-        self%state%fld%np(self%state%dom%n(1),self%state%dom%n(2)/2+1,self%state%dom%n(3)/2+1,2)
-
-      print *, 'MOD center nx+1 np1/np2 = ', &
-        self%state%fld%np(self%state%dom%n(1)+1,self%state%dom%n(2)/2+1,self%state%dom%n(3)/2+1,1), &
-        self%state%fld%np(self%state%dom%n(1)+1,self%state%dom%n(2)/2+1,self%state%dom%n(3)/2+1,2)
+    if (istep == 1_int32 .and. self%state%mpi_rank == 0) then
+      print *, "MOD rho min/max/sum = ", minval(self%state%fld%rho), &
+                                        maxval(self%state%fld%rho), &
+                                        sum(self%state%fld%rho)
+      print *, "MOD rho center = ", self%state%fld%rho(65,9,9)
     end if
 
     call self%state%apply_dielectric_bc_to_phi()
@@ -389,8 +382,8 @@ contains
         phi_global  = self%state%fld%phi, &
         bcnd_global = self%state%dom%bcnd, &
         rhs_global  = self%state%fld%rho(0:self%state%dom%n(1)+1, &
-                                        0:self%state%dom%n(2)+1, &
-                                        0:self%state%dom%n(3)+1), &
+                                         0:self%state%dom%n(2)+1, &
+                                         0:self%state%dom%n(3)+1), &
         h           = self%state%dom%h, &
         n_in        = int(self%state%dom%n, int32), &
         ncycl       = 20000, &
@@ -399,6 +392,12 @@ contains
         ng          = self%state%cfg%ng, &
         flag_pbc_in = self%state%dom%flag_pbc, &
         flag_nmn_in = self%state%dom%flag_nmn )
+
+    if (istep == 1_int32 .and. self%state%mpi_rank == 0) then
+      write(*,*) "phi min/max/sum = ", minval(self%state%fld%phi), &
+                                        maxval(self%state%fld%phi), &
+                                        sum(self%state%fld%phi)
+    end if
 
     call calc_Efield_modular( &
         n    = int(self%state%dom%n, int32), &
@@ -413,6 +412,51 @@ contains
       end if
     end if
 
+    if (allocated(self%state%sum_q_xz)) self%state%sum_q_xz = 0.0_real64
+    if (allocated(self%state%sum_q_yz)) self%state%sum_q_yz = 0.0_real64
+
+    call self%state%move_particles_local()
+    call self%state%apply_particle_bc_local()
+
+    if (mod(istep, 250_int32) == 1_int32 .and. self%state%mpi_rank == 0) then
+      print *, 'CHECK NPART after BC:'
+      print *, ' electrons = ', sum(self%state%part(1,:)%n)
+      print *, ' ions      = ', sum(self%state%part(2,:)%n)
+    end if
+
+    call self%deposit_all_particles()
+
+    if (istep == 2001_int32 .and. self%state%mpi_rank == 0) then
+      write(*,*) "==== XMAX DENSITY CHECK AFTER DEPOSIT ===="
+      print *, "MOD loss xright e/i = ", dbg_loss_xright_s1, dbg_loss_xright_s2
+
+      write(*,*) "nx = ", self%state%dom%n(1)
+      write(*,*) "xmax = ", self%state%dom%xmax
+      write(*,*) "h(1) = ", self%state%dom%h(1)
+
+      write(*,*) "electron max x = ", maxval(self%state%part(1,1)%x(1:self%state%part(1,1)%n))
+      write(*,*) "ion max x      = ", maxval(self%state%part(2,1)%x(1:self%state%part(2,1)%n))
+
+      write(*,*) "electron count x > xmax-h = ", &
+          count(self%state%part(1,1)%x(1:self%state%part(1,1)%n) > &
+          self%state%dom%xmax - self%state%dom%h(1))
+
+      write(*,*) "ion count x > xmax-h = ", &
+          count(self%state%part(2,1)%x(1:self%state%part(2,1)%n) > &
+          self%state%dom%xmax - self%state%dom%h(1))
+
+      write(*,*) "ix, sum np1(ix,:,:), sum np2(ix,:,:), kq(ix,9,9), bcnd(ix,9,9)"
+      do ix = self%state%dom%n(1)-3, self%state%dom%n(1)+2
+        write(*,'(i6,2(1x,es16.8),1x,es16.8,1x,i6)') ix, &
+          sum(self%state%fld%np(ix,:,:,1)), &
+          sum(self%state%fld%np(ix,:,:,2)), &
+          self%state%fld%kq(ix,9,9), &
+          self%state%dom%bcnd(ix,9,9)
+      end do
+
+      write(*,*) "=========================================="
+    end if
+
     if (mod(istep, self%state%cfg%nsav) == 1_int32) then
       call self%output_step(istep)
       call self%reset_2d_averages()
@@ -420,72 +464,52 @@ contains
 
   end subroutine advance_one_step
 
+
   subroutine run(self, nsteps)
     class(Simulation), intent(inout) :: self
     integer,           intent(in)    :: nsteps
-    integer(int32) :: istep,ptype,i
+    integer(int32) :: istep,ix
 
-    call self%build_initial_fields()
-    call self%write_initial_diagnostics()
+    ! Optional initial fields/planes. For parity runs, you may comment these out
+    ! if legacy only writes after the PIC loop.
+    ! call self%build_initial_fields()
+    ! call self%write_initial_diagnostics()
 
     if (self%state%mpi_rank == 0) then
       print *, 'MOD eps0 = ', eps0
       print *, 'MOD k_eps0 = ', self%state%cfg%k_eps0
-    end if
-    if (self%state%mpi_rank == 0) then
       print *, "MOD ix_plot_plane = ", self%state%params%ix_plot_plane
       print *, "MOD iz_plot_plane = ", self%state%params%iz_plot_plane
-    end if
-
-
-    if (self%state%mpi_rank == 0) then
       write (*,*) " "
       write (*,'(a)') 'Entering the PIC loop'
     end if
 
     do istep = 1_int32, int(nsteps, int32)
-
-
-
-      !!! MODIFICATION TEST
-      if (self%state%mpi_rank == 0 .and. istep == 1_int32) then
-        write (*,'(a,i0)') "Iteration # ", istep
-        do ptype=1, self%state%ntype
-        write(*,*) " "
-        write(*,*) " "
-          write(*,"(a,i0)") "type : ", ptype
-          do i = 1, 5, 1
-            if (self%state%mpi_rank ==0) then
-              write(*,"(a,i0,a,ES14.7,a,ES14.7,a,ES14.7,a,ES14.7,a,ES14.7,a,ES14.7)") " Particle ", i, " x = ", self%state%part(ptype,1)%x(i), " y = ", self%state%part(ptype,1)%y(i), &
-                  " z = ", self%state%part(ptype,1)%z(i), " vx = ", self%state%part(ptype,1)%vx(i), &
-                  " vy = ", self%state%part(ptype,1)%vy(i), " vz = ", self%state%part(ptype,1)%vz(i)
-            end if      
-          end do
-          write(*,*) " "
-          write (*,*) " ..."
-          write(*,*) " "
-
-          if (self%state%mpi_rank ==0) then
-            do i = size(self%state%part(ptype,1)%x(:))-4, size(self%state%part(ptype,1)%x(:)), 1
-              write(*,"(a,i0,a,ES14.7,a,ES14.7,a,ES14.7,a,ES14.7,a,ES14.7,a,ES14.7)") " Particle ", i, " x = ", self%state%part(ptype,1)%x(i), " y = ", self%state%part(ptype,1)%y(i), &
-                  " z = ", self%state%part(ptype,1)%z(i), " vx = ", self%state%part(ptype,1)%vx(i), &
-                  " vy = ", self%state%part(ptype,1)%vy(i), " vz = ", self%state%part(ptype,1)%vz(i)
-            end do      
-          end if
-        end do
-      end if
-
-
-
-
-
-      if (self%state%mpi_rank == 0 .and. mod(istep, 250) == 0_int32) then
-        write(*,'(a,i0)') "Iteration # ", istep
-        print *, "SUM np1 =", sum(self%state%fld%np(:,:,:,1))
-        print *, "SUM np2 =", sum(self%state%fld%np(:,:,:,2))
-      end if
-
       call self%advance_one_step(istep)
+      if (istep == 2001) then
+        write(*,*) "phi xmax line MOD:"
+        do ix = self%state%dom%n(1)-3, self%state%dom%n(1)+1
+          write(*,'(i6,1x,es16.8)') ix, self%state%fld%phi(ix,9,9)
+        end do
+
+        write(*,*) "Ex xmax line MOD:"
+        do ix = self%state%dom%n(1)-3, self%state%dom%n(1)+1
+          write(*,'(i6,1x,es16.8)') ix, self%state%fld%E(1,ix,9,9)
+        end do
+
+        write(*,*) "rho xmax line MOD:"
+        do ix = self%state%dom%n(1)-3, self%state%dom%n(1)+1
+          write(*,'(i6,1x,es16.8)') ix, self%state%fld%rho(ix,9,9)
+        end do
+
+        write(*,*) "np1/np2 center xmax line MOD:"
+        do ix = self%state%dom%n(1)-3, self%state%dom%n(1)+1
+          write(*,'(i6,2(1x,es16.8))') ix, &
+            self%state%fld%np(ix,9,9,1), &
+            self%state%fld%np(ix,9,9,2)
+        end do
+
+      end if
     end do
   end subroutine run
 

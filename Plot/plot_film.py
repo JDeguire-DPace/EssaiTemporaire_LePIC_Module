@@ -58,7 +58,7 @@ def main() -> int:
 
     print(f"Looking for files in:\n  {folder}\n")
 
-    file_list = [folder / f"../Output/Output_2D/it{i}_phi_xz.mco" for i in range(1, 29502, 100)]
+    file_list = [folder / f"../Output/Output_2D/it{i}_n2_xz.mco" for i in range(1, 29502, 100)]
 
     existing_files = []
     for f in file_list:

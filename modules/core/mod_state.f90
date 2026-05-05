@@ -5,7 +5,7 @@ module mod_state
   use mod_config,         only: Config
   use mod_readConditions, only: read_input
 
-  use mod_constants,      only: eps0,qe
+  use mod_constants,      only: eps0, qe
   use mod_domain,         only: Domain
   use mod_boundary,       only: build_boundary
 
@@ -57,10 +57,6 @@ module mod_state
     integer(int32), allocatable :: Nh(:)
     real(real64), allocatable :: sum_dEk(:)
 
-    ! P_loss(1,:,:) wall losses
-    ! P_loss(2,:,:) heating power
-    ! P_loss(3,:,:) collision power exchange
-    ! P_loss(4,:,:) injected/secondary power
     real(real64) :: p_loss_heating_local
     real(real64), allocatable :: P_loss(:,:,:)
 
@@ -76,7 +72,7 @@ module mod_state
     real(real64), allocatable :: phi_avg_xz(:,:)
     real(real64), allocatable :: phi_avg_yz(:,:)
 
-integer(int32) :: cnt_avg = 0_int32
+    integer(int32) :: cnt_avg = 0_int32
 
   contains
     procedure :: init
@@ -127,17 +123,20 @@ contains
 
     call self%params%build(self%cfg, self%dom, self%chem, self%rxn, self%magField, self%mpi_rank)
 
+    self%ntype = int(self%rxn%ntype - self%rxn%n_neu, int32)
+    if (self%ntype < 1_int32) self%ntype = 1_int32
+
     self%nproc = max(1_int32, int(self%cfg%omp_rank_max, int32))
     call self%params%init_seeds(self%nproc, self%mpi_rank)
     call self%params%print_summary(self%mpi_rank, self%cfg%nsav)
-
-    call self%init_particles()
 
     allocate(self%np_thread(0:self%dom%n(1)+2, &
                             0:self%dom%n(2)+2, &
                             0:self%dom%n(3)+2, &
                             self%ntype, self%nproc))
     self%np_thread = 0.0_real64
+
+    call self%init_particles()
 
     allocate(self%sum_q_xz(0:self%dom%n(1)+2, &
                            0:self%dom%n(3)+2, &
@@ -166,21 +165,13 @@ contains
     allocate(self%phi_avg_xz(0:self%dom%n(1)+2,0:self%dom%n(3)+2))
     allocate(self%phi_avg_yz(0:self%dom%n(2)+2,0:self%dom%n(3)+2))
 
-    self%np_avg_xy = 0.0_real64
-    self%np_avg_xz = 0.0_real64
-    self%np_avg_yz = 0.0_real64
+    self%np_avg_xy  = 0.0_real64
+    self%np_avg_xz  = 0.0_real64
+    self%np_avg_yz  = 0.0_real64
     self%phi_avg_xy = 0.0_real64
     self%phi_avg_xz = 0.0_real64
     self%phi_avg_yz = 0.0_real64
-    self%cnt_avg = 0_int32
-
-    self%np_avg_xy = 0.0_real64
-    self%np_avg_xz = 0.0_real64
-    self%np_avg_yz = 0.0_real64
-    self%phi_avg_xy = 0.0_real64
-    self%phi_avg_xz = 0.0_real64
-    self%phi_avg_yz = 0.0_real64
-    self%cnt_avg = 0_int32
+    self%cnt_avg    = 0_int32
 
     allocate(self%data_pavg_xy(5, 0:self%dom%n(1)+2, 0:self%dom%n(2)+2, self%ntype))
     allocate(self%data_pavg_xz(5, 0:self%dom%n(1)+2, 0:self%dom%n(3)+2, self%ntype))
@@ -256,14 +247,9 @@ contains
 
   subroutine init_particles(self)
     class(State), intent(inout) :: self
-    integer(int32) :: ntype_trk,i, ptype
-    real(real64), allocatable :: np_thread(:,:,:,:,:)
+    integer(int32) :: ntype_trk
 
-    ntype_trk = int(self%rxn%ntype - self%rxn%n_neu, int32)
-    if (ntype_trk < 1_int32) ntype_trk = 1_int32
-
-    self%ntype = ntype_trk
-    self%nproc = max(1_int32, int(self%cfg%omp_rank_max, int32))
+    ntype_trk = self%ntype
 
     if (allocated(self%part)) then
       call self%finalize_particles_only()
@@ -272,8 +258,7 @@ contains
 
     call self%fld%allocate_species_density(self%dom, self%ntype)
 
-    allocate(np_thread(0:self%dom%n(1)+2, 0:self%dom%n(2)+2, 0:self%dom%n(3)+2, self%ntype, self%nproc))
-    np_thread = 0.0_real64
+    self%np_thread = 0.0_real64
 
     call load_particles_modular( &
           cfg       = self%cfg, &
@@ -289,46 +274,21 @@ contains
           iseed     = self%params%iseed, &
           ntype_trk = ntype_trk, &
           part      = self%part, &
-          np_thread = np_thread )
-
-
-    !!! TEST Modifications
-    ! do ptype=1, self%ntype
-    ! write(*,*) " "
-    ! write(*,*) " "
-    !   write(*,"(a,i0)") "type : ", ptype
-    !   do i = 1, 5, 1
-    !     if (self%mpi_rank ==0) then
-    !       write(*,"(a,i0,a,ES14.7,a,ES14.7,a,ES14.7,a,ES14.7,a,ES14.7,a,ES14.7)") " Particle ", i, " x = ", self%part(ptype,1)%x(i), " y = ", self%part(ptype,1)%y(i), &
-    !            " z = ", self%part(ptype,1)%z(i), " vx = ", self%part(ptype,1)%vx(i), &
-    !            " vy = ", self%part(ptype,1)%vy(i), " vz = ", self%part(ptype,1)%vz(i)
-    !     end if      
-    !   end do
-    !   write(*,*) " "
-    !   write (*,*) " ..."
-    !   write(*,*) " "
-
-    !   if (self%mpi_rank ==0) then
-    !     do i = size(self%part(ptype,1)%x(:))-4, size(self%part(ptype,1)%x(:)), 1
-    !       write(*,"(a,i0,a,ES14.7,a,ES14.7,a,ES14.7,a,ES14.7,a,ES14.7,a,ES14.7)") " Particle ", i, " x = ", self%part(ptype,1)%x(i), " y = ", self%part(ptype,1)%y(i), &
-    !            " z = ", self%part(ptype,1)%z(i), " vx = ", self%part(ptype,1)%vx(i), &
-    !            " vy = ", self%part(ptype,1)%vy(i), " vz = ", self%part(ptype,1)%vz(i)
-    !     end do      
-    !   end if
-    ! end do
-
-    !call self%sort_particles_local()
-
+          np_thread = self%np_thread )
+    print *, "BEFORE reduce np_thread center diff = ", &
+        self%np_thread(65,9,9,1,1) - self%np_thread(65,9,9,2,1)
     call reduce_species_density( &
          n         = int(self%dom%n, int32), &
          bcnd      = self%dom%bcnd, &
-         np_thread = np_thread, &
+         np_thread = self%np_thread, &
          ntype     = int(self%ntype), &
          nproc     = int(self%nproc), &
          mpi_comm  = self%comm, &
          np_red    = self%fld%np )
 
-    deallocate(np_thread)
+    print *, "AFTER reduce np_thread center diff = ", &
+        self%np_thread(65,9,9,1,1) - self%np_thread(65,9,9,2,1)
+
   end subroutine init_particles
 
 
@@ -370,13 +330,12 @@ contains
   subroutine apply_electron_heating_local(self, vt)
     class(State), intent(inout) :: self
     real(real64), intent(in)    :: vt
-
     integer(int32) :: iproc
 
     if (.not. allocated(self%part)) return
     if (self%ntype < 1) return
     if (.not. allocated(self%P_loss)) return
-    if(self%cfg%flag_circxh.eq.1) self%cfg%R_ahp= self%cfg%yr_pow-self%dom%ymax/2.d0
+    if (self%cfg%flag_circxh == 1) self%cfg%R_ahp = self%cfg%yr_pow - self%dom%ymax/2.0_real64
 
     !$omp parallel do private(iproc) schedule(static)
     do iproc = 1, self%nproc
@@ -401,7 +360,6 @@ contains
           p_loss_heating = self%P_loss(2,1,iproc) )
     end do
     !$omp end parallel do
-
   end subroutine apply_electron_heating_local
 
 
@@ -454,16 +412,13 @@ contains
             end if
 
           end do
-
         end do
       end do
     end do
-
   end subroutine apply_dielectric_bc_to_phi
 
 
   subroutine move_particles_local(self)
-    use omp_lib, only: omp_get_max_threads
     class(State), intent(inout) :: self
     integer(int32) :: ptype, iproc
     real(real64)   :: q_species, m_species, dt_local
@@ -504,7 +459,6 @@ contains
     integer(int32) :: tag_neg_local
     integer(int32) :: ispec
     real(real64)   :: qmacro
-
     real(real64), allocatable :: sum_q_xz_local(:,:)
     real(real64), allocatable :: sum_q_yz_local(:,:,:)
 
@@ -556,17 +510,14 @@ contains
 
         deallocate(sum_q_xz_local)
         deallocate(sum_q_yz_local)
-
       end do
     end do
     !$omp end parallel do
-
   end subroutine apply_particle_bc_local
 
 
   subroutine compute_heating_region_moments(self)
     class(State), intent(inout) :: self
-
     integer(int32) :: iproc, i, ix
     real(real64)   :: x, y, z, v2
     real(real64)   :: ymax_half, zmax_half
@@ -597,9 +548,9 @@ contains
           z = self%part(1,iproc)%z(i)
 
           if (self%cfg%flag_ahp == 0) then
-            if ( ((y-ymax_half)**2 + (z-zmax_half)**2) > self%cfg%R_ahp**2 ) cycle
+            if (((y-ymax_half)**2 + (z-zmax_half)**2) > self%cfg%R_ahp**2) cycle
           else
-            if ( ((y-ymax_half)**2 + (z-zmax_half)**2) < self%cfg%R_ahp**2 ) cycle
+            if (((y-ymax_half)**2 + (z-zmax_half)**2) < self%cfg%R_ahp**2) cycle
           end if
         end if
 
@@ -614,7 +565,6 @@ contains
       end do
     end do
     !$omp end parallel do
-
   end subroutine compute_heating_region_moments
 
 
@@ -685,38 +635,35 @@ contains
 
   subroutine accumulate_2d_averages(self)
     class(State), intent(inout) :: self
+
     integer(int32) :: ptype
     integer(int32) :: ix_plane, iy_density, iy_phi, iz_plane
+    integer(int32) :: ny
+
+    ny = self%dom%n(2)
 
     ix_plane   = self%params%ix_plot_plane
-    iy_density = int(self%dom%n(2)/2 + 1, int32)
-    iy_phi     = int(self%dom%n(2)/2,     int32)
+    iy_density = int(ny/2 + 1, int32)
+    iy_phi     = int(ny/2,     int32)
     iz_plane   = self%params%iz_plot_plane
 
-    ! Density: legacy-style plot planes
     do ptype = 1, self%ntype
-      self%np_avg_xy(:,:,ptype) = self%np_avg_xy(:,:,ptype) + self%fld%np(:,:,iz_plane,ptype)
-      self%np_avg_xz(:,:,ptype) = self%np_avg_xz(:,:,ptype) + self%fld%np(:,iy_density,:,ptype)
-      self%np_avg_yz(:,:,ptype) = self%np_avg_yz(:,:,ptype) + self%fld%np(ix_plane,:,:,ptype)
+      self%np_avg_xy(:,:,ptype) = self%np_avg_xy(:,:,ptype) + &
+          self%fld%np(:,:,iz_plane,ptype)
+
+      self%np_avg_xz(:,:,ptype) = self%np_avg_xz(:,:,ptype) + &
+          self%fld%np(:,iy_density,:,ptype)
+
+      self%np_avg_yz(:,:,ptype) = self%np_avg_yz(:,:,ptype) + &
+          self%fld%np(ix_plane,:,:,ptype)
     end do
 
-    ! Legacy-style right boundary density for output/averaging
-    do ptype = 1, self%ntype
-      self%np_avg_xz(self%dom%n(1)+1,:,ptype) = &
-          self%np_avg_xz(self%dom%n(1)+1,:,ptype) + &
-          self%fld%np(self%dom%n(1),iy_density,:,ptype)
-
-      self%np_avg_xy(self%dom%n(1)+1,:,ptype) = &
-          self%np_avg_xy(self%dom%n(1)+1,:,ptype) + &
-          self%fld%np(self%dom%n(1),:,iz_plane,ptype)
-    end do
-
-    ! Potential: legacy averages raw phi directly
     self%phi_avg_xy(:,:) = self%phi_avg_xy(:,:) + self%fld%phi(:,:,iz_plane)
     self%phi_avg_xz(:,:) = self%phi_avg_xz(:,:) + self%fld%phi(:,iy_phi,:)
     self%phi_avg_yz(:,:) = self%phi_avg_yz(:,:) + self%fld%phi(ix_plane,:,:)
 
     self%cnt_avg = self%cnt_avg + 1_int32
+
   end subroutine accumulate_2d_averages
 
 
@@ -751,6 +698,12 @@ contains
     if (allocated(self%P_loss))       deallocate(self%P_loss)
     if (allocated(self%Nh))           deallocate(self%Nh)
     if (allocated(self%sum_dEk))      deallocate(self%sum_dEk)
+    if (allocated(self%np_avg_xy))    deallocate(self%np_avg_xy)
+    if (allocated(self%np_avg_xz))    deallocate(self%np_avg_xz)
+    if (allocated(self%np_avg_yz))    deallocate(self%np_avg_yz)
+    if (allocated(self%phi_avg_xy))   deallocate(self%phi_avg_xy)
+    if (allocated(self%phi_avg_xz))   deallocate(self%phi_avg_xz)
+    if (allocated(self%phi_avg_yz))   deallocate(self%phi_avg_yz)
     if (allocated(self%data_pavg_xy)) deallocate(self%data_pavg_xy)
     if (allocated(self%data_pavg_xz)) deallocate(self%data_pavg_xz)
     if (allocated(self%data_pavg_yz)) deallocate(self%data_pavg_yz)

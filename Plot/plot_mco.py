@@ -23,26 +23,6 @@ import tkinter as tk
 from tkinter import filedialog, messagebox
 
 
-def pick_file(initial_dir: Path) -> Path | None:
-    root = tk.Tk()
-    root.withdraw()
-    root.attributes("-topmost", True)
-
-    file_path = filedialog.askopenfilename(
-        title="Select an .mco file to plot",
-        initialdir=str(initial_dir),
-        filetypes=[
-            ("MCO files", "*.mco"),
-            ("All files", "*.*"),
-        ],
-    )
-    root.destroy()
-
-    if not file_path:
-        return None
-    return Path(file_path)
-
-
 def read_mco_ascii(path: Path) -> np.ndarray:
     """
     Read ASCII mco: first line 'n1 n2', then n2 rows with n1 values.
@@ -79,70 +59,38 @@ def read_mco_ascii(path: Path) -> np.ndarray:
     
 
 def main() -> int:
-    # def essai_fit(x,y,z):
-    #     x0 = 0.5*128*3.125e-3
-    #     y0 = 0.5*96*3.3333e-3
-    #     z0 = 0.5*192*3.0208e-3
-    #     sig2 = (0.05)**2
-    #     eps0 = 8.854187817e-12
-    #     A = (1.0/np.sqrt(2.*np.pi*sig2))*(1.6022e-19 * 1e12/eps0)
-    #     return A * np.exp(-((x-x0)**2 + (y-y0)**2 + (z-z0)**2)/(2*sig2))
-    
-    script_dir = Path(__file__).resolve().parent
-    default_dir = (script_dir.parent )
-    initial_dir = default_dir if default_dir.is_dir() else script_dir.parent
-
-    # xo = np.linspace(0, 0.4, 128)
-    # yo = np.linspace(0, 0.32, 96)
-    # zo = np.linspace(0, 0.56, 192)
-
-    # phi = essai_fit(*np.meshgrid(xo, yo, zo, indexing="ij"))
-
-    # plt.figure()
-    # plt.plot(xo, phi[:, 48, 96])
-    #im = plt.imshow(phi[:, 48, :], origin="lower", aspect="auto")
-    #plt.colorbar(im, label="Phi")
-    #plt.title("Test Gaussian Source (Log scale)")
-    #plt.xlabel("Index 1")
-    #plt.ylabel("Index 2")
-    #plt.tight_layout()
     
 
-    path = pick_file(initial_dir)
-    if path is None:
-        print("No file selected. Exiting.")
-        return 0
+    #path1 = Path(rf"/mnt/c/Users/Jasmin Deguire/Desktop/LePIC_3D/DATA/DATA_2D/n1_xz.mco")
+    path1 = Path(rf"/mnt/c/Users/Jasmin Deguire/Desktop/LePIC_3D/Output/Output_2D/it2001_n1_xz.mco")
+    arr1 = read_mco_ascii(path1)
+    #path2 = Path(rf"/mnt/c/Users/Jasmin Deguire/Desktop/LePIC_3D/DATA/DATA_2D/n2_xz.mco")
+    path2 = Path(rf"/mnt/c/Users/Jasmin Deguire/Desktop/LePIC_3D/Output/Output_2D/it2001_n2_xz.mco")
+    arr2 = read_mco_ascii(path2)
 
-    try:
-        arr = read_mco_ascii(path)
-    except Exception as e:
-        try:
-            tk.Tk().withdraw()
-            messagebox.showerror("Failed to read .mco", str(e))
-        except Exception:
-            pass
-        print(f"Error: {e}", file=sys.stderr)
-        return 1
+    arr4 = 1.602e-19*(arr2-arr1)
 
+    path3 = Path(rf"/mnt/c/Users/Jasmin Deguire/Desktop/LePIC_3D/Output/Output_2D/it2001_phi_xz.mco")
+    arr3 = read_mco_ascii(path3)
     # Create a single figure with 2 subplots
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
 
     # --- 2D plot (left) ---
     im = ax1.imshow(
-        arr,
+        arr4,
         origin="lower",
         aspect="auto",
         #norm=LogNorm(vmin=vmin, vmax=vmax),
     )
-    plt.colorbar(im, ax=ax1, label=rf"$\phi$ (V)")
+    plt.colorbar(im, ax=ax1, label=rf"$\rho$ (C/m$^3$)")
     ax1.set_xlabel("x cell")
     ax1.set_ylabel("z cell")
 
     # --- 1D slice plot (right) ---
-    average = np.zeros(arr.shape[1])
-    for i in range(0, arr.shape[0]):
-        average += arr[i, :]/arr.shape[0]
-    ax2.plot(np.arange(arr.shape[1]), average, label="LePIC potential", color="skyblue", linewidth=4)
+    average = np.zeros(arr1.shape[1])
+    for i in range(0, arr1.shape[0]):
+        average += arr4[i,:]/arr1.shape[0]
+    ax2.plot(np.arange(arr1.shape[1]), average, label="LePIC potential", color="skyblue", linewidth=4)
     ax2.set_xlabel("x cell")
     ax2.set_ylabel(rf"$\phi$ (V)")
 

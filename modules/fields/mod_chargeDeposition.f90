@@ -82,9 +82,9 @@ contains
         error stop 'deposit_particle_set_to_np_thread: NaN position'
       end if
 
-      xp_new = min(max(xp_new, 0.0_real64), xmax_loc)
-      yp_new = min(max(yp_new, 0.0_real64), ymax_loc)
-      zp_new = min(max(zp_new, 0.0_real64), zmax_loc)
+      if (xp_new < -1e-12_real64 .or. xp_new > xmax_loc + 1e-12_real64) cycle
+      if (yp_new < -1e-12_real64 .or. yp_new > ymax_loc + 1e-12_real64) cycle
+      if (zp_new < -1e-12_real64 .or. zp_new > zmax_loc + 1e-12_real64) cycle
 
       ! --------------------------------------------------------
       ! Physical-domain guard

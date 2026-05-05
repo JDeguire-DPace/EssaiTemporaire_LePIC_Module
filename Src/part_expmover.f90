@@ -1,7 +1,7 @@
 subroutine part_mover(n,h,Ei,Bi,p_mac,P_loss,vxp,&
      bcnd,nmax,ntype,ngrid,flag_dead,nproc,np_tot,&
      iproc,ptype,flag_cex,cnt_cex,cnt_dead,beam_div,sum_q_xz,&
-     sum_q_yz,dtype,iseed,n_B,h_B)
+     sum_q_yz,dtype,iseed,n_B,h_B,dbg_loss_xright_s1,dbg_loss_xright_s2)
 !     ==============================================================
 !     VERSION:         0.4
 !     LAST MOD:      Dec/23
@@ -26,6 +26,7 @@ subroutine part_mover(n,h,Ei,Bi,p_mac,P_loss,vxp,&
   ! Field arrays
   real(kind=8):: Ei(3,0:n(1)+2,0:n(2)+2,0:n(3)+2),Exp,Eyp,Ezp,h(3), &
        Bi(4,0:n_B(1)+2,0:n_B(2)+2,0:n_B(3)+2),ki(8),h_B(3)
+  integer, intent(inout) :: dbg_loss_xright_s1,dbg_loss_xright_s2
   ! Particle arrays
   integer:: bcnd(0:n(1)+2,0:n(2)+2,0:n(3)+2),flag_cex(nmax,nproc),&
        cnt_cex(3,nproc)
@@ -47,7 +48,6 @@ subroutine part_mover(n,h,Ei,Bi,p_mac,P_loss,vxp,&
 
   ! Set coefficients for Boris solver
   k1= dt*charge(ptype)/(2.d0*mass(ptype))
-
   !
   ! Move particles
   !
@@ -392,6 +392,14 @@ subroutine part_mover(n,h,Ei,Bi,p_mac,P_loss,vxp,&
 130           continue
            endif
         endif
+        ! --- DEBUG XMAX LOSSES ---
+            if (ptype .eq. 1) then
+            if (xp_new .gt. xmax - h(1)) dbg_loss_xright_s1 = dbg_loss_xright_s1 + 1
+            endif
+
+            if (ptype .eq. 2) then
+            if (xp_new .gt. xmax - h(1)) dbg_loss_xright_s2 = dbg_loss_xright_s2 + 1
+            endif
         
         ! Total number of particle lost at the wall per time step
         p_mac(ptype,np_loss,igrid,iproc)= p_mac(ptype,np_loss,igrid,iproc) + 1.

@@ -458,6 +458,15 @@ subroutine write_data(it,time,n,h,p_mac,P_loss,phi_avg_xy,&
         write(181,*) n(1)/every,n(2)/every
         write(182,*) n(1)/every,n(2)/every
         do iy=n(2)+1,1,-1*every
+           if (it.eq.2001 .and. mpi_rank.eq.0) then
+            if (iy.eq.9) then
+               write(*,*) "==== LEG TRUE n1_xy tail ===="
+               do ix = n(1)-3, n(1)+1
+                  write(*,'(i6,1x,es16.8)') ix, &
+                  data_pavg_xy(np_avg,ix,iy,1) / real(cnt_avg(1))
+               enddo
+            endif
+            endif
            write(15,103) ( data_pavg_xy(np_avg,ix,iy,ptype)/real(cnt_avg(1)), ix=1,n(1)+1,every )
            write(16,103) ( data_pavg_xy(Tp_avg,ix,iy,ptype)/real(cnt_avg(1)), ix=1,n(1)+1,every )
            if(plt_src.eq.0) then
