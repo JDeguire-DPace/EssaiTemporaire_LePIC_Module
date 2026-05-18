@@ -77,9 +77,9 @@ program main
        vxp(:,:,:,:),np(:,:,:,:,:),Ei(:,:,:,:),p_mac(:,:,:,:),&
        P_loss(:,:,:),kq(:,:,:),Bi(:,:,:,:),&
        np_red(:,:,:,:),phi_dom(:,:,:),rhs_dom(:,:,:),cnt_dead(:),beam_div(:,:),&
-       avg3D(:,:,:,:), rho(:,:,:,:)
+       avg3D(:,:,:,:)
   ! Sorting
-  integer:: pl_max,nsort,sum_cex(3),k
+  integer:: pl_max,nsort,sum_cex(3)
   integer, allocatable:: Plist(:,:,:),flag_cex(:,:),cnt_cex(:,:)
   real(kind=8), allocatable:: sorting(:,:)
   ! Macroscopic parameters
@@ -106,8 +106,6 @@ program main
        yl_rg,yr_rg,zl_rg,zr_rg,dtime,omega,cnt_dead_tmp,sum_beam_div(4),Ca,x,np_dup,&
        phi0_RF,f0_RF,phi1_RF,f1_RF
   character:: rname*20,name*20,pnum*1,pnum_bck*3,plnum*3,corrnum*3
-  integer(kind=8) :: dbg_loss_xright_s1, dbg_loss_xright_s2
-  integer(kind=8) :: dbg_ran2_mover = 0
 
   CALL MPI_Init(ierr)                             ! starts MPI
   CALL MPI_Comm_rank(MPI_COMM_WORLD, mpi_rank, ierr)  ! get current process id
@@ -173,9 +171,6 @@ program main
   if( mpi_rank.eq.0 .and. k_eps0.ne.1 ) &
        print*, 'eps0 HAS BEEN RE-SCALED: k_eps0=',k_eps0
   eps0=k_eps0*eps0
-
-  print *, 'LEGACY eps0 = ', eps0
-  print *, 'LEGACY k_eps0 = ', k_eps0
   
   ! Warning
   if(k_eps0.eq.0) then
@@ -200,7 +195,7 @@ program main
   ! Allocate arrays
   !
   allocate (  phi(0:n(1)+2,0:n(2)+2,0:n(3)+2),&
-       vxp(6,nmax,ntype,nproc),np(0:n(1)+2,0:n(2)+2,0:n(3)+2,ntype,nproc), rho(0:n(1)+2,0:n(2)+2,0:n(3)+2,nproc), &
+       vxp(6,nmax,ntype,nproc),np(0:n(1)+2,0:n(2)+2,0:n(3)+2,ntype,nproc), &
        Ei(3,0:n(1)+2,0:n(2)+2,0:n(3)+2),p_mac(ntype,2,0:ngrid,nproc),P_loss(4,ntype,nproc), &
        Bi(4,0:n_B(1)+2,0:n_B(2)+2,0:n_B(3)+2), &
        np_red(0:n(1)+2,0:n(2)+2,0:n(3)+2,ntype), &
@@ -552,10 +547,6 @@ program main
   enddo
   dt= kt*MIN(h(1),h(2),h(3))/vt0(1) ! Time step k*dr/vte, k is arbitrary
 
-  do i=1,ntype
-   write(*,*) "Macroparticle weigth for particle = ", Nm(i)
-  enddo
-
   nsort=10 ! Frequency of calls to sorting subroutine
   ns_coll= 1*nsort ! Frequency of calls to collision subroutine
   ns_heat=4 ! Frequency of calls to heating subroutine
@@ -770,16 +761,10 @@ program main
      print*, 'Running simulation ...'
   endif
 
-  dbg_loss_xright_s1 = 0
-  dbg_loss_xright_s2 = 0
   !
   ! Start iteration 
   !
-  print *, "DEBUG eps omega ng nsav navg = ", eps, omega, ng, nsav, navg
-  do it=1,ntmax
-
-
-
+  do it=1, 10001!ntmax
 
      time= time + dt
      if(time.ge.tmax) exit ! Stop calculation
@@ -789,14 +774,6 @@ program main
      ! Stat without any background plasma
      flag_nopart= 0
      if(SUM(np_tot(1:ntype,1:nproc)).eq.0) flag_nopart= 1
-
-     if (it .eq. 2001) then
-      print *, 'LEGACY DEBUG it = ', it
-      print *, 'LEGACY sum np_red1 = ', sum(np_red(:,:,:,1))
-      print *, 'LEGACY sum np_red2 = ', sum(np_red(:,:,:,2))
-      print *, 'LEGACY np_red1 min/max/sum = ', minval(np_red(:,:,:,1)), maxval(np_red(:,:,:,1)), sum(np_red(:,:,:,1))
-      print *, 'LEGACY np_red2 min/max/sum = ', minval(np_red(:,:,:,2)), maxval(np_red(:,:,:,2)), sum(np_red(:,:,:,2))
-     endif
 
      flag_updatephi= 0
      ! Iterate to find Pabs, I_inj or V
@@ -863,27 +840,7 @@ program main
      !
      ! Calculate rho
      !
-
-     !print *, "LEG np1 center =", np(65,9,9,1,1)
-     !print *, "LEG np2 center =", np(65,9,9,2,1)
-     !print *, "LEG diff center np1-np2 =", np(65,9,9,1,1) - np(65,9,9,2,1)
      call calc_rho(n,np,rhs_dom,bcnd,ntype,nproc,nproc_mpi,mpi_rank)
-
-     if (it .eq. 1) then
-      if (mpi_rank == 0) then
-         print *, "LEGACY rhs_dom min/max/sum = ", minval(rhs_dom), maxval(rhs_dom), sum(rhs_dom)
-         print *, "LEGACY rhs center = ", rhs_dom(65,9,9)
-
-         print *, "LEGACY rhs slice xz (center line):"
-         print *, rhs_dom(:, n(2)/2+1, n(3)/2+1)
-      end if
-   end if
-     if (it .eq. 2001) then
-         print *, 'LEGACY rho min/max/sum = ', minval(rhs_dom), maxval(rhs_dom), sum(rhs_dom)
-         print *, 'LEGACY np1 min/max/sum = ', minval(np(:,:,:,1,:)), maxval(np(:,:,:,1,:)), sum(np(:,:,:,1,:))
-         print *, 'LEGACY np2 min/max/sum = ', minval(np(:,:,:,2,:)), maxval(np(:,:,:,2,:)), sum(np(:,:,:,2,:))
-      endif
-
      ctime(1)= ctime(1) + MSTIMER()
 
      !
@@ -1010,7 +967,6 @@ program main
      call MPI_ALLGATHERV(phi_dom(0:n(1)+2,0:n(2)+2,kl:kr),length(mpi_rank),MPI_REAL8,phi, &
           length,shift,MPI_REAL8,MPI_COMM_WORLD,ierr)
 
-
      ! Plot dielectric potential & currents
      if(flag_die.eq.1) then  
 
@@ -1095,9 +1051,6 @@ program main
 
      ctime(2)= ctime(2) + MSTIMER()
 
-      if (it .eq. 1) then
-         print *, 'LEGACY phi min/max/sum = ', minval(phi), maxval(phi), sum(phi)
-      endif
      !
      ! Calculate electric field
      ! 
@@ -1115,8 +1068,6 @@ program main
         do ptype=1,ntype
            if( SUM(np_tot(ptype,1:nproc)).gt.0 ) then
               call part_sorting(vxp,sorting,nmax,ntype,n,h,Plist,pl_max,nproc,np_tot,ptype)
-
-
            endif
         enddo
         
@@ -1124,8 +1075,6 @@ program main
         deallocate ( sorting )
         
         ctime(3)= ctime(3) + MSTIMER()
-
-
      endif
 
      !
@@ -1153,11 +1102,11 @@ program main
            ss2D_xz= 0.d0
            ss2D_xy= 0.d0
            ss2D_yz= 0.d0
-         !!! Modification
-         !   call collisions(it,vxp,n,h,ntype,nmax,sig,sig_Er,sig_list,sig_Eex,&
-         !        ncol_mx,npt_mx,cnt_col,P_loss,sour_xy,sour_xz,Plist,pl_max,sigv_mx,&
-         !        col_info,np_red,flag_dead,flag_cex,nproc,np_tot,iseed,nproc_mpi,mpi_rank,&
-         !        ss2D_xy,ss2D_xz,ss2D_yz,flag_diag)
+
+           call collisions(it,vxp,n,h,ntype,nmax,sig,sig_Er,sig_list,sig_Eex,&
+                ncol_mx,npt_mx,cnt_col,P_loss,sour_xy,sour_xz,Plist,pl_max,sigv_mx,&
+                col_info,np_red,flag_dead,flag_cex,nproc,np_tot,iseed,nproc_mpi,mpi_rank,&
+                ss2D_xy,ss2D_xz,ss2D_yz,flag_diag)
         endif
         
         call calc_avg(n,h,np,p_mts_xy,p_mts_xz,p_mts_yz,data_pavg_xy,&
@@ -1205,30 +1154,6 @@ program main
 
         if(flag_avg3D.eq.1) then
            call dens_red(n,np,np_red,bcnd,ntype,nproc,nproc_mpi)
-
-           if (it .eq. 2001) then
-               print *, 'LEGACY sum np_red1 = ', sum(np_red(:,:,:,1))
-               print *, 'LEGACY sum np_red2 = ', sum(np_red(:,:,:,2))
-            endif
-
-           if (it .eq. 2001) then
-               print *, 'LEGACY center nx-1 np1/np2 = ', &
-                  np_red(n(1)-1,n(2)/2+1,n(3)/2+1,1), &
-                  np_red(n(1)-1,n(2)/2+1,n(3)/2+1,2)
-
-               print *, 'LEGACY center nx np1/np2 = ', &
-                  np_red(n(1),n(2)/2+1,n(3)/2+1,1), &
-                  np_red(n(1),n(2)/2+1,n(3)/2+1,2)
-
-               print *, 'LEGACY center nx+1 np1/np2 = ', &
-                  np_red(n(1)+1,n(2)/2+1,n(3)/2+1,1), &
-                  np_red(n(1)+1,n(2)/2+1,n(3)/2+1,2)
-            endif
-
-           if (it .eq. 2001) then
-               print *, 'LEGACY np_red1 min/max/sum = ', minval(np_red(:,:,:,1)), maxval(np_red(:,:,:,1)), sum(np_red(:,:,:,1))
-               print *, 'LEGACY np_red2 min/max/sum = ', minval(np_red(:,:,:,2)), maxval(np_red(:,:,:,2)), sum(np_red(:,:,:,2))
-            endif
            
            !$OMP PARALLEL
            !$OMP DO
@@ -1258,40 +1183,38 @@ program main
      if( it.gt.1 .and. ncol.gt.0 .and. MOD(it,ns_coll).eq.1 ) then
         call dens_red(n,np,np_red,bcnd,ntype,nproc,nproc_mpi)
         flag_diag=0
-      !!! Modification
-      !   call collisions(it,vxp,n,h,ntype,nmax,sig,sig_Er,sig_list,sig_Eex,&
-      !        ncol_mx,npt_mx,cnt_col,P_loss,sour_xy,sour_xz,Plist,pl_max,sigv_mx,&
-      !        col_info,np_red,flag_dead,flag_cex,nproc,np_tot,iseed,nproc_mpi,mpi_rank,&
-      !        ss2D_xy,ss2D_xz,ss2D_yz,flag_diag)
+        call collisions(it,vxp,n,h,ntype,nmax,sig,sig_Er,sig_list,sig_Eex,&
+             ncol_mx,npt_mx,cnt_col,P_loss,sour_xy,sour_xz,Plist,pl_max,sigv_mx,&
+             col_info,np_red,flag_dead,flag_cex,nproc,np_tot,iseed,nproc_mpi,mpi_rank,&
+             ss2D_xy,ss2D_xz,ss2D_yz,flag_diag)
         ctime(5)= ctime(5) + MSTIMER() 
      endif
 
      !
      ! Move particles
      !
-   !! MODIFICATION
-   !   if( MOD(it,ns_heat).eq.0 .and. Pabs.gt.0.d0 ) then
-   !      ! Reduction
-   !      sum_dEk_tot= SUM(sum_dEk) ! sum over OMP proc
-   !      if(nproc_mpi.gt.1) then ! sum over MPI proc
-   !         sum_dEk_tmp=0.d0
-   !         call MPI_ALLREDUCE(sum_dEk_tot, sum_dEk_tmp, 1, MPI_REAL8, MPI_SUM, &
-   !              MPI_COMM_WORLD, ierr)
-   !         sum_dEk_tot= sum_dEk_tmp
-   !      endif
+     if( MOD(it,ns_heat).eq.0 .and. Pabs.gt.0.d0 ) then
+        ! Reduction
+        sum_dEk_tot= SUM(sum_dEk) ! sum over OMP proc
+        if(nproc_mpi.gt.1) then ! sum over MPI proc
+           sum_dEk_tmp=0.d0
+           call MPI_ALLREDUCE(sum_dEk_tot, sum_dEk_tmp, 1, MPI_REAL8, MPI_SUM, &
+                MPI_COMM_WORLD, ierr)
+           sum_dEk_tot= sum_dEk_tmp
+        endif
 
-   !      sum_Nh= SUM(Nh)
-   !      if(nproc_mpi.gt.1) then
-   !         sum_Nh_tmp=0
-   !         call MPI_ALLREDUCE(sum_Nh, sum_Nh_tmp, 1, MPI_INTEGER, MPI_SUM, &
-   !              MPI_COMM_WORLD, ierr)
-   !         sum_Nh= sum_Nh_tmp
-   !      endif
+        sum_Nh= SUM(Nh)
+        if(nproc_mpi.gt.1) then
+           sum_Nh_tmp=0
+           call MPI_ALLREDUCE(sum_Nh, sum_Nh_tmp, 1, MPI_INTEGER, MPI_SUM, &
+                MPI_COMM_WORLD, ierr)
+           sum_Nh= sum_Nh_tmp
+        endif
 
-   !      Te= (2.d0/3.d0)*( sum_dEk_tot + Pabs/nu_h )/(Nm(1)*qe*real(sum_Nh))
-   !      ! Calculated thermal velocity
-   !      vt=dsqrt(2.d0*qe*Te/ABS(mass(1)))
-   !   endif
+        Te= (2.d0/3.d0)*( sum_dEk_tot + Pabs/nu_h )/(Nm(1)*qe*real(sum_Nh))
+        ! Calculated thermal velocity
+        vt=dsqrt(2.d0*qe*Te/ABS(mass(1)))
+     endif
      
      !$OMP PARALLEL PRIVATE(iproc,ptype,iseed_OMP,sav_np)
      iproc= omp_get_thread_num() + 1
@@ -1301,13 +1224,11 @@ program main
      Nh(iproc)=0
      sum_dEk(iproc)=0.d0
         
-   
      ! Electron heating
-   !!! Modification
-   !   if( MOD(it,ns_heat).eq.0 .and. flag_heat.eq.1 ) then 
-   !      if(flag_inj.eq.1) vt= vt0(1) ! Constant electron temperature 
-   !      call eheating(h,vxp,nmax,ntype,nproc,iseed_OMP,np_tot,vt,iproc,P_loss)
-   !   endif
+     if( MOD(it,ns_heat).eq.0 .and. flag_heat.eq.1 ) then 
+        if(flag_inj.eq.1) vt= vt0(1) ! Constant electron temperature 
+        call eheating(h,vxp,nmax,ntype,nproc,iseed_OMP,np_tot,vt,iproc,P_loss)
+     endif
 
      ! Push particles
      if(flag_nopart.eq.0) then
@@ -1318,17 +1239,14 @@ program main
               if(flag_thr.eq.1) sav_np(2)= p_mac(ptype,np_loss,ind_g,iproc)
               call part_mover(n,h,Ei,Bi,p_mac,P_loss,vxp,bcnd,nmax,ntype,ngrid,flag_dead,&
                    nproc,np_tot,iproc,ptype,flag_cex,cnt_cex,cnt_dead,beam_div,sum_q_xz,&
-                   sum_q_yz,dtype,iseed_OMP,n_B,h_B, dbg_loss_xright_s1, dbg_loss_xright_s2, dbg_ran2_mover)
-            if (it .eq. 2001) write(*,*), "Number debug called mover = ", dbg_ran2_mover
-            if(ABS(opt_inj).eq.2) N_inj(ptype,iproc)= N_inj(ptype,iproc) + &
+                   sum_q_yz,dtype,iseed_OMP,n_B,h_B)
+              if(ABS(opt_inj).eq.2) N_inj(ptype,iproc)= N_inj(ptype,iproc) + &
                    ( SUM(p_mac(ptype,np_loss,0:ngrid,iproc)) - sav_np(1) )
               if(flag_thr.eq.1) N_flx(ptype,iproc)= N_flx(ptype,iproc) + &
                    ( p_mac(ptype,np_loss,ind_g,iproc) - sav_np(2) )
            endif
         enddo
      endif
-
-
      
      ! Particle injection
      if( MOD(it,ns_inj).eq.0 .and. flag_inj.eq.1 ) then
@@ -1340,97 +1258,13 @@ program main
      endif
 
      ! Calculate particle density
-     rho(:,:,:,iproc)=0.d0
      do ptype=1,ntype
         ! Initialize particle density array
         np(:,:,:,ptype,iproc)=0.d0
-        
-        if(np_tot(ptype,iproc).gt.0) then
+        if(np_tot(ptype,iproc).gt.0) &
              call charge_deposition(n,h,vxp,nmax,ntype,kq,np,nproc,np_tot,sum_dEk,&
-             Nh,iproc,ptype) 
-            rho(:,:,:,iproc) = rho(:,:,:,iproc)+np(:,:,:,ptype,iproc)*charge(ptype)
-         endif
-
-         
+             Nh,iproc,ptype)
      enddo
-
-     if (it .eq. 2001) then
-      write(*,*) "==== LEGACY XMAX DENSITY CHECK AFTER DEPOSIT ===="
-      write(*,*) "nx = ", n(1)
-      write(*,*) "xmax = ", xmax
-      write(*,*) "h(1) = ", h(1)
-
-      write(*,*) "electron max x = ", maxval(vxp(1,1:np_tot(1,1),1,1))
-      write(*,*) "ion max x      = ", maxval(vxp(1,1:np_tot(2,1),2,1))
-
-      write(*,*) "electron count x > xmax-h = ", &
-            count(vxp(1,1:np_tot(1,1),1,1) .gt. xmax - h(1))
-
-      write(*,*) "ion count x > xmax-h = ", &
-            count(vxp(1,1:np_tot(2,1),2,1) .gt. xmax - h(1))
-
-      write(*,*) "ix, sum np1(ix,:,:), sum np2(ix,:,:), kq(ix,9,9), bcnd(ix,9,9)"
-      do ix = n(1)-3, n(1)+2
-         write(*,'(i6,2(1x,es16.8),1x,es16.8,1x,i6)') ix, &
-            sum(np(ix,:,:,1,1:nproc)), &
-            sum(np(ix,:,:,2,1:nproc)), &
-            kq(ix,9,9), &
-            bcnd(ix,9,9)
-      enddo
-
-      write(*,*) "================================================"
-
-      write(*,*) "phi xmax line LEG:"
-      do ix = n(1)-3, n(1)+1
-      write(*,'(i6,1x,es16.8)') ix, phi(ix,9,9)
-      enddo
-
-      write(*,*) "Ex xmax line LEG:"
-      do ix = n(1)-3, n(1)+1
-      write(*,'(i6,1x,es16.8)') ix, Ei(1,ix,9,9)
-      enddo
-
-      write(*,*) "rhs/rho xmax line LEG:"
-      do ix = n(1)-3, n(1)+1
-      write(*,'(i6,1x,es16.8)') ix, rhs_dom(ix,9,9)
-      enddo
-
-      write(*,*) "np1/np2 center xmax line LEG:"
-      do ix = n(1)-3, n(1)+1
-      write(*,'(i6,2(1x,es16.8))') ix, &
-         np_red(ix,9,9,1), &
-         np_red(ix,9,9,2)
-      enddo
-     endif
-
-
-
-
-   !!! MODIFICATION
-   !  if (it==1) then
-   !    if (mpi_rank == 0) then
-   !       print*, " Step =  ", it
-   !       print*, "This is printed after particle pusher"
-
-   !    do ptype = 1, max(ntype, 2)
-   !       print*, "ptype = ", ptype
-   !       do k = 1, min(5, np_tot(ptype,1))
-   !          write(*,'(i4,6(1x,es16.8))') k, &
-   !             vxp(1,k,ptype,1), vxp(2,k,ptype,1), vxp(3,k,ptype,1), &
-   !             vxp(4,k,ptype,1), vxp(5,k,ptype,1), vxp(6,k,ptype,1)
-   !       end do
-   !        write(*,*) " "
-   !        write (*,*) " ..."
-   !        write(*,*) " "
-   !       do k=np_tot(ptype,1)-4, np_tot(ptype,1)
-   !             write(*,'(i0,6(1x,es16.8))') k, &
-   !             vxp(1,k,ptype,1), vxp(2,k,ptype,1), vxp(3,k,ptype,1), &
-   !             vxp(4,k,ptype,1), vxp(5,k,ptype,1), vxp(6,k,ptype,1)
-
-   !       end do
-   !    end do
-   !   end if
-   !  end if
      
      iseed(iproc)= iseed_OMP
      !$OMP END PARALLEL
@@ -1544,11 +1378,6 @@ program main
         ctime(8)= ctime(8) + MSTIMER()
         
      endif
-     
-     !!!Modif
-     if (it .eq. 2001) then
-      write(*,*) "LEG loss xright e/i = ", dbg_loss_xright_s1, dbg_loss_xright_s2
-      endif
 
      !
      ! Save data
@@ -1584,8 +1413,6 @@ program main
            ! Save sequence of profiles in Macho format.
            if(MOD(it,nseq).eq.1 ) flag_bak=2 
         endif
-
-
         call write_data(it,time,n,h,p_mac,P_loss,phi_avg_xy,phi_avg_xz,&
              phi_avg_yz,data_pavg_xy,data_pavg_xz,data_pavg_yz,ntype,ngrid,&
              cnt_col,ncol_mx,sig_list,nproc,cnt_avg,mpi_rank,nproc_mpi,Vgrd,&

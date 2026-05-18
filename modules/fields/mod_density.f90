@@ -93,42 +93,42 @@ contains
     np_work = np_red
     rho = 0.0_real64
 
-    ! Legacy periodic correction from calc_rho
-    if (flag_pbc == 1_int32) then
+    ! Legacy periodic correction from calc_rho!!!MODIF
+    ! if (flag_pbc == 1_int32) then
 
-      ! y periodic planes: iy = 1 and iy = n(2)+1
-      do iz = 1, n(3)+1
-        do ix = 1, n(1)+1
-          if (bcnd(ix,1,iz) == 0_int32) then
-            np_work(ix,1,iz,:) = 0.5_real64 * &
-                (np_work(ix,1,iz,:) + np_work(ix,n(2)+1,iz,:))
-            np_work(ix,0,iz,:) = np_work(ix,n(2),iz,:)
-          end if
+    !   ! y periodic planes: iy = 1 and iy = n(2)+1
+    !   do iz = 1, n(3)+1
+    !     do ix = 1, n(1)+1
+    !       if (bcnd(ix,1,iz) == 0_int32) then
+    !         np_work(ix,1,iz,:) = 0.5_real64 * &
+    !             (np_work(ix,1,iz,:) + np_work(ix,n(2)+1,iz,:))
+    !         np_work(ix,0,iz,:) = np_work(ix,n(2),iz,:)
+    !       end if
 
-          if (bcnd(ix,n(2)+1,iz) == 0_int32) then
-            np_work(ix,n(2)+2,iz,:) = np_work(ix,2,iz,:)
-            np_work(ix,n(2)+1,iz,:) = np_work(ix,1,iz,:)
-          end if
-        end do
-      end do
+    !       if (bcnd(ix,n(2)+1,iz) == 0_int32) then
+    !         np_work(ix,n(2)+2,iz,:) = np_work(ix,2,iz,:)
+    !         np_work(ix,n(2)+1,iz,:) = np_work(ix,1,iz,:)
+    !       end if
+    !     end do
+    !   end do
 
-      ! z periodic planes: iz = 1 and iz = n(3)+1
-      do iy = 1, n(2)+1
-        do ix = 1, n(1)+1
-          if (bcnd(ix,iy,1) == 0_int32) then
-            np_work(ix,iy,1,:) = 0.5_real64 * &
-                (np_work(ix,iy,1,:) + np_work(ix,iy,n(3)+1,:))
-            np_work(ix,iy,0,:) = np_work(ix,iy,n(3),:)
-          end if
+    !   ! z periodic planes: iz = 1 and iz = n(3)+1
+    !   do iy = 1, n(2)+1
+    !     do ix = 1, n(1)+1
+    !       if (bcnd(ix,iy,1) == 0_int32) then
+    !         np_work(ix,iy,1,:) = 0.5_real64 * &
+    !             (np_work(ix,iy,1,:) + np_work(ix,iy,n(3)+1,:))
+    !         np_work(ix,iy,0,:) = np_work(ix,iy,n(3),:)
+    !       end if
 
-          if (bcnd(ix,iy,n(3)+1) == 0_int32) then
-            np_work(ix,iy,n(3)+2,:) = np_work(ix,iy,2,:)
-            np_work(ix,iy,n(3)+1,:) = np_work(ix,iy,1,:)
-          end if
-        end do
-      end do
+    !       if (bcnd(ix,iy,n(3)+1) == 0_int32) then
+    !         np_work(ix,iy,n(3)+2,:) = np_work(ix,iy,2,:)
+    !         np_work(ix,iy,n(3)+1,:) = np_work(ix,iy,1,:)
+    !       end if
+    !     end do
+    !   end do
 
-    end if
+    ! end if
 
     ! Legacy RHS:
     ! rhs(ix,iy,iz) = rhs(ix,iy,iz) - charge(ptype) * np(...)

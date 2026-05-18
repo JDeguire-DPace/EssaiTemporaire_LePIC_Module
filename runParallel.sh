@@ -1,11 +1,14 @@
 #!/bin/bash
 #SBATCH --nodes=1
-#SBATCH --ntasks-per-node=4
-#SBATCH --cpus-per-task=48
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=32
 #SBATCH --account=def-tobi
-#SBATCH -t 1:00:01
+#SBATCH -t 3:00:01
 
-export OMP_NUM_THREADS=48
-export OMP_PROC_BINF=true
+export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
+export OMP_PROC_BIND=true
+export OMP_PLACES=cores
 
-mpirun -np 4 ./run_min > run.dump
+echo "OMP_NUM_THREADS=$OMP_NUM_THREADS"
+
+srun ./3dphpic.exe > run.dump

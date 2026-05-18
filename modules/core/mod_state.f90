@@ -624,12 +624,13 @@ contains
           h            = self%dom%h, &
           ptype        = ptype, &
           mass_species = self%chem%mass(ptype), &
-          ix_plane     = self%params%ix_plot_plane, &
-          iy_plane     = int(self%dom%n(2)/2 + 1, int32), &
+          ix_plane     = self%params%ix_plot_plane , &
+          iy_plane     = int(self%dom%n(2)/2 +1, int32), &
           iz_plane     = self%params%iz_plot_plane, &
           data_xy      = self%data_pavg_xy(:,:,:,ptype), &
           data_xz      = self%data_pavg_xz(:,:,:,ptype), &
-          data_yz      = self%data_pavg_yz(:,:,:,ptype) )
+          data_yz      = self%data_pavg_yz(:,:,:,ptype), &
+          params       = self%params)
     end do
   end subroutine compute_plane_moments_local
 

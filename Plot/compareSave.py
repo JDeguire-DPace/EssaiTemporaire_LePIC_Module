@@ -150,7 +150,7 @@ def main() -> int:
 
     name = sys.argv[1]
 
-    iteration = 2001
+    iteration = 1001
     root_dir = Path.cwd()
 
     for dim in ("xy", "xz", "yz"):

@@ -11,7 +11,7 @@ ROOT = Path(".").resolve()
 LEGACY_DIR = ROOT / "DATA" / "DATA_2D"
 MODULAR_DIR = ROOT / "Output" / "Output_2D"
 
-ITERATION = 2001
+ITERATION = 1001
 DIMS = ("xy", "xz", "yz")
 
 E_CHARGE = 1.602176634e-19

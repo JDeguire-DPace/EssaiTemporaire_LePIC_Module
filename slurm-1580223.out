@@ -1,0 +1,44 @@
+[2026-05-15T09:10:23.310] error: *** JOB 1580223 ON tri0047 CANCELLED AT 2026-05-15T09:10:23 DUE to SIGNAL Terminated ***
+[2026-05-15T09:10:23.311] error: *** STEP 1580223.0 ON tri0047 CANCELLED AT 2026-05-15T09:10:23 DUE to SIGNAL Terminated ***
+[2026-05-15T09:10:23.311] error: *** STEP 1580223.1 ON tri0047 CANCELLED AT 2026-05-15T09:10:23 DUE to SIGNAL Terminated ***
+
+scontrol show job 1580223
+JobId=1580223 JobName=runParallel.sh
+   UserId=deguire1(3121383) GroupId=deguire1(3121383) MCS_label=N/A
+   Priority=2345992 Nice=0 Account=def-tobi QOS=normal
+   JobState=COMPLETING Reason=None Dependency=(null)
+   Requeue=0 Restarts=0 BatchFlag=1 Reboot=0 ExitCode=0:15
+   RunTime=00:41:40 TimeLimit=03:01:00 TimeMin=N/A
+   SubmitTime=2026-05-15T08:28:42 EligibleTime=2026-05-15T08:28:42
+   AccrueTime=2026-05-15T08:28:42
+   StartTime=2026-05-15T08:28:43 EndTime=2026-05-15T09:10:23 Deadline=N/A
+   SuspendTime=None SecsPreSuspend=0 LastSchedEval=2026-05-15T08:28:43 Scheduler=Main
+   Partition=compute AllocNode:Sid=tri-login03:2351312
+   ReqNodeList=(null) ExcNodeList=(null)
+   NodeList=tri0047
+   BatchHost=tri0047
+   NumNodes=1 NumCPUs=192 NumTasks=1 CPUs/Task=1 ReqB:S:C:T=0:0:*:*
+   ReqTRES=cpu=1,mem=767000M,node=1,billing=1
+   AllocTRES=cpu=192,mem=767000M,node=1,billing=192
+   Socks/Node=* NtasksPerN:B:S:C=1:0:*:* CoreSpec=*
+   MinCPUsNode=1 MinMemoryNode=767000M MinTmpDiskNode=0
+   Features=(null) DelayBoot=00:00:00
+   OverSubscribe=NO Contiguous=0 Licenses=(null) LicensesAlloc=(null) Network=(null)
+   Command=/scratch/deguire1/EssaiTemporaire_LePIC_Module/runParallel.sh
+   SubmitLine=SBATCH --comment /opt/slurm/bin/sbatch --export=NONE runParallel.sh --export=NONE runParallel.sh
+   WorkDir=/scratch/deguire1/EssaiTemporaire_LePIC_Module
+   Comment=/opt/slurm/bin/sbatch --export=NONE runParallel.sh
+   StdErr=
+   StdIn=/dev/null
+   StdOut=/scratch/deguire1/EssaiTemporaire_LePIC_Module/slurm-1580223.out
+   TresPerTask=cpu=1
+
+sacct -j 1580223
+JobID           JobName    Account    Elapsed  MaxVMSize     MaxRSS  SystemCPU    UserCPU ExitCode 
+------------ ---------- ---------- ---------- ---------- ---------- ---------- ---------- -------- 
+1580223      runParall+   def-tobi   00:41:40                        00:00.018  00:00.009      0:0 
+1580223.bat+      batch   def-tobi   00:41:41          0     13112K  00:00.018  00:00.009     0:15 
+1580223.ext+     extern   def-tobi   00:41:40                         00:00:00   00:00:00      0:0 
+1580223.0    hydra_bst+   def-tobi   00:41:40                         00:00:00   00:00:00      0:0 
+1580223.1    hydra_bst+   def-tobi   00:41:40                         00:00:00   00:00:00      0:0 
+

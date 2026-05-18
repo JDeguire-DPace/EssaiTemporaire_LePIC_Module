@@ -1,0 +1,44 @@
+OMP_NUM_THREADS=32
+srun: Job step aborted: Waiting up to 62 seconds for job step to finish.
+[2026-05-18T14:17:48.856] error: *** JOB 1600191 ON tri0167 CANCELLED AT 2026-05-18T14:17:48 DUE to SIGNAL Terminated ***
+[2026-05-18T14:17:48.857] error: *** STEP 1600191.0 ON tri0167 CANCELLED AT 2026-05-18T14:17:48 DUE to SIGNAL Terminated ***
+
+scontrol show job 1600191
+JobId=1600191 JobName=runParallel.sh
+   UserId=deguire1(3121383) GroupId=deguire1(3121383) MCS_label=N/A
+   Priority=2052582 Nice=0 Account=def-tobi QOS=normal
+   JobState=COMPLETING Reason=None Dependency=(null)
+   Requeue=0 Restarts=0 BatchFlag=1 Reboot=0 ExitCode=0:15
+   RunTime=00:13:11 TimeLimit=03:01:00 TimeMin=N/A
+   SubmitTime=2026-05-18T14:04:18 EligibleTime=2026-05-18T14:04:18
+   AccrueTime=2026-05-18T14:04:18
+   StartTime=2026-05-18T14:04:37 EndTime=2026-05-18T14:17:48 Deadline=N/A
+   SuspendTime=None SecsPreSuspend=0 LastSchedEval=2026-05-18T14:04:37 Scheduler=Backfill
+   Partition=compute AllocNode:Sid=tri-login03:3117742
+   ReqNodeList=(null) ExcNodeList=(null)
+   NodeList=tri0167
+   BatchHost=tri0167
+   NumNodes=1 NumCPUs=192 NumTasks=1 CPUs/Task=32 ReqB:S:C:T=0:0:*:*
+   ReqTRES=cpu=32,mem=767000M,node=1,billing=32
+   AllocTRES=cpu=192,mem=767000M,node=1,billing=192
+   Socks/Node=* NtasksPerN:B:S:C=1:0:*:* CoreSpec=*
+   MinCPUsNode=32 MinMemoryNode=767000M MinTmpDiskNode=0
+   Features=(null) DelayBoot=00:00:00
+   OverSubscribe=NO Contiguous=0 Licenses=(null) LicensesAlloc=(null) Network=(null)
+   Command=/scratch/deguire1/EssaiTemporaire_LePIC_Module/runParallel.sh
+   SubmitLine=SBATCH --comment /opt/slurm/bin/sbatch --export=NONE runParallel.sh --export=NONE runParallel.sh
+   WorkDir=/scratch/deguire1/EssaiTemporaire_LePIC_Module
+   Comment=/opt/slurm/bin/sbatch --export=NONE runParallel.sh
+   StdErr=
+   StdIn=/dev/null
+   StdOut=/scratch/deguire1/EssaiTemporaire_LePIC_Module/slurm-1600191.out
+   TresPerTask=cpu=32
+
+sacct -j 1600191
+JobID           JobName    Account    Elapsed  MaxVMSize     MaxRSS  SystemCPU    UserCPU ExitCode 
+------------ ---------- ---------- ---------- ---------- ---------- ---------- ---------- -------- 
+1600191      runParall+   def-tobi   00:13:11                        01:42.049   06:47:24      0:0 
+1600191.bat+      batch   def-tobi   00:13:12          0     20924K  00:00.012  00:00.012     0:15 
+1600191.ext+     extern   def-tobi   00:13:13                         00:00:00   00:00:00      0:0 
+1600191.0    3dphpic.e+   def-tobi   00:13:04          0  15882832K  01:42.037   06:47:24      1:0 
+

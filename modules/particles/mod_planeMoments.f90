@@ -2,6 +2,7 @@ module mod_planeMoments
   use iso_fortran_env, only: int32, real64
   use mod_particles,   only: ParticleSet
   use mod_constants,   only: qe
+  use mod_simParams,   only: SimParams
   implicit none
   private
 
@@ -11,7 +12,7 @@ contains
 
   subroutine compute_particle_plane_moments_species(part, nproc, n, h, ptype, mass_species, &
                                                     ix_plane, iy_plane, iz_plane,             &
-                                                    data_xy, data_xz, data_yz)
+                                                    data_xy, data_xz, data_yz, params)
     type(ParticleSet), intent(in)    :: part(:)
     integer(int32),    intent(in)    :: nproc
     integer(int32),    intent(in)    :: n(3)
@@ -22,6 +23,7 @@ contains
     real(real64),      intent(inout) :: data_xy(5,0:n(1)+2,0:n(2)+2)
     real(real64),      intent(inout) :: data_xz(5,0:n(1)+2,0:n(3)+2)
     real(real64),      intent(inout) :: data_yz(5,0:n(2)+2,0:n(3)+2)
+    type(SimParams),   intent(in)    :: params
 
     integer(int32), parameter :: np_avg=1, Tp_avg=2, u1_avg=3, u2_avg=4, u3_avg=5
 
@@ -61,9 +63,9 @@ contains
       if (part(iproc)%n <= 0_int32) cycle
 
       do i = 1, part(iproc)%n
-        x  = part(iproc)%x(i)
-        y  = part(iproc)%y(i)
-        z  = part(iproc)%z(i)
+        x = part(iproc)%x(i) - part(iproc)%vx(i) * params%dt * 0.5_real64
+        y = part(iproc)%y(i) - part(iproc)%vy(i) * params%dt * 0.5_real64
+        z = part(iproc)%z(i) - part(iproc)%vz(i) * params%dt * 0.5_real64
         vx = part(iproc)%vx(i)
         vy = part(iproc)%vy(i)
         vz = part(iproc)%vz(i)

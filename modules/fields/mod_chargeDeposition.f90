@@ -8,7 +8,8 @@ module mod_chargeDeposition
   public :: deposit_particle_set_to_np_thread
 
 contains
-
+  !> hello this is a test
+  !! @param[in] i am a test
   subroutine clear_np_thread(n, ntype, nproc, np_thread)
     integer(int32), intent(in)    :: n(3)
     integer(int32), intent(in)    :: ntype, nproc
