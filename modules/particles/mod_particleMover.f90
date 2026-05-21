@@ -16,16 +16,6 @@ contains
 
 
   pure subroutine interpolate_E_trilinear(xp, yp, zp, n, h, E, Exp, Eyp, Ezp)
-    !=============================================================
-    ! Trilinear interpolation of the electric field at particle
-    ! position, adapted from the legacy part_expmover.f90 routine.
-    !
-    ! Legacy convention:
-    !   ix = INT(x/hx) + 1
-    !   px = (ix*hx - x)/hx
-    !
-    ! and similarly for y,z.
-    !=============================================================
     real(real64),   intent(in)  :: xp, yp, zp
     integer(int32), intent(in)  :: n(3)
     real(real64),   intent(in)  :: h(3)
@@ -34,13 +24,13 @@ contains
 
     integer(int32) :: ix, iy, iz
     real(real64)   :: px, py, pz
-    real(real64)   :: ki(8)
+    real(real64)   :: wx2, wy2, wz2
+    real(real64)   :: w1, w2, w3, w4, w5, w6, w7, w8
 
     ix = int(xp / h(1), int32) + 1_int32
     iy = int(yp / h(2), int32) + 1_int32
     iz = int(zp / h(3), int32) + 1_int32
 
-    ! Clamp so ix+1, iy+1, iz+1 remain valid
     ix = clamp_index(ix, 0_int32, n(1)+1_int32)
     iy = clamp_index(iy, 0_int32, n(2)+1_int32)
     iz = clamp_index(iz, 0_int32, n(3)+1_int32)
@@ -49,71 +39,41 @@ contains
     py = (real(iy, real64)*h(2) - yp) / h(2)
     pz = (real(iz, real64)*h(3) - zp) / h(3)
 
-    ki(1) = px*py*pz
-    ki(2) = (1.0_real64-px)*py*pz
-    ki(3) = (1.0_real64-px)*(1.0_real64-py)*pz
-    ki(4) = px*(1.0_real64-py)*pz
-    ki(5) = px*py*(1.0_real64-pz)
-    ki(6) = (1.0_real64-px)*py*(1.0_real64-pz)
-    ki(7) = (1.0_real64-px)*(1.0_real64-py)*(1.0_real64-pz)
-    ki(8) = px*(1.0_real64-py)*(1.0_real64-pz)
+    wx2 = 1.0_real64 - px
+    wy2 = 1.0_real64 - py
+    wz2 = 1.0_real64 - pz
 
-    Exp = ki(1)*E(1,ix  ,iy  ,iz  ) + &
-          ki(2)*E(1,ix+1,iy  ,iz  ) + &
-          ki(3)*E(1,ix+1,iy+1,iz  ) + &
-          ki(4)*E(1,ix  ,iy+1,iz  ) + &
-          ki(5)*E(1,ix  ,iy  ,iz+1) + &
-          ki(6)*E(1,ix+1,iy  ,iz+1) + &
-          ki(7)*E(1,ix+1,iy+1,iz+1) + &
-          ki(8)*E(1,ix  ,iy+1,iz+1)
+    w1 = px  * py  * pz
+    w2 = wx2 * py  * pz
+    w3 = wx2 * wy2 * pz
+    w4 = px  * wy2 * pz
+    w5 = px  * py  * wz2
+    w6 = wx2 * py  * wz2
+    w7 = wx2 * wy2 * wz2
+    w8 = px  * wy2 * wz2
 
-    Eyp = ki(1)*E(2,ix  ,iy  ,iz  ) + &
-          ki(2)*E(2,ix+1,iy  ,iz  ) + &
-          ki(3)*E(2,ix+1,iy+1,iz  ) + &
-          ki(4)*E(2,ix  ,iy+1,iz  ) + &
-          ki(5)*E(2,ix  ,iy  ,iz+1) + &
-          ki(6)*E(2,ix+1,iy  ,iz+1) + &
-          ki(7)*E(2,ix+1,iy+1,iz+1) + &
-          ki(8)*E(2,ix  ,iy+1,iz+1)
+    Exp = w1*E(1,ix  ,iy  ,iz  ) + w2*E(1,ix+1,iy  ,iz  ) + &
+          w3*E(1,ix+1,iy+1,iz  ) + w4*E(1,ix  ,iy+1,iz  ) + &
+          w5*E(1,ix  ,iy  ,iz+1) + w6*E(1,ix+1,iy  ,iz+1) + &
+          w7*E(1,ix+1,iy+1,iz+1) + w8*E(1,ix  ,iy+1,iz+1)
 
-    Ezp = ki(1)*E(3,ix  ,iy  ,iz  ) + &
-          ki(2)*E(3,ix+1,iy  ,iz  ) + &
-          ki(3)*E(3,ix+1,iy+1,iz  ) + &
-          ki(4)*E(3,ix  ,iy+1,iz  ) + &
-          ki(5)*E(3,ix  ,iy  ,iz+1) + &
-          ki(6)*E(3,ix+1,iy  ,iz+1) + &
-          ki(7)*E(3,ix+1,iy+1,iz+1) + &
-          ki(8)*E(3,ix  ,iy+1,iz+1)
+    Eyp = w1*E(2,ix  ,iy  ,iz  ) + w2*E(2,ix+1,iy  ,iz  ) + &
+          w3*E(2,ix+1,iy+1,iz  ) + w4*E(2,ix  ,iy+1,iz  ) + &
+          w5*E(2,ix  ,iy  ,iz+1) + w6*E(2,ix+1,iy  ,iz+1) + &
+          w7*E(2,ix+1,iy+1,iz+1) + w8*E(2,ix  ,iy+1,iz+1)
+
+    Ezp = w1*E(3,ix  ,iy  ,iz  ) + w2*E(3,ix+1,iy  ,iz  ) + &
+          w3*E(3,ix+1,iy+1,iz  ) + w4*E(3,ix  ,iy+1,iz  ) + &
+          w5*E(3,ix  ,iy  ,iz+1) + w6*E(3,ix+1,iy  ,iz+1) + &
+          w7*E(3,ix+1,iy+1,iz+1) + w8*E(3,ix  ,iy+1,iz+1)
   end subroutine interpolate_E_trilinear
 
 
   subroutine move_particles_electrostatic(part, n, h, E, q, m, dt)
-    !=============================================================
-    ! First modern layer of the legacy part_mover:
-    !
-    !   1) interpolate E at particle position
-    !   2) electrostatic leapfrog-style velocity update
-    !   3) update particle position
-    !
-    ! Adapted from the legacy branch:
-    !
-    !   k1 = dt*q/(2*m)
-    !   vx = vx + 2*k1*Ex
-    !   vy = vy + 2*k1*Ey
-    !   vz = vz + 2*k1*Ez
-    !
-    !   x = x + dt*vx
-    !   y = y + dt*vy
-    !   z = z + dt*vz
-    !
-    ! This routine does NOT yet apply:
-    !   - wall / periodic BCs
-    !   - particle deletion
-    !   - magnetic field Boris push
-    !   - MPI transfer
-    !
-    ! Sorting metadata is invalidated after motion.
-    !=============================================================
+    ! Fast version:
+    ! - same electrostatic update as before
+    ! - trilinear interpolation is inlined inside the particle loop
+    ! - avoids one procedure call per particle
     class(ParticleSet), intent(inout) :: part
     integer(int32),     intent(in)    :: n(3)
     real(real64),       intent(in)    :: h(3)
@@ -123,43 +83,76 @@ contains
     real(real64),       intent(in)    :: dt
 
     integer(int32) :: i
-    real(real64)   :: k1
+    integer(int32) :: ix, iy, iz
+    real(real64)   :: qmdt
+    real(real64)   :: xp, yp, zp
+    real(real64)   :: px, py, pz
+    real(real64)   :: wx2, wy2, wz2
+    real(real64)   :: w1, w2, w3, w4, w5, w6, w7, w8
     real(real64)   :: Exp, Eyp, Ezp
 
     if (.not. allocated(part%x)) return
     if (part%n <= 0_int32) return
 
-    k1 = dt*q/(2.0_real64*m)
+    qmdt = dt*q/m
 
     do i = 1, part%n
+      xp = part%x(i)
+      yp = part%y(i)
+      zp = part%z(i)
 
-      call interpolate_E_trilinear( &
-           xp  = part%x(i), &
-           yp  = part%y(i), &
-           zp  = part%z(i), &
-           n   = n, &
-           h   = h, &
-           E   = E, &
-           Exp = Exp, &
-           Eyp = Eyp, &
-           Ezp = Ezp )
+      ix = int(xp / h(1), int32) + 1_int32
+      iy = int(yp / h(2), int32) + 1_int32
+      iz = int(zp / h(3), int32) + 1_int32
 
-      ! Legacy electrostatic branch:
-      part%vx(i) = part%vx(i) + 2.0_real64*k1*Exp
-      part%vy(i) = part%vy(i) + 2.0_real64*k1*Eyp
-      part%vz(i) = part%vz(i) + 2.0_real64*k1*Ezp
+      ix = max(0_int32, min(n(1)+1_int32, ix))
+      iy = max(0_int32, min(n(2)+1_int32, iy))
+      iz = max(0_int32, min(n(3)+1_int32, iz))
 
-      part%x(i)  = part%x(i)  + dt*part%vx(i)
-      part%y(i)  = part%y(i)  + dt*part%vy(i)
-      part%z(i)  = part%z(i)  + dt*part%vz(i)
+      px = (real(ix, real64)*h(1) - xp) / h(1)
+      py = (real(iy, real64)*h(2) - yp) / h(2)
+      pz = (real(iz, real64)*h(3) - zp) / h(3)
 
+      wx2 = 1.0_real64 - px
+      wy2 = 1.0_real64 - py
+      wz2 = 1.0_real64 - pz
+
+      w1 = px  * py  * pz
+      w2 = wx2 * py  * pz
+      w3 = wx2 * wy2 * pz
+      w4 = px  * wy2 * pz
+      w5 = px  * py  * wz2
+      w6 = wx2 * py  * wz2
+      w7 = wx2 * wy2 * wz2
+      w8 = px  * wy2 * wz2
+
+      Exp = w1*E(1,ix  ,iy  ,iz  ) + w2*E(1,ix+1,iy  ,iz  ) + &
+            w3*E(1,ix+1,iy+1,iz  ) + w4*E(1,ix  ,iy+1,iz  ) + &
+            w5*E(1,ix  ,iy  ,iz+1) + w6*E(1,ix+1,iy  ,iz+1) + &
+            w7*E(1,ix+1,iy+1,iz+1) + w8*E(1,ix  ,iy+1,iz+1)
+
+      Eyp = w1*E(2,ix  ,iy  ,iz  ) + w2*E(2,ix+1,iy  ,iz  ) + &
+            w3*E(2,ix+1,iy+1,iz  ) + w4*E(2,ix  ,iy+1,iz  ) + &
+            w5*E(2,ix  ,iy  ,iz+1) + w6*E(2,ix+1,iy  ,iz+1) + &
+            w7*E(2,ix+1,iy+1,iz+1) + w8*E(2,ix  ,iy+1,iz+1)
+
+      Ezp = w1*E(3,ix  ,iy  ,iz  ) + w2*E(3,ix+1,iy  ,iz  ) + &
+            w3*E(3,ix+1,iy+1,iz  ) + w4*E(3,ix  ,iy+1,iz  ) + &
+            w5*E(3,ix  ,iy  ,iz+1) + w6*E(3,ix+1,iy  ,iz+1) + &
+            w7*E(3,ix+1,iy+1,iz+1) + w8*E(3,ix  ,iy+1,iz+1)
+
+      part%vx(i) = part%vx(i) + qmdt*Exp
+      part%vy(i) = part%vy(i) + qmdt*Eyp
+      part%vz(i) = part%vz(i) + qmdt*Ezp
+
+      part%x(i)  = xp + dt*part%vx(i)
+      part%y(i)  = yp + dt*part%vy(i)
+      part%z(i)  = zp + dt*part%vz(i)
     end do
 
-    ! Motion invalidates cell sorting metadata.
     if (allocated(part%cell_id))    part%cell_id(1:part%n) = 0_int32
     if (allocated(part%cell_count)) part%cell_count = 0_int32
     if (allocated(part%cell_start)) part%cell_start = 0_int32
-
   end subroutine move_particles_electrostatic
 
 end module mod_particleMover

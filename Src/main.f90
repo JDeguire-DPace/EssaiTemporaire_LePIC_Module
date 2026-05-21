@@ -771,6 +771,16 @@ program main
 
      ctime(0)= MSTIMER()
 
+
+
+      if (mod(it,1000).eq.1) then
+         write(*,*) " "
+         write(*,*) "===== LEGACY DIAGNOSTIC it = ", it, " ====="
+         write(*,*) "phi min/max/sum = ", minval(phi), maxval(phi), sum(phi)
+         write(*,*) "==========================================="
+         write(*,*) " "
+      endif
+
      ! Stat without any background plasma
      flag_nopart= 0
      if(SUM(np_tot(1:ntype,1:nproc)).eq.0) flag_nopart= 1

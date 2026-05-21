@@ -110,7 +110,7 @@ def compare_one_dim(name: str, dim: str, iteration: int, root_dir: Path) -> None
         raise FileNotFoundError(f"Missing modular file: {modular_path}")
 
     arr_legacy = read_mco_ascii(legacy_path)
-    arr_modular = read_mco_ascii(modular_path)
+    arr_modular = read_mco_ascii(modular_path)#*0.85/1.01/1.003
 
     print(f"\n{dim}:")
     print(f"  legacy shape  = {arr_legacy.shape}")
@@ -217,7 +217,7 @@ def main() -> int:
     if len(sys.argv) >= 3:
         iteration = int(sys.argv[2])
     else:
-        iteration = 1001
+        iteration = 10001
 
     root_dir = Path.cwd()
 

@@ -32,6 +32,11 @@ module mod_state
   private
   public :: State
 
+  ! Production defaults. Keep expensive consistency checks available in the
+  ! source, but do not run them in normal legacy-comparison/production runs.
+  logical, parameter :: DEBUG_INIT_CHECKS = .false.
+  logical, parameter :: VALIDATE_SORTING  = .false.
+
   type :: State
     type(Config)         :: cfg
     type(Domain)         :: dom
@@ -214,22 +219,27 @@ contains
     call self%pdec%init(int(self%dom%n(1),int32), int(self%dom%n(2),int32), int(self%dom%n(3),int32), self%comm)
     call self%pdec%scatter_from_global(self%fld%phi, self%dom%bcnd)
 
-    call checkpoint_poisson_decomp(self%mpi_rank, self%comm, &
-                                   int(self%dom%n(3),int32), self%pdec%k0, self%pdec%m, &
-                                   self%pdec%phi_dom, self%pdec%bcnd_dom)
+    if (DEBUG_INIT_CHECKS) then
+      call checkpoint_poisson_decomp(self%mpi_rank, self%comm, &
+                                     int(self%dom%n(3),int32), self%pdec%k0, self%pdec%m, &
+                                     self%pdec%phi_dom, self%pdec%bcnd_dom)
+    end if
 
     call build_kq(self%dom%bcnd, self%fld%kq)
-    call checkpoint_kq(self%fld%kq, self%comm, self%mpi_rank, 'after build_kq', self%pdec)
 
-    allocate(phi_rt(0:self%dom%n(1)+2, 0:self%dom%n(2)+2, 0:self%dom%n(3)+2))
-    phi_rt = -999.0_real64
+    if (DEBUG_INIT_CHECKS) then
+      call checkpoint_kq(self%fld%kq, self%comm, self%mpi_rank, 'after build_kq', self%pdec)
 
-    call self%pdec%gather_phi_to_global(phi_rt)
+      allocate(phi_rt(0:self%dom%n(1)+2, 0:self%dom%n(2)+2, 0:self%dom%n(3)+2))
+      phi_rt = -999.0_real64
 
-    lmax = maxval(abs(phi_rt - self%fld%phi))
-    call MPI_Allreduce(lmax, gmax, 1, MPI_DOUBLE_PRECISION, MPI_MAX, self%comm, ierr)
+      call self%pdec%gather_phi_to_global(phi_rt)
 
-    deallocate(phi_rt)
+      lmax = maxval(abs(phi_rt - self%fld%phi))
+      call MPI_Allreduce(lmax, gmax, 1, MPI_DOUBLE_PRECISION, MPI_MAX, self%comm, ierr)
+
+      deallocate(phi_rt)
+    end if
 
     if (self%mpi_rank == 0) then
       write(*,'(a)') '  '
@@ -275,8 +285,6 @@ contains
           ntype_trk = ntype_trk, &
           part      = self%part, &
           np_thread = self%np_thread )
-    print *, "BEFORE reduce np_thread center diff = ", &
-        self%np_thread(65,9,9,1,1) - self%np_thread(65,9,9,2,1)
     call reduce_species_density( &
          n         = int(self%dom%n, int32), &
          bcnd      = self%dom%bcnd, &
@@ -285,9 +293,6 @@ contains
          nproc     = int(self%nproc), &
          mpi_comm  = self%comm, &
          np_red    = self%fld%np )
-
-    print *, "AFTER reduce np_thread center diff = ", &
-        self%np_thread(65,9,9,1,1) - self%np_thread(65,9,9,2,1)
 
   end subroutine init_particles
 
@@ -309,18 +314,20 @@ contains
              n    = int(self%dom%n, int32), &
              h    = self%dom%h )
 
-        ok_sorted = check_particles_are_sorted(self%part(ptype,iproc))
-        if (.not. ok_sorted) then
-          write(*,'(a,3(i0,1x))') 'Sorting failed on rank, ptype, iproc = ', &
-               self%mpi_rank, ptype, iproc
-          error stop 'mod_state%sort_particles_local: particle sorting failed'
-        end if
+        if (VALIDATE_SORTING) then
+          ok_sorted = check_particles_are_sorted(self%part(ptype,iproc))
+          if (.not. ok_sorted) then
+            write(*,'(a,3(i0,1x))') 'Sorting failed on rank, ptype, iproc = ', &
+                 self%mpi_rank, ptype, iproc
+            error stop 'mod_state%sort_particles_local: particle sorting failed'
+          end if
 
-        ok_cells = check_cell_indexing(self%part(ptype,iproc), int(self%dom%n, int32))
-        if (.not. ok_cells) then
-          write(*,'(a,3(i0,1x))') 'Cell indexing failed on rank, ptype, iproc = ', &
-               self%mpi_rank, ptype, iproc
-          error stop 'mod_state%sort_particles_local: cell indexing failed'
+          ok_cells = check_cell_indexing(self%part(ptype,iproc), int(self%dom%n, int32))
+          if (.not. ok_cells) then
+            write(*,'(a,3(i0,1x))') 'Cell indexing failed on rank, ptype, iproc = ', &
+                 self%mpi_rank, ptype, iproc
+            error stop 'mod_state%sort_particles_local: cell indexing failed'
+          end if
         end if
       end do
     end do
@@ -459,8 +466,6 @@ contains
     integer(int32) :: tag_neg_local
     integer(int32) :: ispec
     real(real64)   :: qmacro
-    real(real64), allocatable :: sum_q_xz_local(:,:)
-    real(real64), allocatable :: sum_q_yz_local(:,:,:)
 
     if (.not. allocated(self%part)) return
 
@@ -472,19 +477,16 @@ contains
       end if
     end do
 
-    !$omp parallel do collapse(2) private(ptype,iproc,qmacro,sum_q_xz_local,sum_q_yz_local) schedule(static)
+    !$omp parallel do collapse(2) private(ptype,iproc,qmacro) schedule(static)
     do ptype = 1, self%ntype
       do iproc = 1, self%nproc
 
         if (.not. allocated(self%part(ptype,iproc)%x)) cycle
         if (self%part(ptype,iproc)%n <= 0_int32) cycle
 
-        allocate(sum_q_xz_local(0:self%dom%n(1)+2,0:self%dom%n(3)+2))
-        allocate(sum_q_yz_local(2,0:self%dom%n(2)+2,0:self%dom%n(3)+2))
-
-        sum_q_xz_local = 0.0_real64
-        sum_q_yz_local = 0.0_real64
-
+        ! The caller zeros sum_q_xz/sum_q_yz before applying particle BCs.
+        ! Each OpenMP iteration writes to a unique (ptype,iproc) slice, so no
+        ! temporary allocation or post-copy is needed here.
         qmacro = self%params%Nm(ptype) * self%chem%charge(ptype)
 
         call apply_particle_bc_legacy( &
@@ -502,14 +504,8 @@ contains
             flag_die       = int(self%dom%flag_die, int32), &
             dtype          = self%dom%dtype, &
             qmacro         = qmacro, &
-            sum_q_xz_local = sum_q_xz_local, &
-            sum_q_yz_local = sum_q_yz_local )
-
-        self%sum_q_xz(:,:,ptype,iproc) = self%sum_q_xz(:,:,ptype,iproc) + sum_q_xz_local(:,:)
-        self%sum_q_yz(:,:,:,ptype,iproc) = self%sum_q_yz(:,:,:,ptype,iproc) + sum_q_yz_local(:,:,:)
-
-        deallocate(sum_q_xz_local)
-        deallocate(sum_q_yz_local)
+            sum_q_xz_local = self%sum_q_xz(:,:,ptype,iproc), &
+            sum_q_yz_local = self%sum_q_yz(:,:,:,ptype,iproc) )
       end do
     end do
     !$omp end parallel do
@@ -602,6 +598,15 @@ contains
 
     if (Te > 0.0_real64) then
       vt_heat = sqrt(2.0_real64 * qe * Te / abs(self%chem%mass(1)))
+    end if
+    if (self%mpi_rank == 0) then
+      write(*,*) "MOD HEATING DEBUG"
+      write(*,*) "Pabs     = ", self%cfg%Pabs
+      write(*,*) "nu_h     = ", self%cfg%nu_h
+      write(*,*) "sum_Nh   = ", sum_Nh_global
+      write(*,*) "sum_dEk  = ", sum_dEk_global
+      write(*,*) "Te heat  = ", Te
+      write(*,*) "vt_heat  = ", vt_heat
     end if
   end subroutine update_heating_vt
 
