@@ -412,6 +412,7 @@ contains
     ! 7. Collisions, legacy cadence
     ! ------------------------------------------------------------
     if (self%state%params%nb_step_collisions > 0_int32) then
+      !!! Modification
       if (mod(istep, self%state%params%nb_step_collisions) == 0_int32) then
         call self%collisions_step()
       end if

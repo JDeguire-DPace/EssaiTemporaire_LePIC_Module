@@ -108,6 +108,7 @@ subroutine collisions(it,vxp,n,h,ntype,nmax,sig,sig_Er,sig_list,sig_Eex, &
         nu_max(ptype)= nu_max(ptype) + np_mx(ttype)*sigv_mx(ptype,ind_col)
      enddo
 
+
      nu_max(ptype)= MIN(nu_max(ptype),nu_uplim(ptype))
      sum_np_tot= SUM(np_tot(ptype,1:nproc))
 
@@ -135,6 +136,17 @@ subroutine collisions(it,vxp,n,h,ntype,nmax,sig,sig_Er,sig_list,sig_Eex, &
      rnd= ran2(iseed(1))
      if( rnd.le.(dNc-Nc_tmp) ) Nc_tmp= Nc_tmp + 1
      Nc(ptype,:)= Nc_tmp
+
+     !!!MODIFICATION
+      ! if (it < 105 .and. ptype == 1) then
+      !    write(*,*) "it = ", it
+      !    write(*,*) "LEG COLL ptype=", ptype
+      !    write(*,*) "LEG nu_max=", nu_max(ptype)
+      !    write(*,*) "LEG Pmax=", Pmax
+      !    write(*,*) "LEG dNc=", dNc
+      !    write(*,*) "LEG Nc_tmp=", Nc_tmp
+      !    write(*,*) "LEG SUM Nc=", sum(Nc(ptype,1:nproc))
+      ! endif
 
      ! Warning
      if( SUM(np_tot(1,1:nproc))/n_cell.ge.1 .and. ptype.eq.1 .and. Nc_tmp.le.1 ) then 

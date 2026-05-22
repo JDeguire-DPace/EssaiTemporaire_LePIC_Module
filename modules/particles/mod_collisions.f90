@@ -307,7 +307,7 @@ contains
         np_for_nu = species_max_density(ttype, workspace%np_mx, neutral_density, ntype_tracked)
         workspace%nu_max(ptype) = workspace%nu_max(ptype) + np_for_nu * sigv_mx(ptype,ind_col)
       end do
-
+      
       if (ptype <= size(nu_uplim)) then
         workspace%nu_max(ptype) = min(workspace%nu_max(ptype), nu_uplim(ptype))
       end if
@@ -334,7 +334,7 @@ contains
       end if
 
       dNc = real(sum_np_tot_global, real64) * Pmax / &
-            real(max(1_int32,nproc_mpi*nproc), real64)
+          real(max(1_int32,nproc_mpi), real64)
 
       Nc_tmp = int(dNc, int32)
       rnd = ran2(iseed(1))
@@ -342,6 +342,7 @@ contains
 
       do iproc = 1, nproc
         workspace%Nc(ptype,iproc) = Nc_tmp
+        
       end do
 
       if (DEBUG_COLLISIONS .and. mpi_rank == 0) then
@@ -459,6 +460,7 @@ contains
 
                 if (workspace%nu_max(ptype) > 0.0_real64) then
                   np_t = target_density(ttype, np_red, neutral_density, ix, iy, iz, ntype_tracked)
+                  
                   nu(icol) = np_t * sig_p * vr / nu_max_local
                   sum_nu = sum_nu + nu(icol)
                   sort_arr(icol) = nu(icol)

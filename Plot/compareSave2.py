@@ -217,7 +217,7 @@ def main() -> int:
     if len(sys.argv) >= 3:
         iteration = int(sys.argv[2])
     else:
-        iteration = 10001
+        iteration = 110001
 
     root_dir = Path.cwd()
 

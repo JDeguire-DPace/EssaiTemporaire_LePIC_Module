@@ -1,5 +1,6 @@
 module mod_state
   use iso_fortran_env, only: int32, real64
+  use omp_lib, only: omp_get_max_threads, omp_get_num_procs
   use mpi
 
   use mod_config,         only: Config
@@ -185,6 +186,8 @@ contains
     self%data_pavg_xy = 0.0_real64
     self%data_pavg_xz = 0.0_real64
     self%data_pavg_yz = 0.0_real64
+    write(*,*) "omp_get_max_threads() = ", omp_get_max_threads()
+    write(*,*) "omp_get_num_procs()   = ", omp_get_num_procs()
 
   end subroutine init
 
