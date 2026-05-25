@@ -20,11 +20,11 @@ module mod_collisions
   real(real64),   parameter :: pi      = acos(-1.0_real64)
   integer(int32), parameter :: MAX_COL = 128_int32
 
-  ! Set to .false. after the collision comparison is fixed.
   logical, parameter :: DEBUG_COLLISIONS = .false.
 
   type :: CollisionWorkspace
     real(real64),    allocatable :: np_mx(:)
+    real(real64),    allocatable :: np_mx_all(:)
     real(real64),    allocatable :: nu_max(:)
     integer(int32),  allocatable :: Nc(:,:)
     integer(int32),  allocatable :: np_add(:,:)
@@ -36,26 +36,28 @@ module mod_collisions
 
 contains
 
-  subroutine collision_workspace_ensure_sizes(self, ntype, nproc)
+  subroutine collision_workspace_ensure_sizes(self, ntype_tracked, ntype_total, nproc)
     class(CollisionWorkspace), intent(inout) :: self
-    integer(int32),            intent(in)    :: ntype, nproc
+    integer(int32), intent(in) :: ntype_tracked, ntype_total, nproc
 
-    if (.not. allocated(self%np_mx)) allocate(self%np_mx(ntype))
-    if (.not. allocated(self%nu_max)) allocate(self%nu_max(ntype))
-    if (.not. allocated(self%Nc)) allocate(self%Nc(ntype,nproc))
-    if (.not. allocated(self%np_add)) allocate(self%np_add(ntype,nproc))
-    if (.not. allocated(self%err_coll)) allocate(self%err_coll(ntype,nproc))
+    if (.not. allocated(self%np_mx))     allocate(self%np_mx(ntype_tracked))
+    if (.not. allocated(self%np_mx_all)) allocate(self%np_mx_all(ntype_total))
+    if (.not. allocated(self%nu_max))    allocate(self%nu_max(ntype_tracked))
+    if (.not. allocated(self%Nc))        allocate(self%Nc(ntype_tracked,nproc))
+    if (.not. allocated(self%np_add))    allocate(self%np_add(ntype_tracked,nproc))
+    if (.not. allocated(self%err_coll))  allocate(self%err_coll(ntype_tracked,nproc))
   end subroutine collision_workspace_ensure_sizes
 
 
   subroutine collision_workspace_clear(self)
     class(CollisionWorkspace), intent(inout) :: self
 
-    if (allocated(self%np_mx))    self%np_mx    = 0.0_real64
-    if (allocated(self%nu_max))   self%nu_max   = 0.0_real64
-    if (allocated(self%Nc))       self%Nc       = 0_int32
-    if (allocated(self%np_add))   self%np_add   = 0_int32
-    if (allocated(self%err_coll)) self%err_coll = 0_int32
+    if (allocated(self%np_mx))     self%np_mx     = 0.0_real64
+    if (allocated(self%np_mx_all)) self%np_mx_all = 0.0_real64
+    if (allocated(self%nu_max))    self%nu_max    = 0.0_real64
+    if (allocated(self%Nc))        self%Nc        = 0_int32
+    if (allocated(self%np_add))    self%np_add    = 0_int32
+    if (allocated(self%err_coll))  self%err_coll  = 0_int32
   end subroutine collision_workspace_clear
 
 
@@ -154,34 +156,19 @@ contains
   end subroutine pick_target_same_or_neighbor_cell
 
 
-  pure real(real64) function target_density(ttype, np_red, neutral_density, ix, iy, iz, ntype_tracked) result(np_t)
+  pure real(real64) function target_density(ttype, np_red, np_mx_all, ix, iy, iz, ntype_tracked) result(np_t)
     integer(int32), intent(in) :: ttype, ix, iy, iz, ntype_tracked
     real(real64),   intent(in) :: np_red(:,:,:,:)
-    real(real64),   intent(in) :: neutral_density(:)
+    real(real64),   intent(in) :: np_mx_all(:)
 
     if (ttype >= 1_int32 .and. ttype <= ntype_tracked) then
       np_t = density_average_at_particle_cell(np_red, ix, iy, iz, ttype)
-    else if (ttype >= 1_int32 .and. ttype <= size(neutral_density)) then
-      np_t = neutral_density(ttype)
+    else if (ttype >= 1_int32 .and. ttype <= size(np_mx_all)) then
+      np_t = np_mx_all(ttype)
     else
       np_t = 0.0_real64
     end if
   end function target_density
-
-
-  pure real(real64) function species_max_density(ttype, np_mx, neutral_density, ntype_tracked) result(np_t)
-    integer(int32), intent(in) :: ttype, ntype_tracked
-    real(real64),   intent(in) :: np_mx(:)
-    real(real64),   intent(in) :: neutral_density(:)
-
-    if (ttype >= 1_int32 .and. ttype <= ntype_tracked) then
-      np_t = np_mx(ttype)
-    else if (ttype >= 1_int32 .and. ttype <= size(neutral_density)) then
-      np_t = neutral_density(ttype)
-    else
-      np_t = 0.0_real64
-    end if
-  end function species_max_density
 
 
   subroutine neutral_velocity(vx, vy, vz, vt, iseed)
@@ -227,7 +214,7 @@ contains
   subroutine perform_collisions_step( &
         part, n, h, np_red, mass, charge, vt0, Nm, neutral_density, &
         p_ncol, sig, sig_Er, sig_list, sig_Eex, col_info, sigv_mx, &
-        ns_coll, dt, nu_uplim, iseed, nproc_mpi, mpi_rank, workspace)
+        ns_coll, dt, nu_uplim, iseed, nproc_mpi, mpi_rank, workspace, Pcoll)
 
     type(ParticleSet),  intent(inout) :: part(:,:)
     integer(int32),     intent(in)    :: n(3)
@@ -244,6 +231,7 @@ contains
     integer(int32),     intent(inout) :: iseed(:)
     integer(int32),     intent(in)    :: nproc_mpi, mpi_rank
     type(CollisionWorkspace), intent(inout) :: workspace
+    real(real64),       intent(inout) :: Pcoll(:,:)
 
     integer(int32) :: ntype_tracked, ntype_total, nproc
     integer(int32) :: ptype, iproc, icol, ind_col, ttype
@@ -252,43 +240,80 @@ contains
     real(real64)   :: Pmax, dNc, rnd, np_for_nu
 
     integer(int32) :: ic, ip, ix, iy, iz, ici
-    integer(int32) :: itarget, c_ind, i_by, btype, ib
+    integer(int32) :: itarget, c_ind, i_by, i_re, btype, ctype, ib
     integer(int32) :: chosen_icol, append_index
     logical        :: found_target, flag_coll
-    logical        :: projectile_reused, target_reused, target_is_tracked
+    !logical        :: target_is_tracked
     real(real64)   :: vx1, vy1, vz1, vx2, vy2, vz2
     real(real64)   :: mu, vr, Ekr, Eth, Ee, sum_mass_inv
     real(real64)   :: vx_cm, vy_cm, vz_cm
     real(real64)   :: np_t, sig_p, Ek_L, Ek_R, sig_L, sig_R
     real(real64)   :: nu(MAX_COL), sum_nu
+    
+    !!! MODIFICATION
     real(real64)   :: sort_arr(MAX_COL)
     integer(int32) :: indx(MAX_COL)
-    integer(int32) :: target_ip(MAX_COL)
-    logical        :: target_found(MAX_COL)
-    real(real64)   :: target_vx(MAX_COL), target_vy(MAX_COL), target_vz(MAX_COL)
+
+    integer(int32) :: saved_target_ip(size(mass))
+    logical        :: target_selected(size(mass))
+    logical        :: target_found_by_type(size(mass))
+    real(real64)   :: saved_target_vx(size(mass))
+    real(real64)   :: saved_target_vy(size(mass))
+    real(real64)   :: saved_target_vz(size(mass))
+    real(real64)   :: saved_vr(size(mass))
+    real(real64)   :: saved_Ekr(size(mass))
+    real(real64)   :: saved_mu(size(mass))
+    real(real64)   :: saved_vx_cm(size(mass))
+    real(real64)   :: saved_vy_cm(size(mass))
+    real(real64)   :: saved_vz_cm(size(mass))
+
     integer(int32) :: ipt, ipt_L, ipt_R, ipt_M, npt
     real(real64)   :: th_add, costh, phi, ex, ey, ez, ex1, ey1, ez1
     real(real64)   :: costh_s, phi_s, vp, st
     real(real64)   :: x0, y0, z0
     real(real64)   :: nu_max_local
+    real(real64)   :: v2old, v2new
+    integer(int32) :: flag_add(10)
+    integer(int32) :: accepted_total
+    integer(int32) :: ineu
 
     ntype_tracked = int(size(part,1), int32)
     nproc         = int(size(part,2), int32)
     ntype_total   = int(size(mass), int32)
 
-    call workspace%ensure_sizes(ntype_tracked, nproc)
+    call workspace%ensure_sizes(ntype_tracked, ntype_total, nproc)
     call workspace%clear()
 
-    if (DEBUG_COLLISIONS .and. mpi_rank == 0) then
-      write(*,*) "COLL DEBUG sizes: ntype_tracked, ntype_total, nproc = ", &
-           ntype_tracked, ntype_total, nproc
-      write(*,*) "COLL DEBUG p_ncol array = ", p_ncol
-    end if
+    accepted_total = 0_int32
 
+    ! Build legacy-style global np_mx(ttype).
+    ! Charged species: max reduced density.
+    ! Neutrals: physical neutral density passed from mod_simulation.
     do ptype = 1, ntype_tracked
       workspace%np_mx(ptype) = maxval(np_red(1:n(1)+1,1:n(2)+1,1:n(3)+1,ptype))
+      workspace%np_mx_all(ptype) = workspace%np_mx(ptype)
     end do
 
+    do ttype = ntype_tracked + 1_int32, ntype_total
+      ineu = ttype - ntype_tracked
+      if (ineu >= 1_int32 .and. ineu <= size(neutral_density)) then
+        workspace%np_mx_all(ttype) = neutral_density(ineu)
+      else
+        workspace%np_mx_all(ttype) = 0.0_real64
+      end if
+    end do
+
+    if (DEBUG_COLLISIONS .and. mpi_rank == 0) then
+      write(*,*) "COLL neutral_density = ", neutral_density
+      write(*,*) "COLL np_mx_all       = ", workspace%np_mx_all
+      write(*,*) "COLL ntype_tracked   = ", ntype_tracked
+      write(*,*) "COLL ntype_total     = ", ntype_total
+      write(*,*) "COLL p_ncol          = ", p_ncol(1:min(size(p_ncol),ntype_total))
+    end if
+
+    ! ------------------------------------------------------------
+    ! Legacy null-collision setup: compute nu_max and Nc.
+    ! ------------------------------------------------------------
     do ptype = 1, ntype_tracked
       if (ptype > size(p_ncol)) cycle
       if (p_ncol(ptype) == 0_int32) cycle
@@ -299,15 +324,15 @@ contains
       do icol = 1, min(p_ncol(ptype), MAX_COL)
         ind_col = sig_list(ptype,icol)
         n_re    = col_info(ind_col,1)
-        n_by    = col_info(ind_col,2)
         ttype   = col_info(ind_col, 2 + n_re)
 
         if (ttype < 1_int32 .or. ttype > ntype_total) cycle
 
-        np_for_nu = species_max_density(ttype, workspace%np_mx, neutral_density, ntype_tracked)
-        workspace%nu_max(ptype) = workspace%nu_max(ptype) + np_for_nu * sigv_mx(ptype,ind_col)
+        np_for_nu = workspace%np_mx_all(ttype)
+        workspace%nu_max(ptype) = workspace%nu_max(ptype) + &
+             np_for_nu * sigv_mx(ptype,ind_col)
       end do
-      
+
       if (ptype <= size(nu_uplim)) then
         workspace%nu_max(ptype) = min(workspace%nu_max(ptype), nu_uplim(ptype))
       end if
@@ -325,6 +350,7 @@ contains
       end if
 
       Pmax = workspace%nu_max(ptype) * real(ns_coll, real64) * dt
+
       if (Pmax > 1.0_real64) then
         if (mpi_rank == 0) then
           write(*,*) 'Collision probability greater than 1.'
@@ -333,28 +359,35 @@ contains
         call stop_calculation
       end if
 
+      ! Legacy:
+      ! dNc = sum_np_tot * Pmax / (nproc_mpi*nproc)
       dNc = real(sum_np_tot_global, real64) * Pmax / &
-          real(max(1_int32,nproc_mpi), real64)
+            real(max(1_int32,nproc_mpi*nproc), real64)
 
       Nc_tmp = int(dNc, int32)
       rnd = ran2(iseed(1))
       if (rnd <= (dNc - real(Nc_tmp, real64))) Nc_tmp = Nc_tmp + 1_int32
 
-      do iproc = 1, nproc
-        workspace%Nc(ptype,iproc) = Nc_tmp
-        
-      end do
-
-      if (DEBUG_COLLISIONS .and. mpi_rank == 0) then
-        write(*,*) "COLL DEBUG ptype = ", ptype
-        write(*,*) "p_ncol = ", p_ncol(ptype)
-        write(*,*) "np_mx = ", workspace%np_mx(ptype)
-        write(*,*) "nu_max = ", workspace%nu_max(ptype)
-        write(*,*) "Pmax = ", Pmax
-        write(*,*) "Nc_tmp = ", Nc_tmp
-      end if
+      workspace%Nc(ptype,:) = Nc_tmp
     end do
 
+
+
+    ! ------------------------------------------------------------
+    ! Perform collisions.
+    ! ------------------------------------------------------------
+    
+    !$omp parallel do schedule(static) private( &
+    !$omp iproc, ptype, icol, ind_col, ttype, n_re, n_by, ic, ip, ix, iy, iz, ici, &
+    !$omp itarget, c_ind, i_by, i_re, btype, ctype, ib, chosen_icol, append_index, &
+    !$omp found_target, flag_coll, vx1, vy1, vz1, vx2, vy2, vz2, &
+    !$omp mu, vr, Ekr, Eth, Ee, sum_mass_inv, vx_cm, vy_cm, vz_cm, np_t, sig_p, &
+    !$omp Ek_L, Ek_R, sig_L, sig_R, nu, sum_nu, sort_arr, indx, saved_target_ip, &
+    !$omp target_selected, target_found_by_type, saved_target_vx, saved_target_vy, &
+    !$omp saved_target_vz, saved_vr, saved_Ekr, saved_mu, saved_vx_cm, saved_vy_cm, &
+    !$omp saved_vz_cm, ipt, ipt_L, ipt_R, ipt_M, npt, th_add, costh, phi, ex, ey, ez, &
+    !$omp ex1, ey1, ez1, costh_s, phi_s, vp, st, x0, y0, z0, nu_max_local, v2old, &
+    !$omp v2new, flag_add )
     do iproc = 1, nproc
       do ptype = 1, ntype_tracked
         if (ptype > size(p_ncol)) cycle
@@ -363,17 +396,19 @@ contains
         if (workspace%Nc(ptype,iproc) == 0_int32) cycle
         if (part(ptype,iproc)%n == 0_int32) cycle
 
-        ! Legacy correction after stochastic rounding of Nc:
+        ! Legacy correction:
         ! nu_max_OMP = Nc / np_tot / (ns_coll*dt)
         nu_max_local = real(workspace%Nc(ptype,iproc), real64) / &
-                       real(max(1_int32, part(ptype,iproc)%n), real64) / &
-                       (real(ns_coll, real64) * dt)
-        if (nu_max_local <= 0.0_real64) cycle
+             real(max(1_int32, part(ptype,iproc)%n), real64) / &
+             (real(ns_coll, real64) * dt)
 
+        if (nu_max_local <= 0.0_real64) cycle
         do ic = 1, workspace%Nc(ptype,iproc)
+
           rnd = ran2(iseed(iproc))
           ip  = int(real(part(ptype,iproc)%n, real64) * rnd, int32) + 1_int32
           if (ip > part(ptype,iproc)%n) ip = part(ptype,iproc)%n
+
           if (allocated(part(ptype,iproc)%flag_dead)) then
             if (part(ptype,iproc)%flag_dead(ip) /= 0) cycle
           end if
@@ -392,15 +427,29 @@ contains
           vy1 = part(ptype,iproc)%vy(ip)
           vz1 = part(ptype,iproc)%vz(ip)
 
-          nu           = 0.0_real64
-          sum_nu       = 0.0_real64
-          sort_arr     = 0.0_real64
-          target_ip    = 0_int32
-          target_found = .false.
-          target_vx    = 0.0_real64
-          target_vy    = 0.0_real64
-          target_vz    = 0.0_real64
+          nu       = 0.0_real64
+          sum_nu   = 0.0_real64
+          
+          !!! MODIFICATION
+          sort_arr = 0.0_real64
 
+          target_selected      = .false.
+          target_found_by_type = .false.
+          saved_target_ip      = 0_int32
+          saved_target_vx      = 0.0_real64
+          saved_target_vy      = 0.0_real64
+          saved_target_vz      = 0.0_real64
+          saved_vr             = 0.0_real64
+          saved_Ekr            = 0.0_real64
+          saved_mu             = 0.0_real64
+          saved_vx_cm          = 0.0_real64
+          saved_vy_cm          = 0.0_real64
+          saved_vz_cm          = 0.0_real64
+
+          ! -----------------------------------------------------
+          ! Extract sigma for every reaction of this projectile.
+          ! Reuse target by ttype, like legacy flag_ttype(ttype).
+          ! -----------------------------------------------------
           do icol = 1, min(p_ncol(ptype), MAX_COL)
             ind_col = sig_list(ptype,icol)
             n_re    = col_info(ind_col,1)
@@ -408,35 +457,57 @@ contains
             ttype   = col_info(ind_col, 2 + n_re)
 
             if (ttype < 1_int32 .or. ttype > ntype_total) cycle
-            target_is_tracked = (ttype <= ntype_tracked)
 
-            if (target_is_tracked) then
-              call pick_target_same_or_neighbor_cell(part(ttype,iproc), n, ici, &
-                   iseed(iproc), itarget, found_target)
-              if (.not. found_target) then
-                workspace%err_coll(ptype,iproc) = workspace%err_coll(ptype,iproc) + 1_int32
-                cycle
+            if (.not. target_selected(ttype)) then
+
+              if (ttype > ntype_tracked) then
+                ! Neutral target: no DSMC particle search.
+                call neutral_velocity(vx2, vy2, vz2, vt0(ttype), iseed(iproc))
+                saved_target_ip(ttype) = 0_int32
+
+              else
+                ! Charged target: find a real nearby target macroparticle.
+                call pick_target_same_or_neighbor_cell(part(ttype,iproc), n, ici, &
+                     iseed(iproc), itarget, found_target)
+
+                if (.not. found_target) then
+                  workspace%err_coll(ptype,iproc) = workspace%err_coll(ptype,iproc) + 1_int32
+                  target_selected(ttype)      = .true.
+                  target_found_by_type(ttype) = .false.
+                  cycle
+                end if
+
+                saved_target_ip(ttype) = itarget
+                vx2 = part(ttype,iproc)%vx(itarget)
+                vy2 = part(ttype,iproc)%vy(itarget)
+                vz2 = part(ttype,iproc)%vz(itarget)
               end if
-              target_ip(icol) = itarget
-              target_vx(icol) = part(ttype,iproc)%vx(itarget)
-              target_vy(icol) = part(ttype,iproc)%vy(itarget)
-              target_vz(icol) = part(ttype,iproc)%vz(itarget)
-              target_found(icol) = .true.
-            else
-              call neutral_velocity(target_vx(icol), target_vy(icol), target_vz(icol), &
-                   vt0(ttype), iseed(iproc))
-              target_ip(icol) = 0_int32
-              target_found(icol) = .true.
+
+              saved_target_vx(ttype) = vx2
+              saved_target_vy(ttype) = vy2
+              saved_target_vz(ttype) = vz2
+
+              saved_mu(ttype) = abs(mass(ptype))*abs(mass(ttype)) / &
+                   (abs(mass(ptype)) + abs(mass(ttype)))
+
+              saved_vr(ttype) = sqrt((vx1-vx2)**2 + (vy1-vy2)**2 + (vz1-vz2)**2)
+              saved_Ekr(ttype) = 0.5_real64 * saved_mu(ttype) * saved_vr(ttype)**2 / qe_si
+
+              saved_vx_cm(ttype) = (abs(mass(ptype))*vx1 + abs(mass(ttype))*vx2) / &
+                   (abs(mass(ptype)) + abs(mass(ttype)))
+              saved_vy_cm(ttype) = (abs(mass(ptype))*vy1 + abs(mass(ttype))*vy2) / &
+                   (abs(mass(ptype)) + abs(mass(ttype)))
+              saved_vz_cm(ttype) = (abs(mass(ptype))*vz1 + abs(mass(ttype))*vz2) / &
+                   (abs(mass(ptype)) + abs(mass(ttype)))
+
+              target_selected(ttype)      = .true.
+              target_found_by_type(ttype) = .true.
             end if
 
-            vx2 = target_vx(icol)
-            vy2 = target_vy(icol)
-            vz2 = target_vz(icol)
+            if (.not. target_found_by_type(ttype)) cycle
 
-            mu = abs(mass(ptype))*abs(mass(ttype)) / &
-                 (abs(mass(ptype)) + abs(mass(ttype)))
-            vr  = sqrt((vx1-vx2)**2 + (vy1-vy2)**2 + (vz1-vz2)**2)
-            Ekr = 0.5_real64 * mu * vr*vr / qe_si
+            vr  = saved_vr(ttype)
+            Ekr = saved_Ekr(ttype)
 
             npt   = size(sig_Er)
             ipt_L = 1_int32
@@ -453,25 +524,51 @@ contains
             do ipt = ipt_L + 1, ipt_R
               Ek_L = sig_Er(ipt-1)
               Ek_R = sig_Er(ipt)
+
               if (Ekr > Ek_L .and. Ekr <= Ek_R) then
                 sig_L = sig(ipt-1,ind_col)
                 sig_R = sig(ipt  ,ind_col)
+
                 sig_p = sig_L + (Ekr - Ek_L) * (sig_R - sig_L) / (Ek_R - Ek_L)
 
-                if (workspace%nu_max(ptype) > 0.0_real64) then
-                  np_t = target_density(ttype, np_red, neutral_density, ix, iy, iz, ntype_tracked)
-                  
-                  nu(icol) = np_t * sig_p * vr / nu_max_local
-                  sum_nu = sum_nu + nu(icol)
-                  sort_arr(icol) = nu(icol)
-                end if
+                np_t = target_density(ttype, np_red, workspace%np_mx_all, ix, iy, iz, ntype_tracked)
+
+                ! Legacy normalized frequency:
+                ! nu = np_t * sigma * vr / nu_max_OMP
+                nu(icol) = np_t * sig_p * vr / nu_max_local
+                sum_nu = sum_nu + nu(icol)
+                
+                !!! MODIFICATION
+                sort_arr(icol) = nu(icol)
+
                 exit
               end if
             end do
           end do
+          
 
+          !!! MODIFICATION
           call indexx_small(min(p_ncol(ptype), MAX_COL), sort_arr, indx)
 
+          ! rnd       = ran2(iseed(iproc))
+          ! flag_coll = .false.
+          ! c_ind     = 0_int32
+          ! chosen_icol = 0_int32
+
+          ! if (rnd <= sum_nu) then
+          !   sum_nu = 0.0_real64
+          !   do icol = 1, min(p_ncol(ptype), MAX_COL)
+          !     sum_nu = sum_nu + nu(icol)
+          !     if (rnd <= sum_nu) then
+          !       flag_coll   = .true.
+          !       chosen_icol = icol
+          !       c_ind       = sig_list(ptype, chosen_icol)
+          !       exit
+          !     end if
+          !   end do
+          ! end if
+
+          !!! MODIFICATION
           rnd       = ran2(iseed(iproc))
           flag_coll = .false.
           c_ind     = 0_int32
@@ -491,37 +588,32 @@ contains
           end if
 
           if (.not. flag_coll) cycle
-          if (.not. target_found(chosen_icol)) cycle
+          
+          !$omp atomic
+          accepted_total = accepted_total + 1_int32
 
           n_re  = col_info(c_ind,1)
           n_by  = col_info(c_ind,2)
-
-          if (DEBUG_COLLISIONS .and. mpi_rank == 0 .and. ic <= 5) then
-            write(*,*) "COLLISION ACCEPTED: ptype, c_ind, n_by = ", ptype, c_ind, n_by
-          end if
-
           ttype = col_info(c_ind, 2 + n_re)
+
           if (ttype < 1_int32 .or. ttype > ntype_total) cycle
+          if (.not. target_found_by_type(ttype)) cycle
 
-          target_is_tracked = (ttype <= ntype_tracked)
-          itarget = target_ip(chosen_icol)
-          vx2 = target_vx(chosen_icol)
-          vy2 = target_vy(chosen_icol)
-          vz2 = target_vz(chosen_icol)
+          vx2 = saved_target_vx(ttype)
+          vy2 = saved_target_vy(ttype)
+          vz2 = saved_target_vz(ttype)
 
-          mu = abs(mass(ptype))*abs(mass(ttype)) / &
-               (abs(mass(ptype)) + abs(mass(ttype)))
-          vr  = sqrt((vx1-vx2)**2 + (vy1-vy2)**2 + (vz1-vz2)**2)
+          mu    = saved_mu(ttype)
+          vr    = saved_vr(ttype)
+          Ekr   = saved_Ekr(ttype)
+          vx_cm = saved_vx_cm(ttype)
+          vy_cm = saved_vy_cm(ttype)
+          vz_cm = saved_vz_cm(ttype)
+
           Eth = sig_Eex(c_ind, ind_Eth)
           Ee  = 0.5_real64 * mu * vr*vr - Eth * qe_si
-          if (Ee < 0.0_real64) cycle
 
-          vx_cm = (abs(mass(ptype))*vx1 + abs(mass(ttype))*vx2) / &
-                  (abs(mass(ptype)) + abs(mass(ttype)))
-          vy_cm = (abs(mass(ptype))*vy1 + abs(mass(ttype))*vy2) / &
-                  (abs(mass(ptype)) + abs(mass(ttype)))
-          vz_cm = (abs(mass(ptype))*vz1 + abs(mass(ttype))*vz2) / &
-                  (abs(mass(ptype)) + abs(mass(ttype)))
+          if (Ee < 0.0_real64) cycle
 
           sum_mass_inv = 0.0_real64
           do i_by = 1, n_by
@@ -544,11 +636,16 @@ contains
           y0 = part(ptype,iproc)%y(ip)
           z0 = part(ptype,iproc)%z(ip)
 
-          projectile_reused = .false.
-          target_reused     = .false.
+          flag_add = 0_int32
+          flag_add(1:n_re) = -1_int32
+          flag_add(n_re+1:n_re+n_by) = 0_int32
 
+          ! -----------------------------------------------------
+          ! Create/update byproducts.
+          ! -----------------------------------------------------
           do i_by = 1, n_by
             btype = col_info(c_ind, 2 + n_re + i_by)
+
             if (btype < 1_int32 .or. btype > ntype_tracked) cycle
             if (mass(btype) <= 0.0_real64) cycle
 
@@ -561,28 +658,67 @@ contains
 
             vp = sqrt(2.0_real64 * (Ee / sum_mass_inv) / abs(mass(btype))**2)
 
-            if (.not. projectile_reused .and. btype == ptype) then
+            ! Legacy-like reuse rules.
+            if (i_by == 1_int32 .and. btype == ptype) then
               ib = ip
-              projectile_reused = .true.
-            else if (target_is_tracked .and. .not. target_reused .and. btype == ttype) then
-              ib = itarget
-              target_reused = .true.
+              flag_add(1) = 0_int32
+            else if (btype == ttype .and. ttype <= ntype_tracked) then
+              ib = saved_target_ip(ttype)
+              flag_add(2) = 0_int32
             else
               append_index = part(btype,iproc)%n + 1_int32
               ib = append_index
+              flag_add(n_re+i_by) = 1_int32
+            end if
+
+            if (ib <= 0_int32) cycle
+
+            if (ib <= part(btype,iproc)%n .and. allocated(part(btype,iproc)%vx)) then
+              v2old = part(btype,iproc)%vx(ib)**2 + &
+                      part(btype,iproc)%vy(ib)**2 + &
+                      part(btype,iproc)%vz(ib)**2
+            else
+              v2old = 0.0_real64
             end if
 
             call append_or_overwrite_product(part, btype, iproc, ib, x0, y0, z0, &
                  vx_cm + vp*ex1, vy_cm + vp*ey1, vz_cm + vp*ez1)
+
+            v2new = part(btype,iproc)%vx(ib)**2 + &
+                    part(btype,iproc)%vy(ib)**2 + &
+                    part(btype,iproc)%vz(ib)**2
+
+            ! Legacy-style P_loss(3,btype,bproc), except local Pcoll slice is Pcoll(btype,iproc).
+            Pcoll(btype,iproc) = Pcoll(btype,iproc) + &
+                 0.5_real64 * Nm(btype) * mass(btype) * (v2new - v2old)
           end do
 
-          if (.not. projectile_reused) then
-            if (allocated(part(ptype,iproc)%flag_dead)) part(ptype,iproc)%flag_dead(ip) = 1
-          end if
+          ! -----------------------------------------------------
+          ! Kill reactants not reused among products.
+          ! -----------------------------------------------------
+          do i_re = 1, n_re
+            ctype = col_info(c_ind, 2 + i_re)
 
-          if (target_is_tracked .and. .not. target_reused .and. itarget > 0_int32) then
-            if (allocated(part(ttype,iproc)%flag_dead)) part(ttype,iproc)%flag_dead(itarget) = 1
-          end if
+            if (ctype < 1_int32 .or. ctype > ntype_tracked) cycle
+            if (mass(ctype) <= 0.0_real64) cycle
+
+            if (flag_add(i_re) == -1_int32) then
+              if (ctype == ptype) then
+                ib = ip
+                if (allocated(part(ctype,iproc)%flag_dead)) &
+                  part(ctype,iproc)%flag_dead(ib) = 1
+              else if (ctype == ttype .and. ttype <= ntype_tracked) then
+                ib = saved_target_ip(ttype)
+                if (ib > 0_int32) then
+                  if (allocated(part(ctype,iproc)%flag_dead)) &
+                    part(ctype,iproc)%flag_dead(ib) = 1
+                end if
+              end if
+            end if
+          end do
+
+          ! Threshold energy loss, legacy dEk_lost equivalent.
+          !Pcoll(ptype,iproc) = Pcoll(ptype,iproc) - Nm(ptype) * Eth * qe_si
 
           if (allocated(part(ptype,iproc)%cell_id))    part(ptype,iproc)%cell_id    = 0_int32
           if (allocated(part(ptype,iproc)%cell_count)) part(ptype,iproc)%cell_count = 0_int32
@@ -590,6 +726,16 @@ contains
         end do
       end do
     end do
+    !$omp end parallel do
+
+
+    if (DEBUG_COLLISIONS .and. mpi_rank == 0) then
+      write(*,*) "COLL SUMMARY:"
+      write(*,*) "  Nc total       = ", sum(workspace%Nc)
+      write(*,*) "  accepted total = ", accepted_total
+      write(*,*) "  Pcoll raw      = ", sum(Pcoll)
+      write(*,*) "  err_coll total = ", sum(workspace%err_coll)
+    end if
   end subroutine perform_collisions_step
 
 
@@ -606,7 +752,7 @@ contains
     v2  = fac * sin(2.0_real64 * pi * r2)
   end subroutine box_muller
 
-
+  !!! MODIFICATION
   subroutine indexx_small(n, arr, indx)
     integer(int32), intent(in)  :: n
     real(real64),   intent(in)  :: arr(*)

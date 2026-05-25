@@ -31,8 +31,8 @@ def read_mco_ascii(path: Path) -> np.ndarray:
                 f"Bad header in {path.name}: expected 2 ints 'n1 n2', got: {header}"
             )
 
-        n1 = int(header[0]) + 1
-        n2 = int(header[1]) + 1
+        n1 = int(header[0]) 
+        n2 = int(header[1]) 
 
         data = []
         for j in range(n2):
@@ -58,7 +58,7 @@ def main() -> int:
 
     print(f"Looking for files in:\n  {folder}\n")
 
-    file_list = [folder / f"../Output/Output_2D/it{i}_n2_xz.mco" for i in range(1, 29502, 100)]
+    file_list = [folder / f"../Output/Output_2D/it{i}_n1_xz.mco" for i in range(1, 119002, 1000)]
 
     existing_files = []
     for f in file_list:

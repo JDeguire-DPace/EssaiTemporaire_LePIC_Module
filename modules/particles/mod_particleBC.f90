@@ -1,6 +1,7 @@
 module mod_particleBC
   use iso_fortran_env, only: int32, int64, int8, real64
   use mod_particles,   only: ParticleSet
+  use mod_constants,   only: qe
 
   implicit none
   private
@@ -41,7 +42,8 @@ contains
   subroutine apply_particle_bc_legacy( part, n, h, bcnd, xmax, ymax, zmax, &
                                        flag_pbc, flag_nmn, ptype, tag_neg, &
                                        flag_die, dtype, qmacro, &
-                                       sum_q_xz_local, sum_q_yz_local )
+                                       sum_q_xz_local, sum_q_yz_local, &
+                                       p_mac_boundary, mass_species, P_loss_wall, Nm_species )
 
     class(ParticleSet), intent(inout) :: part
     integer(int32),     intent(in)    :: n(3)
@@ -54,6 +56,10 @@ contains
     real(real64),       intent(in)    :: qmacro
     real(real64),       intent(inout) :: sum_q_xz_local(0:n(1)+2,0:n(3)+2)
     real(real64),       intent(inout) :: sum_q_yz_local(2,0:n(2)+2,0:n(3)+2)
+    real(real64),       intent(inout) :: p_mac_boundary(:,:)
+    real(real64),       intent(in)    :: mass_species
+    real(real64),       intent(inout) :: P_loss_wall
+    real(real64),       intent(in)    :: Nm_species
 
     integer(int32) :: i, i_shift
     integer(int32) :: ix, iy, iz
@@ -64,6 +70,7 @@ contains
     real(real64) :: vpx_new, vpy_new, vpz_new
     real(real64) :: px, py, pz
     real(real64) :: ki4(4)
+    real(real64) :: Ek_eV, Ek_J
 
     if (.not. allocated(part%x)) return
     if (part%n <= 0_int32) return
@@ -181,6 +188,24 @@ contains
           end if
         end if
 
+        ! ------------------------------------------
+        ! Legacy wall diagnostics accumulation
+        ! ------------------------------------------
+
+        if (igrid < 0_int32) igrid = 0_int32
+
+        Ek_eV = 0.5_real64 * mass_species * &
+          (vpx_new*vpx_new + vpy_new*vpy_new + vpz_new*vpz_new) / qe
+
+        p_mac_boundary(1,igrid) = p_mac_boundary(1,igrid) + qmacro
+        p_mac_boundary(2,igrid) = p_mac_boundary(2,igrid) + abs(qmacro) * Ek_eV
+        
+        Ek_J = 0.5_real64 * mass_species * &
+            (vpx_new*vpx_new + vpy_new*vpy_new + vpz_new*vpz_new)
+
+        P_loss_wall = P_loss_wall + Nm_species * Ek_J
+
+
         np_lost = np_lost + 1_int32
         cycle
       end if
@@ -232,5 +257,23 @@ contains
     if (allocated(part%cell_start)) part%cell_start = 0_int32
 
   end subroutine apply_particle_bc_legacy
+
+    pure real(real64) function self_charge_current(qmacro) result(val)
+    real(real64), intent(in) :: qmacro
+    val = qmacro
+  end function self_charge_current
+
+
+  ! pure real(real64) function particle_energy_eV(vx,vy,vz) result(Ek)
+  !   use mod_constants, only: qe
+  !   real(real64), intent(in) :: vx,vy,vz
+
+  !   real(real64) :: v2
+
+  !   v2 = vx*vx + vy*vy + vz*vz
+
+  !   ! electron mass convention handled outside
+  !   Ek = 0.5_real64 * mass_species * v2 / qe
+  ! end function particle_energy_eV
 
 end module mod_particleBC

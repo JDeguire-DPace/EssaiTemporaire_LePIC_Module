@@ -23,6 +23,17 @@ module mod_simulation
   type :: Simulation
     type(State) :: state
     type(CollisionWorkspace) :: coll_ws
+
+    real(real64) :: t_Erho    = 0.0_real64
+    real(real64) :: t_poisson = 0.0_real64
+    real(real64) :: t_sort    = 0.0_real64
+    real(real64) :: t_avg     = 0.0_real64
+    real(real64) :: t_MC      = 0.0_real64
+    real(real64) :: t_mover   = 0.0_real64
+    real(real64) :: t_bck     = 0.0_real64
+    real(real64) :: t_total   = 0.0_real64
+    integer(int32) :: t_count = 0_int32
+
   contains
     procedure :: init
     procedure :: build_initial_fields
@@ -33,6 +44,7 @@ module mod_simulation
     procedure :: reset_2d_averages
     procedure :: advance_one_step
     procedure :: print_debug_state
+    procedure :: print_diagnostics
     procedure :: run
     procedure :: finalize
   end type Simulation
@@ -190,7 +202,7 @@ contains
       charge          = self%state%chem%charge(1:self%state%rxn%ntype), &
       vt0             = self%state%params%vt0(1:self%state%rxn%ntype), &
       Nm              = self%state%params%Nm(1:self%state%rxn%ntype), &
-      neutral_density = self%state%chem%ni0(1:self%state%rxn%ntype), &
+      neutral_density = self%state%chem%ni0(self%state%ntype+1:self%state%rxn%ntype), &
       p_ncol          = self%state%chem%p_ncol(1:self%state%rxn%ntype), &
       sig             = self%state%rxn%sig, &
       sig_Er          = self%state%rxn%sig_Er, &
@@ -204,7 +216,8 @@ contains
       iseed           = self%state%params%iseed, &
       nproc_mpi       = int(self%state%mpi_size, int32), &
       mpi_rank        = int(self%state%mpi_rank, int32), &
-      workspace       = self%coll_ws )
+      workspace       = self%coll_ws, & 
+      Pcoll           = self%state%P_loss(3,:,:))
   end subroutine collisions_step
 
 
@@ -329,17 +342,20 @@ contains
     integer(int32), intent(in) :: istep
 
     real(real64) :: vt_heat
+    real(real64) :: t0, t1, tstep0
 
-    ! ------------------------------------------------------------
-    ! 1. Sort particles, legacy cadence
-    ! ------------------------------------------------------------
+    tstep0 = MPI_Wtime()
+
+    ! Sorting
+    t0 = MPI_Wtime()
     if (mod(istep, self%state%params%nb_step_sort) == 1_int32) then
       call self%state%sort_particles_local()
     end if
+    t1 = MPI_Wtime()
+    self%t_sort = self%t_sort + (t1 - t0)
 
-    ! ------------------------------------------------------------
-    ! 2. Rebuild rho from current density
-    ! ------------------------------------------------------------
+    ! E/rho
+    t0 = MPI_Wtime()
     call reduce_species_density( &
       n         = int(self%state%dom%n, int32), &
       bcnd      = self%state%dom%bcnd, &
@@ -357,10 +373,11 @@ contains
       rho      = self%state%fld%rho, &
       bcnd     = self%state%dom%bcnd, &
       flag_pbc = int(self%state%dom%flag_pbc, int32) )
+    t1 = MPI_Wtime()
+    self%t_Erho = self%t_Erho + (t1 - t0)
 
-    ! ------------------------------------------------------------
-    ! 3. Field solve
-    ! ------------------------------------------------------------
+    ! Poisson + E field
+    t0 = MPI_Wtime()
     call self%state%apply_dielectric_bc_to_phi()
 
     call solve_poisson_legacy( &
@@ -385,70 +402,72 @@ contains
       phi  = self%state%fld%phi, &
       E    = self%state%fld%E, &
       bcnd = self%state%dom%bcnd )
+    t1 = MPI_Wtime()
+    self%t_poisson = self%t_poisson + (t1 - t0)
 
-    ! ------------------------------------------------------------
-    ! 4. Averaging before particle motion, as before
-    ! ------------------------------------------------------------
+    ! Averaging
+    t0 = MPI_Wtime()
     if (self%state%params%nb_step_averaging > 0_int32) then
       if (mod(istep, self%state%params%nb_step_averaging) == 1_int32) then
         call self%state%compute_plane_moments_local()
         call self%state%accumulate_2d_averages()
       end if
     end if
+    t1 = MPI_Wtime()
+    self%t_avg = self%t_avg + (t1 - t0)
 
-    ! ------------------------------------------------------------
-    ! 5. Reset dielectric charge counters
-    ! ------------------------------------------------------------
+    ! Reset dielectric charge counters
     if (allocated(self%state%sum_q_xz)) self%state%sum_q_xz = 0.0_real64
     if (allocated(self%state%sum_q_yz)) self%state%sum_q_yz = 0.0_real64
 
-    ! ------------------------------------------------------------
-    ! 6. Move particles and apply BC
-    ! ------------------------------------------------------------
+    ! Mover + particle BC
+    t0 = MPI_Wtime()
     call self%state%move_particles_local()
     call self%state%apply_particle_bc_local()
+    t1 = MPI_Wtime()
+    self%t_mover = self%t_mover + (t1 - t0)
 
-    ! ------------------------------------------------------------
-    ! 7. Collisions, legacy cadence
-    ! ------------------------------------------------------------
+    ! Collisions
+    t0 = MPI_Wtime()
     if (self%state%params%nb_step_collisions > 0_int32) then
-      !!! Modification
       if (mod(istep, self%state%params%nb_step_collisions) == 0_int32) then
         call self%collisions_step()
       end if
     end if
+    t1 = MPI_Wtime()
+    self%t_MC = self%t_MC + (t1 - t0)
 
-    ! ------------------------------------------------------------
-    ! 8. Electron heating, legacy cadence
-    ! ------------------------------------------------------------
-    ! ------------------------------------------------------------
-    ! 8. Electron heating, legacy cadence
-    ! ------------------------------------------------------------
+    ! Electron heating
     if (self%state%params%nb_step_heating > 0_int32) then
       if (mod(istep, self%state%params%nb_step_heating) == 0_int32) then
-
-        if (self%state%mpi_rank == 0) then
-          write(*,*) "MOD calling heating at istep = ", istep
-        end if
-
         call self%state%compute_heating_region_moments()
         call self%state%update_heating_vt(vt_heat)
         call self%state%apply_electron_heating_local(vt_heat)
-
       end if
     end if
-    ! ------------------------------------------------------------
-    ! 9. Deposit particles after all particle operations
-    ! ------------------------------------------------------------
-    call self%deposit_all_particles()
 
-    ! ------------------------------------------------------------
-    ! 10. Output
-    ! ------------------------------------------------------------
+    ! Deposit particles after all particle operations
+    t0 = MPI_Wtime()
+    call self%deposit_all_particles()
+    t1 = MPI_Wtime()
+    self%t_Erho = self%t_Erho + (t1 - t0)
+
+    ! Output/write
+    t0 = MPI_Wtime()
     if (mod(istep, self%state%cfg%nsav) == 1_int32) then
       call self%output_step(istep)
       call self%reset_2d_averages()
     end if
+    t1 = MPI_Wtime()
+    self%t_avg = self%t_avg + (t1 - t0)
+
+    ! Backup not implemented yet
+    self%t_bck = self%t_bck + 0.0_real64
+
+    ! Total wall time
+    t1 = MPI_Wtime()
+    self%t_total = self%t_total + (t1 - tstep0)
+    self%t_count = self%t_count + 1_int32
 
   end subroutine advance_one_step
 
@@ -457,32 +476,18 @@ contains
     class(Simulation), intent(inout) :: self
     integer, intent(in) :: nsteps
 
-    integer(int32) :: istep
+    integer(int32) :: istep,ptype
 
     if (self%state%mpi_rank == 0) then
       write(*,*) " "
-      write(*,*) "MOD eps0 = ", eps0
-      write(*,*) "MOD k_eps0 = ", self%state%cfg%k_eps0
-      write(*,*) "MOD ix_plot_plane = ", self%state%params%ix_plot_plane
-      write(*,*) "MOD iz_plot_plane = ", self%state%params%iz_plot_plane
-      write(*,*) "MOD nsav = ", self%state%cfg%nsav
-      write(*,*) "MOD navg = ", self%state%params%nb_step_averaging
-      write(*,*) "Entering the PIC loop"
+      write(*,*) " "
+      write(*,"(a)") ">>> Entering the PIC loop <<<"
       write(*,*) " "
     end if
 
     do istep = 1_int32, int(nsteps, int32)
-      if (mod(istep,1000_int32).eq.1_int32) then
-        write(*,'(a,i0)') 'time step ', istep
-        write(*,*) "sum n1 = ", sum(self%state%fld%np(:,:,:,1))
-        write(*,*) "sum n2 = ", sum(self%state%fld%np(:,:,:,2))
-        write(*,*) "sum rho = ", sum(self%state%fld%rho)
-        write(*,*) "max phi = ", maxval(self%state%fld%phi)
-        write(*,*) "min phi = ", minval(self%state%fld%phi)
-        write(*,*) "npart e = ", sum(self%state%part(1,:)%n)
-        write(*,*) "npart i = ", sum(self%state%part(2,:)%n)
-        !write(*,*) "Nm1 Nm2 = ", size(self%state%params%vt0(1)), size(self%state%params%vt0(2))
-        write(*,*) "cnt_avg = ", self%state%cnt_avg
+      if (mod(istep,self%state%cfg%nsav).eq.1_int32) then
+        call self%print_diagnostics(istep)
       end if
       call self%advance_one_step(istep)
     end do
@@ -494,5 +499,198 @@ contains
 
     call self%state%finalize()
   end subroutine finalize
+
+  ! subroutine print_diagnostics(self,istep)
+  !   class(Simulation), intent(inout) :: self
+  !   integer(int32), intent(in)   :: istep
+  !   integer(int32)               :: ptype
+  !   real(real64)                 :: simulation_time
+  !   real(real64) :: Pwall, Pabs, Pcoll, Pinj
+  !   real(real64) :: Iw1, Iw2
+  !   real(real64) :: Ekw1, Ekw2
+
+  !   Pabs  = sum(self%state%P_loss(2,:,:)) / &
+  !       (real(self%state%cfg%nsav - 1_int32, real64) * self%state%params%dt)
+  !   Pcoll = sum(self%state%P_loss(3,:,:)) * self%state%params%Nm(1) / &
+  !       (real(self%state%cfg%nsav - 1_int32, real64) * self%state%params%dt)
+  !   Pinj  = sum(self%state%P_loss(4,:,:))
+  !   Pwall = -sum(self%state%P_loss(1,:,:)) / &
+  !       (real(self%state%cfg%nsav - 1_int32, real64) * self%state%params%dt)
+
+
+
+  !   Iw1 = sum(self%state%p_mac(1,1,:,:)) / &
+  !         (real(self%state%cfg%nsav - 1_int32, real64) * self%state%params%dt)
+
+  !   Iw2 = sum(self%state%p_mac(2:self%state%ntype,1,:,:)) / &
+  !         (real(self%state%cfg%nsav - 1_int32, real64) * self%state%params%dt)
+
+  !   Ekw1 = 0.0_real64
+  !   if (abs(sum(self%state%p_mac(1,1,:,:))) > 0.0_real64) then
+  !     Ekw1 = sum(self%state%p_mac(1,2,:,:)) / &
+  !           abs(sum(self%state%p_mac(1,1,:,:)))
+  !   end if
+
+  !   Ekw2 = 0.0_real64
+  !   if (sum(abs(self%state%p_mac(2:self%state%ntype,1,:,:))) > 0.0_real64) then
+  !     Ekw2 = sum(self%state%p_mac(2:self%state%ntype,2,:,:)) / &
+  !           sum(abs(self%state%p_mac(2:self%state%ntype,1,:,:)))
+  !   end if
+
+
+  !   write(*,'(a)') " "
+  !   write(*,'(a)') " "
+  !   write(*,'(a,i0,a,F8.3,a)') ' TIME STEP ', istep, ' --> ', self%state%params%dt*istep*1.d6, " us"
+
+  !   write(*,'(a)') " -------------------------"
+  !   write(*,'(a)') " Particles diagnostics: "
+  !   do ptype = 1_int32, self%state%rxn%ntype-self%state%rxn%n_neu
+  !     write(*,'(a,a,a,i0)') " npart ", self%state%chem%pname(ptype) , " = ", sum(self%state%part(ptype,:)%n)
+  !   end do
+
+  !   write(*,'(a)') " -------------------------"
+  !   write(*,"(a)") " Power diagnostics: "
+  !   write(*,'(A,ES10.2)')  ' Pwall (W)  = ', Pwall
+  !   write(*,'(A,ES10.2)')  ' Pabs  (W)  = ', Pabs
+  !   write(*,'(A,ES10.2)')  ' Pcoll (W)  = ', Pcoll
+  !   write(*,'(A,ES10.2)')  ' Pinj  (W)  = ', Pinj
+
+  !   write(*,'(a,ES10.2,ES10.2)')  ' I_w  (A)  = ', Iw1, Iw2
+  !   write(*,'(a,ES10.2,ES10.2)')  ' Ek_w (eV) = ', Ekw1, Ekw2
+  !   write(*,'(a)') " -------------------------"
+
+
+  !   write(*,'(a)') "  "
+
+
+  !   ! Reset legacy-style power accumulators after printing
+  !   if (allocated(self%state%P_loss) .or. allocated(self%state%p_mac)) then
+  !     self%state%P_loss = 0.0_real64
+  !     self%state%p_mac  = 0.0_real64
+  !   end if
+
+  ! end subroutine print_diagnostics
+
+  subroutine print_diagnostics(self,istep)
+    class(Simulation), intent(inout) :: self
+    integer(int32), intent(in)   :: istep
+    integer(int32)               :: ptype
+    real(real64)                 :: simulation_time
+    real(real64) :: Pwall, Pabs, Pcoll, Pinj
+    real(real64) :: Iw1, Iw2
+    real(real64) :: Ekw1, Ekw2
+
+    Pabs  = sum(self%state%P_loss(2,:,:)) / &
+        (real(self%state%cfg%nsav - 1_int32, real64) * self%state%params%dt)
+
+    Pcoll = sum(self%state%P_loss(3,:,:)) / &
+        (real(self%state%cfg%nsav - 1_int32, real64) * self%state%params%dt)
+
+    Pinj  = sum(self%state%P_loss(4,:,:))
+
+    Pwall = -sum(self%state%P_loss(1,:,:)) / &
+        (real(self%state%cfg%nsav - 1_int32, real64) * self%state%params%dt)
+
+    Iw1 = sum(self%state%p_mac(1,1,:,:)) / &
+          (real(self%state%cfg%nsav - 1_int32, real64) * self%state%params%dt)
+
+    Iw2 = sum(self%state%p_mac(2:self%state%ntype,1,:,:)) / &
+          (real(self%state%cfg%nsav - 1_int32, real64) * self%state%params%dt)
+
+    Ekw1 = 0.0_real64
+    if (abs(sum(self%state%p_mac(1,1,:,:))) > 0.0_real64) then
+      Ekw1 = sum(self%state%p_mac(1,2,:,:)) / &
+            abs(sum(self%state%p_mac(1,1,:,:)))
+    end if
+
+    Ekw2 = 0.0_real64
+    if (sum(abs(self%state%p_mac(2:self%state%ntype,1,:,:))) > 0.0_real64) then
+      Ekw2 = sum(self%state%p_mac(2:self%state%ntype,2,:,:)) / &
+            sum(abs(self%state%p_mac(2:self%state%ntype,1,:,:)))
+    end if
+
+    write(*,'(a)') " "
+    write(*,'(a)') " "
+
+    write(*,'(a,i0,a,F8.3,a)') &
+      ' TIME STEP ', istep, ' --> ', &
+      self%state%params%dt*istep*1.d6, " us"
+
+    write(*,'(a)') " -------------------------"
+    write(*,'(a)') " Particles diagnostics: "
+
+    do ptype = 1_int32, self%state%rxn%ntype-self%state%rxn%n_neu
+      write(*,'(a,a,a,i0)') &
+        " npart ", self%state%chem%pname(ptype) , &
+        " = ", sum(self%state%part(ptype,:)%n)
+    end do
+
+    write(*,'(a)') " -------------------------"
+
+    write(*,"(a)") " Power diagnostics: "
+
+    write(*,'(A,ES10.2)') ' Pwall (W)  = ', Pwall
+    write(*,'(A,ES10.2)') ' Pabs  (W)  = ', Pabs
+    write(*,'(A,ES10.2)') ' Pcoll (W)  = ', Pcoll
+    write(*,'(A,ES10.2)') ' Pinj  (W)  = ', Pinj
+
+    write(*,'(a,ES10.2,ES10.2)') ' I_w  (A)  = ', Iw1, Iw2
+    write(*,'(a,ES10.2,ES10.2)') ' Ek_w (eV) = ', Ekw1, Ekw2
+
+    write(*,'(a)') " -------------------------"
+
+    if (self%t_count > 0_int32) then
+      write(*,'(a)') " Timing diagnostics: "
+
+      write(*,'(A,F7.1)') ' E/rho      (ms) = ', &
+        1000.0_real64*self%t_Erho/real(self%t_count,real64)
+
+      write(*,'(A,F7.1)') ' poisson    (ms) = ', &
+        1000.0_real64*self%t_poisson/real(self%t_count,real64)
+
+      write(*,'(A,F7.1)') ' sorting    (ms) = ', &
+        1000.0_real64*self%t_sort/real(self%t_count,real64)
+
+      write(*,'(A,F7.1)') ' avg/write  (ms) = ', &
+        1000.0_real64*self%t_avg/real(self%t_count,real64)
+
+      write(*,'(A,F7.1)') ' MC         (ms) = ', &
+        1000.0_real64*self%t_MC/real(self%t_count,real64)
+
+      write(*,'(A,F7.1)') ' mover      (ms) = ', &
+        1000.0_real64*self%t_mover/real(self%t_count,real64)
+
+      write(*,'(A,F7.1)') ' bck        (ms) = ', &
+        1000.0_real64*self%t_bck/real(self%t_count,real64)
+
+      write(*,'(A,F7.1)') ' total      (ms) = ', &
+        1000.0_real64*self%t_total/real(self%t_count,real64)
+
+      write(*,'(a)') " -------------------------"
+    end if
+
+    
+
+    write(*,'(a)') "  "
+    write(*,*) "  "
+
+    ! Reset legacy-style power accumulators after printing
+    if (allocated(self%state%P_loss) .or. allocated(self%state%p_mac)) then
+      self%state%P_loss = 0.0_real64
+      self%state%p_mac  = 0.0_real64
+    end if
+
+    ! Reset timers
+    self%t_Erho    = 0.0_real64
+    self%t_poisson = 0.0_real64
+    self%t_sort    = 0.0_real64
+    self%t_avg     = 0.0_real64
+    self%t_MC      = 0.0_real64
+    self%t_mover   = 0.0_real64
+    self%t_bck     = 0.0_real64
+    self%t_total   = 0.0_real64
+    self%t_count   = 0_int32
+
+  end subroutine print_diagnostics
 
 end module mod_simulation

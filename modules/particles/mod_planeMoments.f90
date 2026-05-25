@@ -54,10 +54,6 @@ contains
     vx2_xz = 0.0_real64 ; vy2_xz = 0.0_real64 ; vz2_xz = 0.0_real64
     vx2_yz = 0.0_real64 ; vy2_yz = 0.0_real64 ; vz2_yz = 0.0_real64
 
-    data_xy = 0.0_real64
-    data_xz = 0.0_real64
-    data_yz = 0.0_real64
-
     do iproc = 1, nproc
       if (.not. allocated(part(iproc)%x)) cycle
       if (part(iproc)%n <= 0_int32) cycle
@@ -264,7 +260,8 @@ contains
           u2 = data_xy(u1_avg,ix,iy)**2 + data_xy(u2_avg,ix,iy)**2 + data_xy(u3_avg,ix,iy)**2
           v2mean = (vx2_xy(ix,iy) + vy2_xy(ix,iy) + vz2_xy(ix,iy)) / cnt_xy(ix,iy)
           thermal_v2 = max(0.0_real64, v2mean - u2)
-          data_xy(Tp_avg,ix,iy) = mass_species * thermal_v2 / (3.0_real64 * qe)
+          data_xy(Tp_avg,ix,iy) = data_xy(Tp_avg,ix,iy) + &
+                        mass_species * thermal_v2 / (3.0_real64 * qe)
         end if
       end do
     end do
@@ -280,7 +277,8 @@ contains
           u2 = data_xz(u1_avg,ix,iz)**2 + data_xz(u2_avg,ix,iz)**2 + data_xz(u3_avg,ix,iz)**2
           v2mean = (vx2_xz(ix,iz) + vy2_xz(ix,iz) + vz2_xz(ix,iz)) / cnt_xz(ix,iz)
           thermal_v2 = max(0.0_real64, v2mean - u2)
-          data_xz(Tp_avg,ix,iz) = mass_species * thermal_v2 / (3.0_real64 * qe)
+          data_xz(Tp_avg,ix,iz) = data_xz(Tp_avg,ix,iz) + &
+                      mass_species * thermal_v2 / (3.0_real64 * qe)
         end if
       end do
     end do
@@ -296,7 +294,8 @@ contains
           u2 = data_yz(u1_avg,iy,iz)**2 + data_yz(u2_avg,iy,iz)**2 + data_yz(u3_avg,iy,iz)**2
           v2mean = (vx2_yz(iy,iz) + vy2_yz(iy,iz) + vz2_yz(iy,iz)) / cnt_yz(iy,iz)
           thermal_v2 = max(0.0_real64, v2mean - u2)
-          data_yz(Tp_avg,iy,iz) = mass_species * thermal_v2 / (3.0_real64 * qe)
+          data_yz(Tp_avg,iy,iz) = data_yz(Tp_avg,iy,iz) + &
+                  mass_species * thermal_v2 / (3.0_real64 * qe)
         end if
       end do
     end do

@@ -65,6 +65,7 @@ module mod_state
 
     real(real64) :: p_loss_heating_local
     real(real64), allocatable :: P_loss(:,:,:)
+    real(real64), allocatable :: p_mac(:,:,:,:)
 
     real(real64), allocatable :: data_pavg_xy(:,:,:,:)
     real(real64), allocatable :: data_pavg_xz(:,:,:,:)
@@ -158,6 +159,9 @@ contains
     allocate(self%P_loss(4, self%ntype, self%nproc))
     self%P_loss = 0.0_real64
 
+    allocate(self%p_mac(self%ntype, 2, 0:self%cfg%ngrid, self%nproc))
+    self%p_mac = 0.0_real64
+
     allocate(self%Nh(self%nproc))
     allocate(self%sum_dEk(self%nproc))
     self%Nh      = 0_int32
@@ -186,8 +190,6 @@ contains
     self%data_pavg_xy = 0.0_real64
     self%data_pavg_xz = 0.0_real64
     self%data_pavg_yz = 0.0_real64
-    write(*,*) "omp_get_max_threads() = ", omp_get_max_threads()
-    write(*,*) "omp_get_num_procs()   = ", omp_get_num_procs()
 
   end subroutine init
 
@@ -508,7 +510,11 @@ contains
             dtype          = self%dom%dtype, &
             qmacro         = qmacro, &
             sum_q_xz_local = self%sum_q_xz(:,:,ptype,iproc), &
-            sum_q_yz_local = self%sum_q_yz(:,:,:,ptype,iproc) )
+            sum_q_yz_local = self%sum_q_yz(:,:,:,ptype,iproc), &
+            p_mac_boundary = self%p_mac(ptype,:,:,iproc), &
+            mass_species   = self%chem%mass(ptype), &
+            P_loss_wall    = self%P_loss(1,ptype,iproc), &
+            Nm_species     = self%params%Nm(ptype))
       end do
     end do
     !$omp end parallel do
@@ -602,15 +608,7 @@ contains
     if (Te > 0.0_real64) then
       vt_heat = sqrt(2.0_real64 * qe * Te / abs(self%chem%mass(1)))
     end if
-    if (self%mpi_rank == 0) then
-      write(*,*) "MOD HEATING DEBUG"
-      write(*,*) "Pabs     = ", self%cfg%Pabs
-      write(*,*) "nu_h     = ", self%cfg%nu_h
-      write(*,*) "sum_Nh   = ", sum_Nh_global
-      write(*,*) "sum_dEk  = ", sum_dEk_global
-      write(*,*) "Te heat  = ", Te
-      write(*,*) "vt_heat  = ", vt_heat
-    end if
+    
   end subroutine update_heating_vt
 
 
@@ -619,10 +617,6 @@ contains
     integer(int32) :: ptype
 
     if (.not. allocated(self%part)) return
-
-    self%data_pavg_xy = 0.0_real64
-    self%data_pavg_xz = 0.0_real64
-    self%data_pavg_yz = 0.0_real64
 
     do ptype = 1, self%ntype
       call compute_particle_plane_moments_species( &
@@ -705,6 +699,7 @@ contains
     if (allocated(self%sum_q_xz))     deallocate(self%sum_q_xz)
     if (allocated(self%sum_q_yz))     deallocate(self%sum_q_yz)
     if (allocated(self%P_loss))       deallocate(self%P_loss)
+    if (allocated(self%p_mac))        deallocate(self%p_mac)
     if (allocated(self%Nh))           deallocate(self%Nh)
     if (allocated(self%sum_dEk))      deallocate(self%sum_dEk)
     if (allocated(self%np_avg_xy))    deallocate(self%np_avg_xy)
