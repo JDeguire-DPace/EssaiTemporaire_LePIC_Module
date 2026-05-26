@@ -253,6 +253,10 @@ contains
     !!! MODIFICATION
     real(real64)   :: sort_arr(MAX_COL)
     integer(int32) :: indx(MAX_COL)
+    logical        :: use_fast_electron_neutral
+    integer(int32) :: e_neu_count, k
+    integer(int32) :: e_neu_col(MAX_COL)
+    integer(int32) :: e_neu_ttype(MAX_COL)
 
     integer(int32) :: saved_target_ip(size(mass))
     logical        :: target_selected(size(mass))
@@ -372,6 +376,25 @@ contains
     end do
 
 
+    ! ------------------------------------------------------------
+    ! Prebuild electron-neutral reaction list for fast path.
+    ! ------------------------------------------------------------
+    e_neu_count = 0_int32
+
+    if (ntype_tracked >= 1_int32) then
+      do icol = 1, min(p_ncol(1), MAX_COL)
+        ind_col = sig_list(1,icol)
+        n_re    = col_info(ind_col,1)
+        ttype   = col_info(ind_col, 2 + n_re)
+
+        if (ttype > ntype_tracked .and. ttype <= ntype_total) then
+          e_neu_count = e_neu_count + 1_int32
+          e_neu_col(e_neu_count)   = ind_col
+          e_neu_ttype(e_neu_count) = ttype
+        end if
+      end do
+    end if
+
 
     ! ------------------------------------------------------------
     ! Perform collisions.
@@ -387,7 +410,7 @@ contains
     !$omp saved_target_vz, saved_vr, saved_Ekr, saved_mu, saved_vx_cm, saved_vy_cm, &
     !$omp saved_vz_cm, ipt, ipt_L, ipt_R, ipt_M, npt, th_add, costh, phi, ex, ey, ez, &
     !$omp ex1, ey1, ez1, costh_s, phi_s, vp, st, x0, y0, z0, nu_max_local, v2old, &
-    !$omp v2new, flag_add )
+    !$omp v2new, flag_add, use_fast_electron_neutral, k )
     do iproc = 1, nproc
       do ptype = 1, ntype_tracked
         if (ptype > size(p_ncol)) cycle
@@ -403,6 +426,9 @@ contains
              (real(ns_coll, real64) * dt)
 
         if (nu_max_local <= 0.0_real64) cycle
+
+        use_fast_electron_neutral = (ptype == 1_int32)
+
         do ic = 1, workspace%Nc(ptype,iproc)
 
           rnd = ran2(iseed(iproc))
@@ -426,6 +452,122 @@ contains
           vx1 = part(ptype,iproc)%vx(ip)
           vy1 = part(ptype,iproc)%vy(ip)
           vz1 = part(ptype,iproc)%vz(ip)
+
+          ! -----------------------------------------------------
+          ! Fast path for electron-neutral collisions.
+          ! This avoids the charged-target DSMC search and the full
+          ! general target bookkeeping for ptype=1.  It handles only
+          ! reactions whose target ttype is neutral.  Electron-charged
+          ! reactions are skipped in this fast branch.
+          ! -----------------------------------------------------
+          if (use_fast_electron_neutral) then
+            nu       = 0.0_real64
+            sum_nu   = 0.0_real64
+            sort_arr = 0.0_real64
+
+            target_selected      = .false.
+            target_found_by_type = .false.
+
+            do k = 1, e_neu_count
+              ind_col = e_neu_col(k)
+              ttype   = e_neu_ttype(k)
+              n_re    = col_info(ind_col,1)
+              n_by    = col_info(ind_col,2)
+              icol    = k
+
+              ! ! Fast branch handles electron-neutral reactions only.
+              ! if (ttype <= ntype_tracked) cycle
+              ! if (ttype < 1_int32 .or. ttype > ntype_total) cycle
+
+              if (.not. target_selected(ttype)) then
+                call neutral_velocity(vx2, vy2, vz2, vt0(ttype), iseed(iproc))
+
+                saved_target_ip(ttype) = 0_int32
+                saved_target_vx(ttype) = vx2
+                saved_target_vy(ttype) = vy2
+                saved_target_vz(ttype) = vz2
+
+                saved_mu(ttype) = abs(mass(ptype))*abs(mass(ttype)) / &
+                     (abs(mass(ptype)) + abs(mass(ttype)))
+
+                saved_vr(ttype) = sqrt((vx1-vx2)**2 + (vy1-vy2)**2 + (vz1-vz2)**2)
+                saved_Ekr(ttype) = 0.5_real64 * saved_mu(ttype) * saved_vr(ttype)**2 / qe_si
+
+                saved_vx_cm(ttype) = (abs(mass(ptype))*vx1 + abs(mass(ttype))*vx2) / &
+                     (abs(mass(ptype)) + abs(mass(ttype)))
+                saved_vy_cm(ttype) = (abs(mass(ptype))*vy1 + abs(mass(ttype))*vy2) / &
+                     (abs(mass(ptype)) + abs(mass(ttype)))
+                saved_vz_cm(ttype) = (abs(mass(ptype))*vz1 + abs(mass(ttype))*vz2) / &
+                     (abs(mass(ptype)) + abs(mass(ttype)))
+
+                target_selected(ttype)      = .true.
+                target_found_by_type(ttype) = .true.
+              end if
+
+              vr  = saved_vr(ttype)
+              Ekr = saved_Ekr(ttype)
+
+              npt   = size(sig_Er)
+              ipt_L = 1_int32
+              ipt_R = npt
+
+              do ipt = 1, 5
+                ipt_M = int(real(ipt_R - ipt_L, real64)/2.0_real64, int32) + ipt_L
+                Ek_L  = sig_Er(ipt_L)
+                Ek_R  = sig_Er(ipt_R)
+                if (Ekr >= Ek_L .and. Ekr <= sig_Er(ipt_M)) ipt_R = ipt_M
+                if (Ekr >  sig_Er(ipt_M) .and. Ekr <= Ek_R) ipt_L = ipt_M
+              end do
+
+              do ipt = ipt_L + 1, ipt_R
+                Ek_L = sig_Er(ipt-1)
+                Ek_R = sig_Er(ipt)
+
+                if (Ekr > Ek_L .and. Ekr <= Ek_R) then
+                  sig_L = sig(ipt-1,ind_col)
+                  sig_R = sig(ipt  ,ind_col)
+
+                  sig_p = sig_L + (Ekr - Ek_L) * (sig_R - sig_L) / (Ek_R - Ek_L)
+
+                  np_t = workspace%np_mx_all(ttype)
+
+                  ! Legacy normalized frequency:
+                  ! nu = np_t * sigma * vr / nu_max_OMP
+                  nu(icol) = np_t * sig_p * vr / nu_max_local
+                  sum_nu = sum_nu + nu(icol)
+                  sort_arr(icol) = nu(icol)
+
+                  exit
+                end if
+              end do
+            end do
+
+            ! call indexx_small(min(p_ncol(ptype), MAX_COL), sort_arr, indx)
+            call indexx_small(e_neu_count, sort_arr, indx)
+
+            rnd       = ran2(iseed(iproc))
+            flag_coll = .false.
+            c_ind     = 0_int32
+            chosen_icol = 0_int32
+
+            if (rnd <= sum_nu) then
+              sum_nu = 0.0_real64
+              do icol = 1, e_neu_count
+                sum_nu = sum_nu + nu(indx(icol))
+                if (rnd <= sum_nu) then
+                  flag_coll   = .true.
+                  chosen_icol = indx(icol)
+                  c_ind       = e_neu_col(chosen_icol)
+                  exit
+                end if
+              end do
+            end if
+
+            if (.not. flag_coll) cycle
+
+            ! Jump to common product-application block.
+            goto 777
+          end if
 
           nu       = 0.0_real64
           sum_nu   = 0.0_real64
@@ -550,23 +692,6 @@ contains
           !!! MODIFICATION
           call indexx_small(min(p_ncol(ptype), MAX_COL), sort_arr, indx)
 
-          ! rnd       = ran2(iseed(iproc))
-          ! flag_coll = .false.
-          ! c_ind     = 0_int32
-          ! chosen_icol = 0_int32
-
-          ! if (rnd <= sum_nu) then
-          !   sum_nu = 0.0_real64
-          !   do icol = 1, min(p_ncol(ptype), MAX_COL)
-          !     sum_nu = sum_nu + nu(icol)
-          !     if (rnd <= sum_nu) then
-          !       flag_coll   = .true.
-          !       chosen_icol = icol
-          !       c_ind       = sig_list(ptype, chosen_icol)
-          !       exit
-          !     end if
-          !   end do
-          ! end if
 
           !!! MODIFICATION
           rnd       = ran2(iseed(iproc))
@@ -587,6 +712,7 @@ contains
             end do
           end if
 
+777       continue
           if (.not. flag_coll) cycle
           
           !$omp atomic
@@ -758,20 +884,22 @@ contains
     real(real64),   intent(in)  :: arr(*)
     integer(int32), intent(out) :: indx(*)
 
-    integer(int32) :: i, j, itmp
+    integer(int32) :: i, j, key
 
     do i = 1, n
       indx(i) = i
     end do
 
-    do i = 1, n-1
-      do j = i+1, n
-        if (arr(indx(j)) < arr(indx(i))) then
-          itmp    = indx(i)
-          indx(i) = indx(j)
-          indx(j) = itmp
-        end if
+    do i = 2, n
+      key = indx(i)
+      j = i - 1
+
+      do while (j >= 1 .and. arr(indx(j)) > arr(key))
+        indx(j+1) = indx(j)
+        j = j - 1
       end do
+
+      indx(j+1) = key
     end do
   end subroutine indexx_small
 
