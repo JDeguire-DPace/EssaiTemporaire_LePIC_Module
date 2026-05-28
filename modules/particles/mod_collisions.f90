@@ -187,6 +187,27 @@ contains
     call box_muller(vz, dummy, vt, r1, r2)
   end subroutine neutral_velocity
 
+  subroutine write_product_fast(part, btype, iproc, ib, x, y, z, vx, vy, vz)
+    type(ParticleSet), intent(inout) :: part(:,:)
+    integer(int32), intent(in) :: btype, iproc, ib
+    real(real64), intent(in) :: x, y, z, vx, vy, vz
+
+    ! Do NOT update part%n here.
+    ! New particles are counted later using workspace%np_add.
+
+    part(btype,iproc)%x(ib)  = x
+    part(btype,iproc)%y(ib)  = y
+    part(btype,iproc)%z(ib)  = z
+    part(btype,iproc)%vx(ib) = vx
+    part(btype,iproc)%vy(ib) = vy
+    part(btype,iproc)%vz(ib) = vz
+
+    if (allocated(part(btype,iproc)%flag_dead)) part(btype,iproc)%flag_dead(ib) = 0
+    if (allocated(part(btype,iproc)%flag_cex))  part(btype,iproc)%flag_cex(ib)  = 0
+    if (allocated(part(btype,iproc)%sp))        part(btype,iproc)%sp(ib)        = btype
+    if (allocated(part(btype,iproc)%w))         part(btype,iproc)%w(ib)         = 1.0_real64
+  end subroutine write_product_fast
+
 
   subroutine append_or_overwrite_product(part, btype, iproc, ib, x, y, z, vx, vy, vz)
     type(ParticleSet), intent(inout) :: part(:,:)
@@ -395,6 +416,13 @@ contains
       end do
     end if
 
+
+    ! do iproc = 1, nproc
+    !   do ptype = 1, ntype_tracked
+    !     call part(ptype,iproc)%ensure_capacity( &
+    !       part(ptype,iproc)%n + max(100000_int32, workspace%Nc(ptype,iproc)) )
+    !   end do
+    ! end do
 
     ! ------------------------------------------------------------
     ! Perform collisions.
@@ -792,8 +820,12 @@ contains
               ib = saved_target_ip(ttype)
               flag_add(2) = 0_int32
             else
-              append_index = part(btype,iproc)%n + 1_int32
-              ib = append_index
+              ! append_index = part(btype,iproc)%n + 1_int32
+              ! ib = append_index
+              !!! MODIFICATION
+              workspace%np_add(btype,iproc) = workspace%np_add(btype,iproc) + 1_int32
+              ib = part(btype,iproc)%n + workspace%np_add(btype,iproc)
+
               flag_add(n_re+i_by) = 1_int32
             end if
 
@@ -807,8 +839,10 @@ contains
               v2old = 0.0_real64
             end if
 
-            call append_or_overwrite_product(part, btype, iproc, ib, x0, y0, z0, &
-                 vx_cm + vp*ex1, vy_cm + vp*ey1, vz_cm + vp*ez1)
+            ! call append_or_overwrite_product(part, btype, iproc, ib, x0, y0, z0, &
+            !      vx_cm + vp*ex1, vy_cm + vp*ey1, vz_cm + vp*ez1)
+            call write_product_fast(part, btype, iproc, ib, x0, y0, z0, &
+                  vx_cm + vp*ex1, vy_cm + vp*ey1, vz_cm + vp*ez1)
 
             v2new = part(btype,iproc)%vx(ib)**2 + &
                     part(btype,iproc)%vy(ib)**2 + &
@@ -854,6 +888,11 @@ contains
     end do
     !$omp end parallel do
 
+    do iproc = 1, nproc
+      do ptype = 1, ntype_tracked
+        part(ptype,iproc)%n = part(ptype,iproc)%n + workspace%np_add(ptype,iproc)
+      end do
+    end do
 
     if (DEBUG_COLLISIONS .and. mpi_rank == 0) then
       write(*,*) "COLL SUMMARY:"

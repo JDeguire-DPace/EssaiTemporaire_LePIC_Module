@@ -263,6 +263,7 @@ contains
   subroutine init_particles(self)
     class(State), intent(inout) :: self
     integer(int32) :: ntype_trk
+    integer(int32) :: ptype, iproc
 
     ntype_trk = self%ntype
 
@@ -298,6 +299,16 @@ contains
          nproc     = int(self%nproc), &
          mpi_comm  = self%comm, &
          np_red    = self%fld%np )
+
+    ! Preallocate extra particle capacity once, before the PIC loop.
+    ! This allows collision-created particles to be appended without
+    ! reallocating inside the Monte Carlo collision kernel.
+    do iproc = 1_int32, self%nproc
+      do ptype = 1_int32, self%ntype
+        call self%part(ptype,iproc)%ensure_capacity( &
+          self%part(ptype,iproc)%n + max(100000_int32, self%part(ptype,iproc)%n / 2_int32) )
+      end do
+    end do
 
   end subroutine init_particles
 

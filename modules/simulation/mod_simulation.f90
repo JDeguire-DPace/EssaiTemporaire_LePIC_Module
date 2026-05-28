@@ -12,6 +12,8 @@ module mod_simulation
                                        write_plane_yz_scalar_2d
   use mod_collisions,            only: CollisionWorkspace, perform_collisions_step
   use mod_constants,             only: eps0
+  use mod_collision_flat_backend
+  use mod_collision_flat_kernel,    only: perform_flat_collisions_step
   use mpi
 
   implicit none
@@ -23,6 +25,8 @@ module mod_simulation
   type :: Simulation
     type(State) :: state
     type(CollisionWorkspace) :: coll_ws
+    type(FlatCollisionBuffers) :: flat_coll
+    logical :: flat_coll_initialized = .false.
 
     real(real64) :: t_Erho    = 0.0_real64
     real(real64) :: t_poisson = 0.0_real64
@@ -193,31 +197,45 @@ contains
   subroutine collisions_step(self)
     class(Simulation), intent(inout) :: self
 
-    call perform_collisions_step( &
-      part            = self%state%part, &
-      n               = int(self%state%dom%n, int32), &
-      h               = self%state%dom%h, &
-      np_red          = self%state%fld%np, &
-      mass            = self%state%chem%mass(1:self%state%rxn%ntype), &
-      charge          = self%state%chem%charge(1:self%state%rxn%ntype), &
-      vt0             = self%state%params%vt0(1:self%state%rxn%ntype), &
-      Nm              = self%state%params%Nm(1:self%state%rxn%ntype), &
-      neutral_density = self%state%chem%ni0(self%state%ntype+1:self%state%rxn%ntype), &
-      p_ncol          = self%state%chem%p_ncol(1:self%state%rxn%ntype), &
-      sig             = self%state%rxn%sig, &
-      sig_Er          = self%state%rxn%sig_Er, &
-      sig_list        = self%state%rxn%sig_list, &
-      sig_Eex         = self%state%rxn%sig_Eex, &
-      col_info        = self%state%rxn%col_info, &
-      sigv_mx         = self%state%rxn%sigv_mx, &
-      ns_coll         = self%state%params%nb_step_collisions, &
-      dt              = self%state%params%dt, &
-      nu_uplim        = self%state%params%nu_uplim(1:self%state%rxn%ntype), &
-      iseed           = self%state%params%iseed, &
-      nproc_mpi       = int(self%state%mpi_size, int32), &
-      mpi_rank        = int(self%state%mpi_rank, int32), &
-      workspace       = self%coll_ws, & 
-      Pcoll           = self%state%P_loss(3,:,:))
+    write (*,*) ">>> Performing flat collision diagnostic <<<"
+
+    if (.not. self%flat_coll_initialized) then
+      call init_flat_collision_buffers( &
+          self%flat_coll, &
+          self%state%part, &
+          int(self%state%dom%n, int32), &
+          extra_fraction = 1.0_real64, &
+          extra_min      = 500000_int32)
+
+      self%flat_coll_initialized = .true.
+    end if
+
+    call pack_particles_to_flat_sorted( &
+        self%flat_coll, &
+        self%state%part, &
+        int(self%state%dom%n, int32), &
+        self%state%dom%h)
+
+    call perform_flat_collisions_step( &
+        flat       = self%flat_coll, &
+        n         = int(self%state%dom%n, int32), &
+        h         = self%state%dom%h, &
+        mass       = self%state%chem%mass(1:self%state%rxn%ntype), &
+        p_ncol     = self%state%chem%p_ncol(1:self%state%rxn%ntype), &
+        sig_list   = self%state%rxn%sig_list, &
+        col_info   = self%state%rxn%col_info, &
+        sigv_mx    = self%state%rxn%sigv_mx, &
+        np_mx_all  = self%state%chem%ni0(1:self%state%rxn%ntype), &
+        ns_coll    = self%state%params%nb_step_collisions, &
+        dt         = self%state%params%dt, &
+        nu_uplim   = self%state%params%nu_uplim(1:self%state%rxn%ntype), &
+        iseed      = self%state%params%iseed, &
+        nproc_mpi  = int(self%state%mpi_size, int32), &
+        mpi_rank   = int(self%state%mpi_rank, int32))
+    call destroy_flat_collision_buffers(self%flat_coll)
+    
+
+    !stop "flat diagnostic done"
   end subroutine collisions_step
 
 
@@ -486,7 +504,7 @@ contains
     end if
 
     do istep = 1_int32, int(nsteps, int32)
-      if (mod(istep,self%state%cfg%nsav).eq.1_int32) then
+      if (mod(istep,1_int32).eq.0) then!(mod(istep,self%state%cfg%nsav).eq.1_int32) then
         call self%print_diagnostics(istep)
       end if
       call self%advance_one_step(istep)
@@ -498,6 +516,10 @@ contains
     class(Simulation), intent(inout) :: self
 
     call self%state%finalize()
+    if (self%flat_coll_initialized) then
+      call destroy_flat_collision_buffers(self%flat_coll)
+      self%flat_coll_initialized = .false.
+    end if
   end subroutine finalize
 
   ! subroutine print_diagnostics(self,istep)

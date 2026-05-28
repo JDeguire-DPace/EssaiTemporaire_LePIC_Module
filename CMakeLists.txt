@@ -165,6 +165,8 @@ add_library(pic_core_obj OBJECT
   ${MODULES_DIR}/particles/mod_particleBC.f90
   ${MODULES_DIR}/particles/mod_particle_loader.f90
   ${MODULES_DIR}/particles/mod_collisions.f90
+  ${MODULES_DIR}/particles/mod_collision_flat_kernel.f90
+  ${MODULES_DIR}/particles/mod_collision_legacy_backend.f90
   ${MODULES_DIR}/particles/mod_reactions.f90
   ${MODULES_DIR}/particles/mod_reactionsDB.f90
   ${MODULES_DIR}/particles/mod_heating.f90
