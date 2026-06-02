@@ -151,9 +151,7 @@ contains
 
     self%nudt = cfg%nu_h * ( real(self%nb_step_heating, real64) * self%dt )
 
-    self%nu_uplim = 0.0_real64
-    self%nu_uplim(1) = 5.0e8_real64
-    if (ntype >= 2) self%nu_uplim(2:ntype) = 1.0e7_real64
+    self%nu_uplim(:) = huge(1.0_real64)
 
     self%nb_step_Neg_PE         = 1
     self%nb_step_Part_Injection = 1

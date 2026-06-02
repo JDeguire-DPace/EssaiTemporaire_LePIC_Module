@@ -246,6 +246,23 @@ contains
       end do
 
       n_by = ind_label - n_re - 2
+
+      ! if (icol <= 30) then
+
+      !   write(*,*)
+      !   write(*,*) "REACTION ", icol
+
+      !   write(*,*) "n_re=", n_re
+      !   write(*,*) "n_by=", n_by
+
+      !   write(*,*) "RAW COL_INFO:"
+
+      !   do i = 1, 10
+      !     write(*,'(I3,2X,I8)') i, col_info(icol,i)
+      !   end do
+
+      ! end if
+
       col_info(icol, ind_nby) = n_by
 
       sig_scale = 0.0_real64
