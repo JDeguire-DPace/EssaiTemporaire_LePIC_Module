@@ -11,7 +11,7 @@ module mod_simulation
                                        write_plane_xy_scalar_2d, write_plane_xz_scalar_2d, &
                                        write_plane_yz_scalar_2d
   use mod_constants,             only: eps0
-  use mod_MCCollisions,     only: perform_MCC_collisions
+  use mod_collisions, only: perform_collisions_step
   use mpi
 
   implicit none
@@ -198,8 +198,7 @@ contains
   subroutine collisions_step(self)
     class(Simulation), intent(inout) :: self
 
-
-  call perform_MCC_collisions( &
+  call perform_collisions_step( &
       part          = self%state%part, &
       ntype_tracked = self%state%ntype, &
       ntype_all     = self%state%rxn%ntype, &
@@ -220,6 +219,7 @@ contains
       iseed         = self%state%params%iseed, &
       mpi_rank      = int(self%state%mpi_rank, int32), &
       Pcoll         = self%state%P_loss(3,:,:))
+
   end subroutine collisions_step
 
 

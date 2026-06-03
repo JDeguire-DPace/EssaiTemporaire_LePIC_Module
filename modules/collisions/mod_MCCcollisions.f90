@@ -1,4 +1,4 @@
-module mod_MCCollisions
+module mod_MCCcollisions
   use iso_fortran_env, only: int32, real64
   use mod_particles,   only: ParticleSet
   use mod_RNG,         only: ran2
@@ -474,4 +474,4 @@ contains
 
   end subroutine gaussian_pair
 
-end module mod_MCCollisions
+end module mod_MCCcollisions
