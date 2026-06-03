@@ -81,6 +81,9 @@ subroutine collisions(it,vxp,n,h,ntype,nmax,sig,sig_Er,sig_list,sig_Eex, &
        ss2D_xz(2,0:n(1)+2,0:n(3)+2,ntype,nproc),&
        ss2D_yz(2,0:n(2)+2,0:n(3)+2,ntype,nproc)
 
+  integer(kind=8) :: reaction_counter(65)
+  common /rxn_counter_block/ reaction_counter
+
   !
   ! Set collision parameters
   !
@@ -92,6 +95,7 @@ subroutine collisions(it,vxp,n,h,ntype,nmax,sig,sig_Er,sig_list,sig_Eex, &
   sum_np_tot= 0
   sum_np_tot_tmp= 0
   err_coll=0
+  if (it == 1) reaction_counter = 0
 
   ! Loop over particle species
   do ptype=1,ntype
@@ -137,16 +141,7 @@ subroutine collisions(it,vxp,n,h,ntype,nmax,sig,sig_Er,sig_list,sig_Eex, &
      if( rnd.le.(dNc-Nc_tmp) ) Nc_tmp= Nc_tmp + 1
      Nc(ptype,:)= Nc_tmp
 
-     !!!MODIFICATION
-      ! if (it < 105 .and. ptype == 1) then
-      !    write(*,*) "it = ", it
-      !    write(*,*) "LEG COLL ptype=", ptype
-      !    write(*,*) "LEG nu_max=", nu_max(ptype)
-      !    write(*,*) "LEG Pmax=", Pmax
-      !    write(*,*) "LEG dNc=", dNc
-      !    write(*,*) "LEG Nc_tmp=", Nc_tmp
-      !    write(*,*) "LEG SUM Nc=", sum(Nc(ptype,1:nproc))
-      ! endif
+
 
      ! Warning
      if( SUM(np_tot(1,1:nproc))/n_cell.ge.1 .and. ptype.eq.1 .and. Nc_tmp.le.1 ) then 
@@ -207,6 +202,22 @@ subroutine collisions(it,vxp,n,h,ntype,nmax,sig,sig_Er,sig_list,sig_Eex, &
         endif
      enddo
   endif
+
+   if(it == 1001 .and. mpi_rank == 0) then
+      print *
+      print *, "===== LEGACY REACTION COUNTS ====="
+      print *, "RXN 51 =", reaction_counter(51)
+      print *, "RXN 52 =", reaction_counter(52)
+      print *, "RXN 53 =", reaction_counter(53)
+      print *, "RXN 54 =", reaction_counter(54)
+      print *, "RXN 55 =", reaction_counter(55)
+      print *, "RXN 56 =", reaction_counter(56)
+      print *, "RXN 57 =", reaction_counter(57)
+      print *, "RXN 58 =", reaction_counter(58)
+      print *, "RXN 59 =", reaction_counter(59)
+      print *, "RXN 60 =", reaction_counter(60)
+      print *, "=================================="
+   endif
   
   return
 end subroutine collisions
@@ -254,6 +265,8 @@ subroutine collision_OMP(vxp,n,h,ntype,nmax,sig,sig_Er, &
        ss2D_yz(2,0:n(2)+2,0:n(3)+2,ntype,nproc)
   ! Extra
   character:: answer*1
+  integer(kind=8) :: reaction_counter(65)
+  common /rxn_counter_block/ reaction_counter
 
   ! Initialization
   dEk_lost=0.d0
@@ -744,12 +757,15 @@ subroutine collision_OMP(vxp,n,h,ntype,nmax,sig,sig_Er, &
      ! Perform collision process
      !
      if(flag_coll.eq.1) then ! flag_coll=0 is null collision
-
+        reaction_counter(c_ind) = reaction_counter(c_ind) + 1
         ! # of reactants & byproducts
         n_re= col_info(c_ind,1)
         n_by= col_info(c_ind,2)
         ! Reaction type (ionization, etc.)
         rt= col_info(c_ind,2+n_re+n_by+1)
+
+
+
         ! Target particle type
         ttype= sav_ttype(c_ind)
         ! Target particle index

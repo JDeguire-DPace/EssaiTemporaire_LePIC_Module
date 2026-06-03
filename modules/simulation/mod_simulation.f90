@@ -12,7 +12,8 @@ module mod_simulation
                                        write_plane_yz_scalar_2d
   !use mod_collisions,            only: CollisionWorkspace, perform_collisions_step
   use mod_constants,             only: eps0
-  use mod_nullCollisions, only: perform_null_collisions_selection_test
+  use mod_nullCollisions,     only: perform_null_collisions_selection_test
+  use mod_collisionProducts,  only: print_reaction_counter
   use mpi
 
   implicit none
@@ -225,6 +226,7 @@ contains
       ntype_tracked = self%state%ntype, &
       ntype_all     = self%state%rxn%ntype, &
       mass          = self%state%chem%mass(1:self%state%rxn%ntype), &
+      Ti            = self%state%chem%Ti(1:self%state%rxn%ntype), &
       Nm            = self%state%params%Nm(1:self%state%rxn%ntype), &
       p_ncol        = self%state%chem%p_ncol(1:self%state%rxn%ntype), &
       sig_list      = self%state%rxn%sig_list, &
@@ -695,6 +697,8 @@ contains
 
     write(*,'(a)') "  "
     write(*,*) "  "
+
+    call print_reaction_counter()
 
     ! Reset legacy-style power accumulators after printing
     if (allocated(self%state%P_loss) .or. allocated(self%state%p_mac)) then

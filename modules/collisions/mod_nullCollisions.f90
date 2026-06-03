@@ -9,12 +9,12 @@ module mod_nullCollisions
   public :: perform_null_collisions_selection_test
 
   real(real64), parameter :: QE_ABS = 1.602176634e-19_real64
-  real(real64), parameter :: NU_SAFETY_ION = 1.2_real64
-
+  real(real64), parameter :: PI_R8 = 3.1415926535897932384626433832795_real64
+  
 contains
 
   subroutine perform_null_collisions_selection_test( &
-      part, ntype_tracked, ntype_all, mass, Nm, p_ncol, sig_list, col_info, &
+      part, ntype_tracked, ntype_all, mass, Ti, Nm, p_ncol, sig_list, col_info, &
       sigv_mx, sig, sig_Er, sig_Eex, ni0, ns_coll, dt, nu_uplim, iseed, &
       mpi_rank, Pcoll)
 
@@ -30,62 +30,61 @@ contains
     integer(int32), intent(inout) :: iseed(:)
     integer(int32), intent(in) :: mpi_rank
     real(real64), intent(inout) :: Pcoll(:,:)
+    real(real64), intent(in) :: Ti(:)
 
     integer(int32) :: ptype, iproc, k, ip
     integer(int32) :: nproc, n_total, n_selected
     integer(int32) :: selected_total, accepted
     integer(int32) :: chosen_col, chosen_ttype
+    integer(int32) :: npt_sig
     real(real64) :: nu_max, P_null, n_selected_real, rnd
     real(real64) :: sum_nu
+    real(real64) :: target_vx, target_vy, target_vz
 
-    integer(int32) :: npt_sig
+
+    ! mpi_rank is intentionally kept in the interface for compatibility.
+    ! It is not used in this production/clean version.
+    associate(dummy_rank => mpi_rank)
+    end associate
+    
 
     nproc = int(size(part,2), int32)
-
     npt_sig = count_valid_energy_points(sig_Er)
 
     if (npt_sig < 2_int32) then
       error stop "perform_null_collisions: invalid sig_Er table"
     end if
 
-    ! if (count_valid_energy_points(sig_Er) < 2_int32) then
-    !   error stop "perform_null_collisions: invalid sig_Er table"
-    ! end if
-
     do ptype = 1_int32, ntype_tracked
 
       if (p_ncol(ptype) <= 0_int32) cycle
       if (mass(ptype) <= 0.0_real64) cycle
 
-      if (ptype == 1_int32) then
+      ! Match the legacy null-collision upper-frequency estimate:
+      !   nu_max(ptype) = sum_t np_mx(t) * sigv_mx(ptype, reaction)
+      ! Here ni0(ttype) is the modular equivalent of the target neutral density.
+      ! Charged-target/DSMC reactions are skipped in this module and must be handled
+      ! by a separate charged-target collision module.
+      nu_max = estimate_legacy_nu_max( &
+          ptype, ntype_tracked, ntype_all, p_ncol, sig_list, col_info, &
+          sigv_mx, ni0)
 
-        nu_max = estimate_legacy_electron_nu_max( &
-            ptype, ntype_tracked, ntype_all, p_ncol, sig_list, col_info, &
-            sigv_mx, ni0)
-
-        if (ptype <= size(nu_uplim)) then
-          nu_max = min(nu_max, nu_uplim(ptype))
-        end if
-
-      else
-
-        nu_max = estimate_dynamic_nu_max( &
-            part, ptype, ntype_tracked, ntype_all, mass, p_ncol, &
-            sig_list, col_info, sig, sig_Er, npt_sig, ni0)
-
-        nu_max = NU_SAFETY_ION * nu_max
-
+      if (ptype <= size(nu_uplim)) then
+        nu_max = min(nu_max, nu_uplim(ptype))
       end if
 
       if (nu_max <= 0.0_real64) cycle
 
-      P_null = 1.0_real64 - exp(-nu_max * real(ns_coll,real64) * dt)
+      P_null = nu_max * real(ns_coll,real64) * dt
+      if (P_null > 1.0_real64) then
+        error stop "perform_null_collisions: P_null > 1"
+      end if
 
       accepted = 0_int32
       selected_total = 0_int32
 
       !$omp parallel do default(shared) &
-      !$omp private(iproc,k,ip,n_total,n_selected,n_selected_real,rnd,sum_nu,chosen_col,chosen_ttype) &
+      !$omp private(iproc,k,ip,n_total,n_selected,n_selected_real,rnd,sum_nu,chosen_col,chosen_ttype,target_vx,target_vy,target_vz) &
       !$omp reduction(+:selected_total,accepted)
       do iproc = 1_int32, nproc
 
@@ -112,7 +111,6 @@ contains
           ip = int(real(n_total,real64) * rnd, int32) + 1_int32
           if (ip > n_total) ip = n_total
 
-
           call choose_neutral_collision_channel( &
               p              = part(ptype,iproc), &
               ip             = ip, &
@@ -120,6 +118,7 @@ contains
               ntype_tracked  = ntype_tracked, &
               ntype_all      = ntype_all, &
               mass           = mass, &
+              Ti             = Ti, &
               p_ncol         = p_ncol, &
               sig_list       = sig_list, &
               col_info       = col_info, &
@@ -130,7 +129,10 @@ contains
               iseed          = iseed(iproc), &
               sum_nu         = sum_nu, &
               chosen_col     = chosen_col, &
-              chosen_ttype   = chosen_ttype)
+              chosen_ttype   = chosen_ttype, &
+              target_vx      = target_vx, &
+              target_vy      = target_vy, &
+              target_vz      = target_vz)
 
           rnd = ran2(iseed(iproc)) * nu_max
 
@@ -144,9 +146,9 @@ contains
                 ptype       = ptype, &
                 ip          = ip, &
                 target_type = chosen_ttype, &
-                target_vx   = 0.0_real64, &
-                target_vy   = 0.0_real64, &
-                target_vz   = 0.0_real64, &
+                target_vx   = target_vx, &
+                target_vy   = target_vy, &
+                target_vz   = target_vz, &
                 c_ind       = chosen_col, &
                 col_info    = col_info, &
                 sig_Eex     = sig_Eex, &
@@ -155,9 +157,10 @@ contains
                 Pcoll       = Pcoll, &
                 iseed       = iseed(iproc))
 
-
           end if
 
+          ! Exclude already-selected particles from being selected again during
+          ! the same collision sweep, matching the current modular selection logic.
           call swap_particle_in_set(part(ptype,iproc), ip, n_total)
           n_total = n_total - 1_int32
 
@@ -168,40 +171,49 @@ contains
 
     end do
 
-
-
   end subroutine perform_null_collisions_selection_test
 
 
   subroutine choose_neutral_collision_channel( &
-      p, ip, ptype, ntype_tracked, ntype_all, mass, p_ncol, &
+      p, ip, ptype, ntype_tracked, ntype_all, mass, Ti, p_ncol, &
       sig_list, col_info, sig, sig_Er, npt_sig, ni0, iseed, &
-      sum_nu, chosen_col, chosen_ttype)
+      sum_nu, chosen_col, chosen_ttype, target_vx, target_vy, target_vz)
 
     type(ParticleSet), intent(in) :: p
     integer(int32), intent(in) :: ip, ptype, ntype_tracked, ntype_all
-    real(real64), intent(in) :: mass(:)
+    real(real64), intent(in) :: mass(:), Ti(:)
     integer(int32), intent(in) :: p_ncol(:), npt_sig
     integer(int32), intent(in) :: sig_list(:,:), col_info(:,:)
     real(real64), intent(in) :: sig(:,:), sig_Er(:), ni0(:)
     integer(int32), intent(inout) :: iseed
     real(real64), intent(out) :: sum_nu
     integer(int32), intent(out) :: chosen_col, chosen_ttype
+    real(real64), intent(out) :: target_vx, target_vy, target_vz
 
     integer(int32) :: icol, ind_col, n_re, ttype
     real(real64) :: vx1, vy1, vz1
     real(real64) :: vr, mu, Ekr, sig_p
     real(real64) :: nu_icol, target, cumulative
+    real(real64) :: vx_t, vy_t, vz_t
+    real(real64) :: nu_store(1000)
+    real(real64) :: vx_store(1000), vy_store(1000), vz_store(1000)
 
     chosen_col = 0_int32
     chosen_ttype = 0_int32
     sum_nu = 0.0_real64
 
+    target_vx = 0.0_real64
+    target_vy = 0.0_real64
+    target_vz = 0.0_real64
+
+    nu_store = 0.0_real64
+    vx_store = 0.0_real64
+    vy_store = 0.0_real64
+    vz_store = 0.0_real64
+
     vx1 = p%vx(ip)
     vy1 = p%vy(ip)
     vz1 = p%vz(ip)
-
-    vr = sqrt(vx1*vx1 + vy1*vy1 + vz1*vz1)
 
     do icol = 1_int32, p_ncol(ptype)
 
@@ -212,13 +224,26 @@ contains
       if (ttype <= ntype_tracked) cycle
       if (ttype >  ntype_all)     cycle
 
+      call sample_maxwellian_velocity(Ti(ttype), mass(ttype), iseed, vx_t, vy_t, vz_t)
+
+      vr = sqrt((vx1 - vx_t)**2 + &
+                (vy1 - vy_t)**2 + &
+                (vz1 - vz_t)**2)
+
       mu = abs(mass(ptype))*abs(mass(ttype)) / &
-           (abs(mass(ptype)) + abs(mass(ttype)))
+          (abs(mass(ptype)) + abs(mass(ttype)))
 
       Ekr = 0.5_real64 * mu * vr * vr / QE_ABS
       sig_p = interpolate_sigma(Ekr, sig(:,ind_col), sig_Er, npt_sig)
 
-      sum_nu = sum_nu + ni0(ttype) * sig_p * vr
+      nu_icol = ni0(ttype) * sig_p * vr
+
+      nu_store(icol) = nu_icol
+      vx_store(icol) = vx_t
+      vy_store(icol) = vy_t
+      vz_store(icol) = vz_t
+
+      sum_nu = sum_nu + nu_icol
 
     end do
 
@@ -236,18 +261,19 @@ contains
       if (ttype <= ntype_tracked) cycle
       if (ttype >  ntype_all)     cycle
 
-      mu = abs(mass(ptype))*abs(mass(ttype)) / &
-           (abs(mass(ptype)) + abs(mass(ttype)))
+      nu_icol = nu_store(icol)
+      if (nu_icol <= 0.0_real64) cycle
 
-      Ekr = 0.5_real64 * mu * vr * vr / QE_ABS
-      sig_p = interpolate_sigma(Ekr, sig(:,ind_col), sig_Er, npt_sig)
-
-      nu_icol = ni0(ttype) * sig_p * vr
       cumulative = cumulative + nu_icol
 
       if (target <= cumulative) then
         chosen_col = ind_col
         chosen_ttype = ttype
+
+        target_vx = vx_store(icol)
+        target_vy = vy_store(icol)
+        target_vz = vz_store(icol)
+
         return
       end if
 
@@ -256,7 +282,7 @@ contains
   end subroutine choose_neutral_collision_channel
 
 
-  function estimate_legacy_electron_nu_max( &
+  function estimate_legacy_nu_max( &
       ptype, ntype_tracked, ntype_all, p_ncol, sig_list, col_info, &
       sigv_mx, ni0) result(nu_max)
 
@@ -283,90 +309,7 @@ contains
 
     end do
 
-  end function estimate_legacy_electron_nu_max
-
-
-  function estimate_dynamic_nu_max( &
-      part, ptype, ntype_tracked, ntype_all, mass, p_ncol, &
-      sig_list, col_info, sig, sig_Er, npt_sig, ni0) result(nu_max_dyn)
-
-    type(ParticleSet), intent(in) :: part(:,:)
-    integer(int32), intent(in) :: ptype, ntype_tracked, ntype_all
-    real(real64), intent(in) :: mass(:)
-    integer(int32), intent(in) :: p_ncol(:), npt_sig
-    integer(int32), intent(in) :: sig_list(:,:), col_info(:,:)
-    real(real64), intent(in) :: sig(:,:), sig_Er(:), ni0(:)
-
-    real(real64) :: nu_max_dyn
-    integer(int32) :: iproc, ip
-    integer(int32) :: stride
-    real(real64) :: nu_sum
-
-    nu_max_dyn = 0.0_real64
-    stride = 1000_int32
-
-    do iproc = 1_int32, int(size(part,2), int32)
-
-      if (.not. allocated(part(ptype,iproc)%x)) cycle
-
-      do ip = 1_int32, part(ptype,iproc)%n, stride
-
-        nu_sum = compute_particle_neutral_collision_frequency( &
-            part(ptype,iproc), ip, ptype, ntype_tracked, ntype_all, &
-            mass, p_ncol, sig_list, col_info, sig, sig_Er, npt_sig, ni0)
-
-        if (nu_sum > nu_max_dyn) nu_max_dyn = nu_sum
-
-      end do
-
-    end do
-
-  end function estimate_dynamic_nu_max
-
-
-  function compute_particle_neutral_collision_frequency( &
-      p, ip, ptype, ntype_tracked, ntype_all, mass, p_ncol, &
-      sig_list, col_info, sig, sig_Er, npt_sig, ni0) result(sum_nu)
-
-    type(ParticleSet), intent(in) :: p
-    integer(int32), intent(in) :: ip, ptype, ntype_tracked, ntype_all
-    real(real64), intent(in) :: mass(:)
-    integer(int32), intent(in) :: p_ncol(:), npt_sig
-    integer(int32), intent(in) :: sig_list(:,:), col_info(:,:)
-    real(real64), intent(in) :: sig(:,:), sig_Er(:), ni0(:)
-
-    real(real64) :: sum_nu
-    integer(int32) :: icol, ind_col, n_re, ttype
-    real(real64) :: vx1, vy1, vz1, vr, mu, Ekr, sig_p
-
-    sum_nu = 0.0_real64
-
-    vx1 = p%vx(ip)
-    vy1 = p%vy(ip)
-    vz1 = p%vz(ip)
-
-    vr = sqrt(vx1*vx1 + vy1*vy1 + vz1*vz1)
-
-    do icol = 1_int32, p_ncol(ptype)
-
-      ind_col = sig_list(ptype,icol)
-      n_re    = col_info(ind_col,1)
-      ttype   = col_info(ind_col,2+n_re)
-
-      if (ttype <= ntype_tracked) cycle
-      if (ttype >  ntype_all)     cycle
-
-      mu = abs(mass(ptype))*abs(mass(ttype)) / &
-           (abs(mass(ptype)) + abs(mass(ttype)))
-
-      Ekr = 0.5_real64 * mu * vr * vr / QE_ABS
-      sig_p = interpolate_sigma(Ekr, sig(:,ind_col), sig_Er, npt_sig)
-
-      sum_nu = sum_nu + ni0(ttype) * sig_p * vr
-
-    end do
-
-  end function compute_particle_neutral_collision_frequency
+  end function estimate_legacy_nu_max
 
 
   function interpolate_sigma(E, sig_col, sig_Er, npt) result(sig_p)
@@ -456,5 +399,43 @@ contains
     b = tmp
 
   end subroutine swap_real
+
+  subroutine sample_maxwellian_velocity(T_eV, m, iseed, vx, vy, vz)
+    real(real64), intent(in) :: T_eV, m
+    integer(int32), intent(inout) :: iseed
+    real(real64), intent(out) :: vx, vy, vz
+
+    real(real64) :: sigma_v
+    real(real64) :: dummy
+
+    if (T_eV <= 0.0_real64 .or. m == 0.0_real64) then
+      vx = 0.0_real64
+      vy = 0.0_real64
+      vz = 0.0_real64
+      return
+    end if
+
+    sigma_v = sqrt(QE_ABS*T_eV/abs(m))
+
+    call gaussian_pair(sigma_v, iseed, vx, vy)
+    call gaussian_pair(sigma_v, iseed, vz, dummy)
+  end subroutine sample_maxwellian_velocity
+
+  subroutine gaussian_pair(sigma_v, iseed, g1, g2)
+    real(real64), intent(in) :: sigma_v
+    integer(int32), intent(inout) :: iseed
+    real(real64), intent(out) :: g1, g2
+
+    real(real64) :: u1, u2, r, theta
+
+    u1 = max(ran2(iseed), 1.0e-300_real64)
+    u2 = ran2(iseed)
+
+    r = sigma_v * sqrt(-2.0_real64*log(u1))
+    theta = 2.0_real64*PI_R8*u2
+
+    g1 = r*cos(theta)
+    g2 = r*sin(theta)
+  end subroutine gaussian_pair
 
 end module mod_nullCollisions
