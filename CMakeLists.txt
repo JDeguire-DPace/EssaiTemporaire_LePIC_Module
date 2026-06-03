@@ -162,7 +162,7 @@ add_library(pic_core_obj OBJECT
   ${MODULES_DIR}/particles/mod_particles.f90
   ${MODULES_DIR}/collisions/mod_collisionProducts.f90
   ${MODULES_DIR}/collisions/mod_collisionUtilities.f90
-  ${MODULES_DIR}/collisions/mod_nullCollisions.f90
+  ${MODULES_DIR}/collisions/mod_MCCollisions.f90
   ${MODULES_DIR}/collisions/mod_DSMCcollisions.f90
   ${MODULES_DIR}/collisions/mod_collisions.f90
   ${MODULES_DIR}/particles/mod_particle_sorting.f90

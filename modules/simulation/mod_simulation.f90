@@ -10,10 +10,8 @@ module mod_simulation
                                        write_vector_component_planes, &
                                        write_plane_xy_scalar_2d, write_plane_xz_scalar_2d, &
                                        write_plane_yz_scalar_2d
-  !use mod_collisions,            only: CollisionWorkspace, perform_collisions_step
   use mod_constants,             only: eps0
-  use mod_nullCollisions,     only: perform_null_collisions_selection_test
-  !use mod_collisionProducts,  only: print_reaction_counter
+  use mod_MCCollisions,     only: perform_MCC_collisions
   use mpi
 
   implicit none
@@ -200,33 +198,8 @@ contains
   subroutine collisions_step(self)
     class(Simulation), intent(inout) :: self
 
-    ! call perform_collisions_step( &
-    !   part            = self%state%part, &
-    !   n               = int(self%state%dom%n, int32), &
-    !   h               = self%state%dom%h, &
-    !   np_red          = self%state%fld%np, &
-    !   mass            = self%state%chem%mass(1:self%state%rxn%ntype), &
-    !   charge          = self%state%chem%charge(1:self%state%rxn%ntype), &
-    !   vt0             = self%state%params%vt0(1:self%state%rxn%ntype), &
-    !   Nm              = self%state%params%Nm(1:self%state%rxn%ntype), &
-    !   neutral_density = self%state%chem%ni0(self%state%ntype+1:self%state%rxn%ntype), &
-    !   p_ncol          = self%state%chem%p_ncol(1:self%state%rxn%ntype), &
-    !   sig             = self%state%rxn%sig, &
-    !   sig_Er          = self%state%rxn%sig_Er, &
-    !   sig_list        = self%state%rxn%sig_list, &
-    !   sig_Eex         = self%state%rxn%sig_Eex, &
-    !   col_info        = self%state%rxn%col_info, &
-    !   sigv_mx         = self%state%rxn%sigv_mx, &
-    !   ns_coll         = self%state%params%nb_step_collisions, &
-    !   dt              = self%state%params%dt, &
-    !   nu_uplim        = self%state%params%nu_uplim(1:self%state%rxn%ntype), &
-    !   iseed           = self%state%params%iseed, &
-    !   nproc_mpi       = int(self%state%mpi_size, int32), &
-    !   mpi_rank        = int(self%state%mpi_rank, int32), &
-    !   workspace       = self%coll_ws, & 
-    !   Pcoll           = self%state%P_loss(3,:,:))
 
-  call perform_null_collisions_selection_test( &
+  call perform_MCC_collisions( &
       part          = self%state%part, &
       ntype_tracked = self%state%ntype, &
       ntype_all     = self%state%rxn%ntype, &

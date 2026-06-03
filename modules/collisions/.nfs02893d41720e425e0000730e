@@ -1,4 +1,4 @@
-module mod_nullCollisions
+module mod_MCCollisions
   use iso_fortran_env, only: int32, real64
   use mod_particles,   only: ParticleSet
   use mod_RNG,         only: ran2
@@ -6,7 +6,7 @@ module mod_nullCollisions
 
   implicit none
   private
-  public :: perform_null_collisions_selection_test
+  public :: perform_MCC_collisions
 
   real(real64), parameter :: QE_ABS = 1.602176634e-19_real64
   real(real64), parameter :: PI_R8  = 3.1415926535897932384626433832795_real64
@@ -64,7 +64,7 @@ contains
   end subroutine build_reaction_cache
 
 
-  subroutine perform_null_collisions_selection_test( &
+  subroutine perform_MCC_collisions( &
       part, ntype_tracked, ntype_all, mass, Ti, Nm, p_ncol, sig_list, col_info, &
       sigv_mx, sig, sig_Er, sig_Eex, ni0, ns_coll, dt, nu_uplim, iseed, &
       mpi_rank, Pcoll)
@@ -216,7 +216,7 @@ contains
 
     end do
 
-  end subroutine perform_null_collisions_selection_test
+  end subroutine perform_MCC_collisions
 
 
   subroutine choose_neutral_collision_channel( &
@@ -474,4 +474,4 @@ contains
 
   end subroutine gaussian_pair
 
-end module mod_nullCollisions
+end module mod_MCCollisions
