@@ -5,11 +5,10 @@ module mod_collisionProducts
 
   implicit none
   private
-  public :: apply_collision_products, print_reaction_counter
+  public :: apply_collision_products  !, print_reaction_counter
 
   real(real64), parameter :: QE_ABS = 1.602176634e-19_real64
   real(real64), parameter :: PI_R8  = 3.1415926535897932384626433832795_real64
-  integer(int64), save :: reaction_counter(1000)=0
 
 contains
 
@@ -29,8 +28,6 @@ contains
 
     integer(int32) :: n_re, n_by, rt,i
 
-    
-    reaction_counter(c_ind)=reaction_counter(c_ind)+1
 
     n_re = col_info(c_ind,1)
     n_by = col_info(c_ind,2)
@@ -454,16 +451,16 @@ contains
 		vz = vmag * costh
 	end subroutine set_isotropic_velocity
 
-  subroutine print_reaction_counter()
-    integer(int32) :: i
+  ! subroutine print_reaction_counter()
+  !   integer(int32) :: i
 
-    write(*,*) "===== MODULAR REACTION COUNTS ====="
-    do i = 1_int32, 1000_int32
-      if (reaction_counter(i) > 0_int64) then
-        write(*,'(A,I4,A,I12)') "RXN ", i, " count=", reaction_counter(i)
-      end if
-    end do
-    write(*,*) "==================================="
-  end subroutine print_reaction_counter
+  !   write(*,*) "===== MODULAR REACTION COUNTS ====="
+  !   do i = 1_int32, 1000_int32
+  !     if (reaction_counter(i) > 0_int64) then
+  !       write(*,'(A,I4,A,I12)') "RXN ", i, " count=", reaction_counter(i)
+  !     end if
+  !   end do
+  !   write(*,*) "==================================="
+  ! end subroutine print_reaction_counter
 
 end module mod_collisionProducts

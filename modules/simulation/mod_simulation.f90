@@ -13,7 +13,7 @@ module mod_simulation
   !use mod_collisions,            only: CollisionWorkspace, perform_collisions_step
   use mod_constants,             only: eps0
   use mod_nullCollisions,     only: perform_null_collisions_selection_test
-  use mod_collisionProducts,  only: print_reaction_counter
+  !use mod_collisionProducts,  only: print_reaction_counter
   use mpi
 
   implicit none
@@ -58,6 +58,11 @@ contains
     integer, intent(in) :: comm_in
 
     call self%state%init(comm_in)
+    ! if (self%state%mpi_rank == 0) then
+    !   write(*,*) "DEBUG max p_ncol =", maxval(self%state%chem%p_ncol)
+    !   write(*,*) "DEBUG p_ncol =", self%state%chem%p_ncol(1:self%state%rxn%ntype)
+    !   write(*,*) "DEBUG size(sig_list,2) =", size(self%state%rxn%sig_list,2)
+    ! end if
   end subroutine init
 
 
@@ -693,12 +698,11 @@ contains
       write(*,'(a)') " -------------------------"
     end if
 
+
     
 
     write(*,'(a)') "  "
     write(*,*) "  "
-
-    call print_reaction_counter()
 
     ! Reset legacy-style power accumulators after printing
     if (allocated(self%state%P_loss) .or. allocated(self%state%p_mac)) then
