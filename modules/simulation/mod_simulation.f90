@@ -218,7 +218,9 @@ contains
       nu_uplim      = self%state%params%nu_uplim(1:self%state%rxn%ntype), &
       iseed         = self%state%params%iseed, &
       mpi_rank      = int(self%state%mpi_rank, int32), &
-      Pcoll         = self%state%P_loss(3,:,:))
+      Pcoll         = self%state%P_loss(3,:,:), &
+      dom_volume    = self%state%dom%h(1) * self%state%dom%h(2) * self%state%dom%h(3) * &
+                      real(self%state%dom%n(1)*self%state%dom%n(2)*self%state%dom%n(3), real64))
 
   end subroutine collisions_step
 

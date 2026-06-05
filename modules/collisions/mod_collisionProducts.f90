@@ -71,8 +71,12 @@ contains
           c_ind, col_info, sig_Eex, mass, Nm, Pcoll, iseed)
 
     case (4_int32)
-			return
-      !error stop "apply_collision_products: charge exchange requires explicit target particle access"
+      ! Charge exchange: the ion inherits the neutral's sampled velocity.
+      ! The resulting fast neutral is released into the background (not tracked).
+      call apply_charge_exchange_products( &
+          part, iproc, ptype, ip, &
+          target_vx, target_vy, target_vz, &
+          mass, Nm, Pcoll)
 
     case default
       error stop "apply_collision_products: unknown reaction type"
@@ -450,6 +454,35 @@ contains
 		vy = vmag * sinth * sin(phi)
 		vz = vmag * costh
 	end subroutine set_isotropic_velocity
+
+  subroutine apply_charge_exchange_products( &
+      part, iproc, ptype, ip, &
+      target_vx, target_vy, target_vz, &
+      mass, Nm, Pcoll)
+
+    type(ParticleSet), intent(inout) :: part(:,:)
+    integer(int32), intent(in) :: iproc, ptype, ip
+    real(real64), intent(in) :: target_vx, target_vy, target_vz
+    real(real64), intent(in) :: mass(:), Nm(:)
+    real(real64), intent(inout) :: Pcoll(:,:)
+
+    real(real64) :: v2old, v2new
+
+    v2old = part(ptype,iproc)%vx(ip)**2 + &
+            part(ptype,iproc)%vy(ip)**2 + &
+            part(ptype,iproc)%vz(ip)**2
+
+    part(ptype,iproc)%vx(ip) = target_vx
+    part(ptype,iproc)%vy(ip) = target_vy
+    part(ptype,iproc)%vz(ip) = target_vz
+
+    v2new = target_vx**2 + target_vy**2 + target_vz**2
+
+    Pcoll(ptype,iproc) = Pcoll(ptype,iproc) + &
+        0.5_real64 * Nm(ptype) * abs(mass(ptype)) * (v2new - v2old)
+
+  end subroutine apply_charge_exchange_products
+
 
   ! subroutine print_reaction_counter()
   !   integer(int32) :: i
