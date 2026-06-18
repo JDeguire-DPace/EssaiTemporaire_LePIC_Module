@@ -11,11 +11,13 @@ module mod_collisions
 contains
 
   subroutine perform_collisions_step( &
-      part, ntype_tracked, ntype_all, mass, Ti, Nm, p_ncol, sig_list, col_info, &
+      part, n, h, ntype_tracked, ntype_all, mass, Ti, Nm, p_ncol, sig_list, col_info, &
       sigv_mx, sig, sig_Er, sig_Eex, ni0, ns_coll, dt, nu_uplim, iseed, &
       mpi_rank, Pcoll, dom_volume)
 
     type(ParticleSet), intent(inout) :: part(:,:)
+    integer(int32), intent(in) :: n(3)
+    real(real64),   intent(in) :: h(3)
     integer(int32), intent(in) :: ntype_tracked, ntype_all
     real(real64), intent(in) :: mass(:), Ti(:), Nm(:)
     integer(int32), intent(in) :: p_ncol(:)
@@ -55,6 +57,8 @@ contains
     ! BMCC: projectile (tracked) + charged tracked target (e.g. H+ + H-)
     call perform_BMCC_collisions( &
         part          = part, &
+        n             = n,&
+        h             = h,&
         ntype_tracked = ntype_tracked, &
         mass          = mass, &
         Nm            = Nm, &

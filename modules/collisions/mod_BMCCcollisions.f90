@@ -26,11 +26,13 @@ module mod_BMCCcollisions
 contains
 
   subroutine perform_BMCC_collisions( &
-      part, ntype_tracked, mass, Nm, p_ncol, sig_list, col_info, &
+      part, n, h, ntype_tracked, mass, Nm, p_ncol, sig_list, col_info, &
       sigv_mx, sig, sig_Er, sig_Eex, dom_volume, ns_coll, dt, &
       iseed, mpi_rank, Pcoll)
 
     type(ParticleSet), intent(inout) :: part(:,:)
+    integer(int32), intent(in) :: n(3)
+    real(real64),   intent(in) :: h(3)
     integer(int32),    intent(in)    :: ntype_tracked
     real(real64),      intent(in)    :: mass(:), Nm(:)
     integer(int32),    intent(in)    :: p_ncol(:)
@@ -57,18 +59,19 @@ contains
     integer(int32) :: max_ncol
 
     ! Per-reaction storage (stack-allocated; size = max reactions per species)
-    integer(int32), allocatable :: saved_it(:), saved_ttype(:)
-    real(real64),   allocatable :: saved_tvx(:), saved_tvy(:), saved_tvz(:)
-    real(real64),   allocatable :: nu_store(:)
+    integer(int32) :: saved_it(size(sig_list,2))
+    integer(int32) :: saved_ttype(size(sig_list,2))
+    real(real64)   :: saved_tvx(size(sig_list,2))
+    real(real64)   :: saved_tvy(size(sig_list,2))
+    real(real64)   :: saved_tvz(size(sig_list,2))
+    real(real64)   :: nu_store(size(sig_list,2))
 
     nproc    = int(size(part, 2), int32)
     max_ncol = int(size(sig_list, 2), int32)
 
     if (count_valid_pts(sig_Er) < 2_int32) return
 
-    allocate(saved_it(max_ncol),   saved_ttype(max_ncol))
-    allocate(saved_tvx(max_ncol),  saved_tvy(max_ncol), saved_tvz(max_ncol))
-    allocate(nu_store(max_ncol))
+
 
     do ptype = 1_int32, ntype_tracked
 
@@ -84,135 +87,145 @@ contains
       !$omp         vx1,vy1,vz1,tvx,tvy,tvz,vr,mu,Ekr,sig_p,nu_icol, &
       !$omp         sum_nu,target_rnd,cumul, &
       !$omp         chosen_col,chosen_ttype,chosen_it, &
-      !$omp         icol,ind_col,n_re,ttype, &
-      !$omp         saved_it,saved_ttype,saved_tvx,saved_tvy,saved_tvz,nu_store) &
+      !$omp         icol,ind_col,n_re,ttype) &
       !$omp schedule(static)
       do iproc = 1_int32, nproc
-
-        if (.not. allocated(part(ptype,iproc)%x)) cycle
-        n_total = part(ptype,iproc)%n
-        if (n_total <= 0_int32) cycle
-
-        ! nu_max from instantaneous target density this iproc
-        nu_max = 0.0_real64
-        do icol = 1_int32, p_ncol(ptype)
-          ind_col = sig_list(ptype, icol)
-          n_re    = col_info(ind_col, 1)
-          ttype   = col_info(ind_col, 2 + n_re)
-          if (ttype < 1_int32 .or. ttype > ntype_tracked) cycle
-          if (mass(ttype) == 0.0_real64) cycle
-          if (.not. allocated(part(ttype,iproc)%x)) cycle
-          if (part(ttype,iproc)%n <= 0_int32) cycle
-          n_ttype_avg = real(part(ttype,iproc)%n, real64) * Nm(ttype) / dom_volume
-          nu_max = nu_max + n_ttype_avg * sigv_mx(ptype, ind_col)
-        end do
-        if (nu_max <= 0.0_real64) cycle
-
-        P_null = min(nu_max * real(ns_coll, real64) * dt, 1.0_real64)
-
-        n_sel_real = P_null * real(n_total, real64)
-        n_selected = int(n_sel_real, int32)
-        rnd = ran2(iseed(iproc))
-        if (rnd < n_sel_real - real(n_selected, real64)) n_selected = n_selected + 1_int32
-
-        do k = 1_int32, n_selected
-
-          ! Refresh n_total in case kills reduced the array
+        block
+          integer(int32) :: saved_it(max_ncol)
+          integer(int32) :: saved_ttype(max_ncol)
+          real(real64)   :: saved_tvx(max_ncol)
+          real(real64)   :: saved_tvy(max_ncol)
+          real(real64)   :: saved_tvz(max_ncol)
+          real(real64)   :: nu_store(max_ncol)
+          if (.not. allocated(part(ptype,iproc)%x)) cycle
           n_total = part(ptype,iproc)%n
-          if (n_total <= 0_int32) exit
+          if (n_total <= 0_int32) cycle
 
-          ! Random projectile
-          rnd = ran2(iseed(iproc))
-          ip  = int(real(n_total, real64) * rnd, int32) + 1_int32
-          if (ip > n_total) ip = n_total
-
-          vx1 = part(ptype,iproc)%vx(ip)
-          vy1 = part(ptype,iproc)%vy(ip)
-          vz1 = part(ptype,iproc)%vz(ip)
-
-          sum_nu      = 0.0_real64
-          nu_store    = 0.0_real64
-          saved_it    = 0_int32
-          saved_ttype = 0_int32
-
-          ! Accumulate rates and save target particles
+          ! nu_max from instantaneous target density this iproc
+          nu_max = 0.0_real64
           do icol = 1_int32, p_ncol(ptype)
             ind_col = sig_list(ptype, icol)
             n_re    = col_info(ind_col, 1)
             ttype   = col_info(ind_col, 2 + n_re)
-
             if (ttype < 1_int32 .or. ttype > ntype_tracked) cycle
             if (mass(ttype) == 0.0_real64) cycle
             if (.not. allocated(part(ttype,iproc)%x)) cycle
             if (part(ttype,iproc)%n <= 0_int32) cycle
-
-            ! Random target particle
-            rnd = ran2(iseed(iproc))
-            it  = int(real(part(ttype,iproc)%n, real64) * rnd, int32) + 1_int32
-            if (it > part(ttype,iproc)%n) it = part(ttype,iproc)%n
-
-            tvx = part(ttype,iproc)%vx(it)
-            tvy = part(ttype,iproc)%vy(it)
-            tvz = part(ttype,iproc)%vz(it)
-
-            vr    = sqrt((vx1-tvx)**2 + (vy1-tvy)**2 + (vz1-tvz)**2)
-            mu    = abs(mass(ptype))*abs(mass(ttype)) / (abs(mass(ptype))+abs(mass(ttype)))
-            Ekr   = 0.5_real64 * mu * vr * vr / QE_ABS
-            sig_p = interp_sigma(Ekr, sig, ind_col, sig_Er, count_valid_pts(sig_Er))
-
             n_ttype_avg = real(part(ttype,iproc)%n, real64) * Nm(ttype) / dom_volume
-            nu_icol     = n_ttype_avg * sig_p * vr
-
-            nu_store(icol)   = nu_icol
-            saved_it(icol)   = it
-            saved_ttype(icol)= ttype
-            saved_tvx(icol)  = tvx
-            saved_tvy(icol)  = tvy
-            saved_tvz(icol)  = tvz
-            sum_nu = sum_nu + nu_icol
+            nu_max = nu_max + n_ttype_avg * sigv_mx(ptype, ind_col)
           end do
+          if (nu_max <= 0.0_real64) cycle
 
-          ! Null collision test
-          rnd = ran2(iseed(iproc)) * nu_max
-          if (rnd > sum_nu) cycle   ! null collision — no swap needed, just skip
+          P_null = min(nu_max * real(ns_coll, real64) * dt, 1.0_real64)
 
-          ! Select reaction proportional to rates
-          target_rnd   = ran2(iseed(iproc)) * sum_nu
-          cumul        = 0.0_real64
-          chosen_col   = 0_int32
-          chosen_ttype = 0_int32
-          chosen_it    = 0_int32
-          tvx = 0.0_real64; tvy = 0.0_real64; tvz = 0.0_real64
+          n_sel_real = P_null * real(n_total, real64)
+          n_selected = int(n_sel_real, int32)
+          rnd = ran2(iseed(iproc))
+          if (rnd < n_sel_real - real(n_selected, real64)) n_selected = n_selected + 1_int32
 
-          do icol = 1_int32, p_ncol(ptype)
-            if (nu_store(icol) <= 0.0_real64) cycle
-            cumul = cumul + nu_store(icol)
-            if (target_rnd <= cumul) then
-              chosen_col   = sig_list(ptype, icol)
-              chosen_ttype = saved_ttype(icol)
-              chosen_it    = saved_it(icol)
-              tvx = saved_tvx(icol)
-              tvy = saved_tvy(icol)
-              tvz = saved_tvz(icol)
-              exit
+          do k = 1_int32, n_selected
+
+            ! Refresh n_total in case kills reduced the array
+            n_total = part(ptype,iproc)%n
+            if (n_total <= 0_int32) exit
+
+            ! Random projectile
+            rnd = ran2(iseed(iproc))
+            ip  = int(real(n_total, real64) * rnd, int32) + 1_int32
+            if (ip > n_total) ip = n_total
+
+            vx1 = part(ptype,iproc)%vx(ip)
+            vy1 = part(ptype,iproc)%vy(ip)
+            vz1 = part(ptype,iproc)%vz(ip)
+
+            sum_nu      = 0.0_real64
+            nu_store    = 0.0_real64
+            saved_it    = 0_int32
+            saved_ttype = 0_int32
+
+            ! Accumulate rates and save target particles
+            do icol = 1_int32, p_ncol(ptype)
+              ind_col = sig_list(ptype, icol)
+              n_re    = col_info(ind_col, 1)
+              ttype   = col_info(ind_col, 2 + n_re)
+
+              if (ttype < 1_int32 .or. ttype > ntype_tracked) cycle
+              if (mass(ttype) == 0.0_real64) cycle
+              if (.not. allocated(part(ttype,iproc)%x)) cycle
+              if (part(ttype,iproc)%n <= 0_int32) cycle
+
+              ! Random target particle
+              call select_local_target_particle( &
+                  part(ttype,iproc), &
+                  part(ptype,iproc)%x(ip), &
+                  part(ptype,iproc)%y(ip), &
+                  part(ptype,iproc)%z(ip), &
+                  n, h, iseed(iproc), it)
+
+              if (it <= 0_int32) cycle
+
+              tvx = part(ttype,iproc)%vx(it)
+              tvy = part(ttype,iproc)%vy(it)
+              tvz = part(ttype,iproc)%vz(it)
+
+              vr    = sqrt((vx1-tvx)**2 + (vy1-tvy)**2 + (vz1-tvz)**2)
+              mu    = abs(mass(ptype))*abs(mass(ttype)) / (abs(mass(ptype))+abs(mass(ttype)))
+              Ekr   = 0.5_real64 * mu * vr * vr / QE_ABS
+              sig_p = interp_sigma(Ekr, sig, ind_col, sig_Er, count_valid_pts(sig_Er))
+
+              n_ttype_avg = estimate_local_density(part(ttype,iproc), &
+                  part(ptype,iproc)%x(ip), part(ptype,iproc)%y(ip), &
+                  part(ptype,iproc)%z(ip), n, h, Nm(ttype))
+              nu_icol     = n_ttype_avg * sig_p * vr
+
+              nu_store(icol)   = nu_icol
+              saved_it(icol)   = it
+              saved_ttype(icol)= ttype
+              saved_tvx(icol)  = tvx
+              saved_tvy(icol)  = tvy
+              saved_tvz(icol)  = tvz
+              sum_nu = sum_nu + nu_icol
+            end do
+
+            ! Null collision test
+            rnd = ran2(iseed(iproc)) * nu_max
+            if (rnd > sum_nu) cycle   ! null collision — no swap needed, just skip
+
+            ! Select reaction proportional to rates
+            target_rnd   = ran2(iseed(iproc)) * sum_nu
+            cumul        = 0.0_real64
+            chosen_col   = 0_int32
+            chosen_ttype = 0_int32
+            chosen_it    = 0_int32
+            tvx = 0.0_real64; tvy = 0.0_real64; tvz = 0.0_real64
+
+            do icol = 1_int32, p_ncol(ptype)
+              if (nu_store(icol) <= 0.0_real64) cycle
+              cumul = cumul + nu_store(icol)
+              if (target_rnd <= cumul) then
+                chosen_col   = sig_list(ptype, icol)
+                chosen_ttype = saved_ttype(icol)
+                chosen_it    = saved_it(icol)
+                tvx = saved_tvx(icol)
+                tvy = saved_tvy(icol)
+                tvz = saved_tvz(icol)
+                exit
+              end if
+            end do
+
+            if (chosen_col > 0_int32 .and. chosen_it > 0_int32) then
+              call apply_bmcc_products( &
+                  part, iproc, ptype, ip, chosen_ttype, chosen_it, &
+                  tvx, tvy, tvz, chosen_col, col_info, sig_Eex, &
+                  mass, Nm, Pcoll, iseed(iproc), ntype_tracked)
             end if
-          end do
 
-          if (chosen_col > 0_int32 .and. chosen_it > 0_int32) then
-            call apply_bmcc_products( &
-                part, iproc, ptype, ip, chosen_ttype, chosen_it, &
-                tvx, tvy, tvz, chosen_col, col_info, sig_Eex, &
-                mass, Nm, Pcoll, iseed(iproc), ntype_tracked)
-          end if
-
-        end do  ! k
-
+          end do  ! k
+        end block
       end do  ! iproc
       !$omp end parallel do
 
     end do  ! ptype
-
-    deallocate(saved_it, saved_ttype, saved_tvx, saved_tvy, saved_tvz, nu_store)
 
   end subroutine perform_BMCC_collisions
 
@@ -476,5 +489,89 @@ contains
       end if
     end do
   end function has_bmcc_reactions
+
+  subroutine select_local_target_particle(p, xp, yp, zp, n, h, iseed, it)
+    type(ParticleSet), intent(in) :: p
+    real(real64), intent(in) :: xp, yp, zp
+    integer(int32), intent(in) :: n(3)
+    real(real64), intent(in) :: h(3)
+    integer(int32), intent(inout) :: iseed
+    integer(int32), intent(out) :: it
+
+    integer(int32) :: ix0, iy0, iz0
+    integer(int32) :: ix, iy, iz
+    integer(int32) :: j, trial, max_trial
+    real(real64) :: rnd
+
+    it = 0_int32
+
+    if (p%n <= 0_int32) return
+
+    ix0 = int(xp / h(1), int32) + 1_int32
+    iy0 = int(yp / h(2), int32) + 1_int32
+    iz0 = int(zp / h(3), int32) + 1_int32
+
+    ix0 = max(1_int32, min(n(1), ix0))
+    iy0 = max(1_int32, min(n(2), iy0))
+    iz0 = max(1_int32, min(n(3), iz0))
+
+    max_trial = min(2000_int32, max(100_int32, p%n))
+
+    do trial = 1_int32, max_trial
+
+      rnd = ran2(iseed)
+      j = int(real(p%n, real64) * rnd, int32) + 1_int32
+      if (j > p%n) j = p%n
+
+      ix = int(p%x(j) / h(1), int32) + 1_int32
+      iy = int(p%y(j) / h(2), int32) + 1_int32
+      iz = int(p%z(j) / h(3), int32) + 1_int32
+
+      if (abs(ix - ix0) <= 1_int32 .and. &
+          abs(iy - iy0) <= 1_int32 .and. &
+          abs(iz - iz0) <= 1_int32) then
+        it = j
+        return
+      end if
+
+    end do
+
+  end subroutine select_local_target_particle
+
+  function estimate_local_density(p, xp, yp, zp, n, h, Nm) result(ndens)
+    type(ParticleSet), intent(in) :: p
+    real(real64), intent(in) :: xp, yp, zp
+    integer(int32), intent(in) :: n(3)
+    real(real64), intent(in) :: h(3)
+    real(real64), intent(in) :: Nm
+    real(real64) :: ndens
+
+    integer(int32) :: j, ix0, iy0, iz0, ix, iy, iz
+    integer(int32) :: count_local
+    real(real64) :: Vlocal
+
+    ix0 = int(xp / h(1), int32) + 1_int32
+    iy0 = int(yp / h(2), int32) + 1_int32
+    iz0 = int(zp / h(3), int32) + 1_int32
+
+    count_local = 0_int32
+
+    do j = 1_int32, p%n
+      ix = int(p%x(j) / h(1), int32) + 1_int32
+      iy = int(p%y(j) / h(2), int32) + 1_int32
+      iz = int(p%z(j) / h(3), int32) + 1_int32
+
+      if (abs(ix - ix0) <= 1_int32 .and. &
+          abs(iy - iy0) <= 1_int32 .and. &
+          abs(iz - iz0) <= 1_int32) then
+        count_local = count_local + 1_int32
+      end if
+    end do
+
+    Vlocal = 27.0_real64 * h(1) * h(2) * h(3)
+
+    ndens = real(count_local, real64) * Nm / Vlocal
+
+  end function estimate_local_density
 
 end module mod_BMCCcollisions

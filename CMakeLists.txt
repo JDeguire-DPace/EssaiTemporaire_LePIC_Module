@@ -4,8 +4,10 @@ project(LePIC_3D LANGUAGES Fortran)
 set(CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/mod)
 
 if(NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE Release CACHE STRING "" FORCE)
+  set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
 endif()
+
+message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 
 get_filename_component(FORTRAN_COMPILER_NAME "${CMAKE_Fortran_COMPILER}" NAME)
 
@@ -26,18 +28,17 @@ else()
 endif()
 
 # ------------------------------------------------------------
-# Optimization flags
-# Legacy-like, but WITHOUT manual -ipo because it breaks linking
-# with IntelLLVM 2025 + current binutils/LTO plugin on Trillium.
+# Compiler flags
 # ------------------------------------------------------------
 set(OMP_COMPILE_FLAG "")
 set(OMP_LINK_FLAG "")
 
 if(CMAKE_Fortran_COMPILER_ID MATCHES "IntelLLVM|Intel")
+
   set(OMP_COMPILE_FLAG "-qopenmp")
   set(OMP_LINK_FLAG    "-qopenmp")
 
-  set(FAST_INTEL_FLAGS
+  set(INTEL_RELEASE_FLAGS
     -O3
     -no-prec-div
     -m64
@@ -48,21 +49,62 @@ if(CMAKE_Fortran_COMPILER_ID MATCHES "IntelLLVM|Intel")
     -unroll
   )
 
-  add_compile_options(${FAST_INTEL_FLAGS})
+  set(INTEL_DEBUG_FLAGS
+    -O0
+    -g
+    -traceback
+    -check
+    all
+    -fpe0
+    -warn
+    all
+    -qopenmp
+    -auto
+    -fno-inline
+  )
+
+  if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    add_compile_options(${INTEL_DEBUG_FLAGS})
+  else()
+    add_compile_options(${INTEL_RELEASE_FLAGS})
+  endif()
 
 elseif(CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
+
   set(OMP_COMPILE_FLAG "-fopenmp")
   set(OMP_LINK_FLAG    "-fopenmp")
 
-  add_compile_options(
+  set(GNU_RELEASE_FLAGS
     -O3
     -march=native
     -funroll-loops
     -fopenmp
   )
+
+  set(GNU_DEBUG_FLAGS
+    -O0
+    -g
+    -fbacktrace
+    -fcheck=all
+    -ffpe-trap=invalid,zero,overflow
+    -Wall
+    -Wextra
+    -fopenmp
+  )
+
+  if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    add_compile_options(${GNU_DEBUG_FLAGS})
+  else()
+    add_compile_options(${GNU_RELEASE_FLAGS})
+  endif()
+
 else()
   message(WARNING "Unknown compiler: ${CMAKE_Fortran_COMPILER_ID}")
-  add_compile_options(-O3)
+  if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    add_compile_options(-O0 -g)
+  else()
+    add_compile_options(-O3)
+  endif()
 endif()
 
 add_library(build_config INTERFACE)
@@ -72,16 +114,25 @@ target_include_directories(build_config INTERFACE
 )
 
 if(CMAKE_Fortran_COMPILER_ID MATCHES "IntelLLVM|Intel")
-  target_link_options(build_config INTERFACE
-    -O3
-    -no-prec-div
-    -m64
-    -xHost
-    -qopenmp
-    -auto
-    -fp-model=fast=2
-    -unroll
-  )
+  if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    target_link_options(build_config INTERFACE
+      -O0
+      -g
+      -traceback
+      -qopenmp
+    )
+  else()
+    target_link_options(build_config INTERFACE
+      -O3
+      -no-prec-div
+      -m64
+      -xHost
+      -qopenmp
+      -auto
+      -fp-model=fast=2
+      -unroll
+    )
+  endif()
 elseif(OMP_LINK_FLAG)
   target_link_options(build_config INTERFACE ${OMP_LINK_FLAG})
 endif()
@@ -160,24 +211,24 @@ add_library(pic_core_obj OBJECT
 
   ${MODULES_DIR}/particles/mod_chemistryState.f90
   ${MODULES_DIR}/particles/mod_particles.f90
+
   ${MODULES_DIR}/collisions/mod_collisionProducts.f90
   ${MODULES_DIR}/collisions/mod_collisionUtilities.f90
   ${MODULES_DIR}/collisions/mod_MCCcollisions.f90
   ${MODULES_DIR}/collisions/mod_BMCCcollisions.f90
   ${MODULES_DIR}/collisions/mod_DSMCcollisions.f90
   ${MODULES_DIR}/collisions/mod_collisions.f90
+
   ${MODULES_DIR}/particles/mod_particle_sorting.f90
   ${MODULES_DIR}/particles/mod_particleMover.f90
   ${MODULES_DIR}/particles/mod_particleBC.f90
   ${MODULES_DIR}/particles/mod_particle_loader.f90
-  
   ${MODULES_DIR}/particles/mod_reactions.f90
   ${MODULES_DIR}/particles/mod_reactionsDB.f90
   ${MODULES_DIR}/particles/mod_heating.f90
   ${MODULES_DIR}/particles/mod_planeMoments.f90
 
   ${MODULES_DIR}/simulation/mod_simParams.f90
-
   ${MODULES_DIR}/io/mod_output_2d.f90
 
   ${MODULES_DIR}/core/mod_state.f90
@@ -236,11 +287,6 @@ set_target_properties(run_min PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
 )
 
-# ------------------------------------------------------------
-# Optional IPO attempt.
-# Safer than manually adding -ipo everywhere.
-# If it breaks again, set ENABLE_SAFE_IPO=OFF.
-# ------------------------------------------------------------
 option(ENABLE_SAFE_IPO "Try CMake-managed IPO/LTO" OFF)
 
 if(ENABLE_SAFE_IPO AND CMAKE_Fortran_COMPILER_ID MATCHES "IntelLLVM|Intel")

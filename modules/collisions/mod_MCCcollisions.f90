@@ -205,9 +205,8 @@ contains
                 iseed       = iseed(iproc))
 
           end if
-
-          call swap_particle_in_set(part(ptype,iproc), ip, n_total)
-          n_total = n_total - 1_int32
+          
+          n_total = part(ptype,iproc)%n
 
         end do
 

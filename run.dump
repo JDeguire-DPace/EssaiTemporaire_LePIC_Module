@@ -40,12 +40,12 @@
  + knowledge of the CeCILL-C license and that you accept its terms.         +
  ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
                                                    
- Number of OpenMP threads=   8
+ Number of OpenMP threads=  48
  Number of MPI threads=   1
  Input file was read correctly ...
  eps0 HAS BEEN RE-SCALED: k_eps0=   36000.0000000000     
  Gas chemistry read correctly (end of file reached)
- Total number of reactions:          61
+ Collision-less mode is set
  Type of wall surfaces (1=metal, 2 & 3= dielectric):  1  1  1  1  0
  Gaussian magnetic filter field profile
  Bmax @ location:         126           0           0
@@ -57,18 +57,17 @@
  Injection region: ix<=  1, ix>=   52, iy<=  1, iy>=   97, iz<=  1, iz>=  193
  Particle loading region: nx<= 129
  Loading particles ...
- Particles: [e]   [H2+] [H-]  [H3+] [H+] 
- np=  36512640  16429869         0   9124043  10952883
+ Particles: [e]   [H+] 
+ np=  18256320  18256320
  lde (mm)=   5.83998920113031     
  lpe (mm)=   10708.4415408690     
- vt (m/s)=   1452784.98634840       0.000000000000000E+000
-  0.000000000000000E+000  0.000000000000000E+000  0.000000000000000E+000
+ vt (m/s)=   1452784.98634840        4392.84268275340     
  <|v|> (m/s)=   1639292.31286467     
  dx (mm)=   3.12500000000000      dy (mm)=   3.33333333333333      dz (mm)=
    3.02083333333333     
  dx/lde=  0.535103729197849      dy/lde=  0.570777311144373      dz/lde=
   0.517266938224588     
- Nm=   550672743.055555     
+ Nm=   1101345486.11111     
  dt (s)=  6.238018760628004E-010 , wpe*dt=  0.109728887910663     
  vte*dt/dx=  0.300000000000000     
  Figures in the YZ plane are drawn at the location ix=   65
@@ -79,8 +78,7 @@
  ng= 6, omega=   1.6
  nx= 128, ny=  96, nz= 192, # of cells:  1825632
  Save 3D density, potential and E-field maps option on
- Source/sink plotting option on
- *** Startup time (s):   2.4 ***
+ *** Startup time (s):   0.6 ***
   
  Running simulation ...
   
@@ -89,444 +87,18 @@
    372240.000000000     
  ===========================================
   
- Pwall (W)=  -2.72E+05, Pabs (W)=   4.43E+04, Pcoll (W)=   0.00E+00, Pinj (W)=   0.00E+00, I_w (A)=  -2.26E+04    0.00E+00  , Ek_w (eV)=   1.20E+01    0.00E+00
- it=        1, t (us)=    0.0, np=   36352666    16429869           0     9124043    10952883
+ Pwall (W)=  -2.71E+05, Pabs (W)=   4.37E+04, Pcoll (W)=   0.00E+00, Pinj (W)=   0.00E+00, I_w (A)=  -2.25E+04    6.28E+01  , Ek_w (eV)=   1.20E+01    2.09E-01
+ it=        1, t (us)=    0.0, np=   18176615    18256098
  Saving 3D potentiel and density maps ...
   
  ===== LEGACY DIAGNOSTIC it =         1001  =====
- phi min/max/sum =   0.000000000000000E+000   46.3539979471062     
-   42431086.8401609     
+ phi min/max/sum =   0.000000000000000E+000   20.0000000000000     
+   12707893.3009410     
  ===========================================
   
  Backing up simulation data ...
  Done!
- Pwall (W)=  -3.01E+04, Pabs (W)=   6.06E+04, Pcoll (W)=  -2.18E+04, Pinj (W)=   0.00E+00, I_w (A)=  -1.42E+03    6.65E+02  , Ek_w (eV)=   1.76E+01    7.71E+00
- it=     1001, t (us)=    0.6, np=   28764762    15489900       25462     9053861     9739099
- <t> (ms): E/rho=   22.0, poisson=  107.4, sorting=   33.3, avg/write=  206.8, MC=  286.4, mover=   366.4, bck=    1.2, total=  1023.6
- Saving 3D potentiel and density maps ...
-  
- ===== LEGACY DIAGNOSTIC it =         2001  =====
- phi min/max/sum =   0.000000000000000E+000   52.4177907724655     
-   47227494.8694344     
- ===========================================
-  
- Backing up simulation data ...
- Done!
- Pwall (W)=  -3.02E+04, Pabs (W)=   6.02E+04, Pcoll (W)=  -2.63E+04, Pinj (W)=   0.00E+00, I_w (A)=  -6.01E+02    7.29E+02  , Ek_w (eV)=   2.80E+01    1.84E+01
- ==== LEG TRUE n1_xy tail ====
-   125   3.28914743E+17
-   126   3.14679549E+17
-   127   2.92520344E+17
-   128   1.96795283E+17
-   129   6.44029869E+16
- ==== LEG TRUE n1_xy tail ====
-   125   3.28914743E+17
-   126   3.14679549E+17
-   127   2.92520344E+17
-   128   1.96795283E+17
-   129   6.44029869E+16
- ==== LEG TRUE n1_xy tail ====
-   125   3.28914743E+17
-   126   3.14679549E+17
-   127   2.92520344E+17
-   128   1.96795283E+17
-   129   6.44029869E+16
- ==== LEG TRUE n1_xy tail ====
-   125   3.28914743E+17
-   126   3.14679549E+17
-   127   2.92520344E+17
-   128   1.96795283E+17
-   129   6.44029869E+16
- ==== LEG TRUE n1_xy tail ====
-   125   3.28914743E+17
-   126   3.14679549E+17
-   127   2.92520344E+17
-   128   1.96795283E+17
-   129   6.44029869E+16
- it=     2001, t (us)=    1.2, np=   28095328    15293564       48384     8595553     8839546
- <t> (ms): E/rho=   22.0, poisson=   92.4, sorting=   31.4, avg/write=  196.8, MC=  319.9, mover=   358.6, bck=    1.1, total=  1022.2
- Saving 3D potentiel and density maps ...
-  
- ===== LEGACY DIAGNOSTIC it =         3001  =====
- phi min/max/sum =   0.000000000000000E+000   54.2446342983730     
-   46367923.1439661     
- ===========================================
-  
- Backing up simulation data ...
- Done!
- Pwall (W)=  -2.89E+04, Pabs (W)=   6.01E+04, Pcoll (W)=  -2.90E+04, Pinj (W)=   0.00E+00, I_w (A)=  -5.15E+02    5.88E+02  , Ek_w (eV)=   2.81E+01    2.45E+01
- it=     3001, t (us)=    1.9, np=   28423083    15725334       70233     8340177     8494677
- <t> (ms): E/rho=   22.0, poisson=   92.2, sorting=   31.0, avg/write=  198.7, MC=  407.2, mover=   370.3, bck=    1.2, total=  1122.5
- Saving 3D potentiel and density maps ...
-  
- ===== LEGACY DIAGNOSTIC it =         4001  =====
- phi min/max/sum =   0.000000000000000E+000   54.5528236259554     
-   44097494.9266217     
- ===========================================
-  
- Backing up simulation data ...
- Done!
- Pwall (W)=  -2.69E+04, Pabs (W)=   6.01E+04, Pcoll (W)=  -3.09E+04, Pinj (W)=   0.00E+00, I_w (A)=  -4.74E+02    5.14E+02  , Ek_w (eV)=   2.67E+01    2.78E+01
- it=     4001, t (us)=    2.5, np=   29194729    16321043       91297     8249843     8496867
- <t> (ms): E/rho=   22.0, poisson=   90.8, sorting=   31.4, avg/write=  204.3, MC=  491.0, mover=   391.1, bck=    1.2, total=  1231.6
- Saving 3D potentiel and density maps ...
-  
- ===== LEGACY DIAGNOSTIC it =         5001  =====
- phi min/max/sum =   0.000000000000000E+000   53.7676304862783     
-   42277931.0111262     
- ===========================================
-  
- Backing up simulation data ...
- Done!
- Pwall (W)=  -2.56E+04, Pabs (W)=   5.99E+04, Pcoll (W)=  -3.23E+04, Pinj (W)=   0.00E+00, I_w (A)=  -4.62E+02    4.84E+02  , Ek_w (eV)=   2.52E+01    2.89E+01
- it=     5001, t (us)=    3.1, np=   30108247    16884896      111607     8249312     8708139
- <t> (ms): E/rho=   21.9, poisson=   90.2, sorting=   32.2, avg/write=  210.0, MC=  574.4, mover=   416.0, bck=    1.3, total=  1345.9
- Saving 3D potentiel and density maps ...
-  
- ===== LEGACY DIAGNOSTIC it =         6001  =====
- phi min/max/sum =   0.000000000000000E+000   52.8094864634690     
-   40740445.0869320     
- ===========================================
-  
- Backing up simulation data ...
- Done!
- Pwall (W)=  -2.48E+04, Pabs (W)=   5.97E+04, Pcoll (W)=  -3.33E+04, Pinj (W)=   0.00E+00, I_w (A)=  -4.57E+02    4.75E+02  , Ek_w (eV)=   2.38E+01    2.94E+01
- it=     6001, t (us)=    3.7, np=   31035427    17279396      130819     8277077     9108732
- <t> (ms): E/rho=   21.9, poisson=   89.4, sorting=   33.1, avg/write=  206.6, MC=  647.6, mover=   440.6, bck=    1.3, total=  1440.5
- Saving 3D potentiel and density maps ...
-  
- ===== LEGACY DIAGNOSTIC it =         7001  =====
- phi min/max/sum =   0.000000000000000E+000   51.3270492912252     
-   39388516.8450406     
- ===========================================
-  
- Backing up simulation data ...
- Done!
- Pwall (W)=  -2.44E+04, Pabs (W)=   5.96E+04, Pcoll (W)=  -3.41E+04, Pinj (W)=   0.00E+00, I_w (A)=  -4.57E+02    4.72E+02  , Ek_w (eV)=   2.27E+01    2.97E+01
- it=     7001, t (us)=    4.4, np=   31922520    17560487      149284     8295670     9605274
- <t> (ms): E/rho=   21.9, poisson=   89.3, sorting=   33.9, avg/write=  225.3, MC=  701.1, mover=   462.1, bck=    1.4, total=  1535.0
- Saving 3D potentiel and density maps ...
-  
- ===== LEGACY DIAGNOSTIC it =         8001  =====
- phi min/max/sum =   0.000000000000000E+000   49.9189983206904     
-   38381011.0573700     
- ===========================================
-  
- Backing up simulation data ...
- Done!
- Pwall (W)=  -2.42E+04, Pabs (W)=   5.96E+04, Pcoll (W)=  -3.46E+04, Pinj (W)=   0.00E+00, I_w (A)=  -4.61E+02    4.72E+02  , Ek_w (eV)=   2.18E+01    3.00E+01
- it=     8001, t (us)=    5.0, np=   32719421    17697975      166972     8329947    10174215
- <t> (ms): E/rho=   21.8, poisson=   89.5, sorting=   34.8, avg/write=  232.2, MC=  736.4, mover=   481.2, bck=    1.3, total=  1597.2
- Saving 3D potentiel and density maps ...
-  
- ===== LEGACY DIAGNOSTIC it =         9001  =====
- phi min/max/sum =   0.000000000000000E+000   48.6326722395652     
-   37595517.7446825     
- ===========================================
-  
- Backing up simulation data ...
- Done!
- Pwall (W)=  -2.43E+04, Pabs (W)=   5.97E+04, Pcoll (W)=  -3.50E+04, Pinj (W)=   0.00E+00, I_w (A)=  -4.68E+02    4.74E+02  , Ek_w (eV)=   2.12E+01    3.02E+01
- it=     9001, t (us)=    5.6, np=   33409143    17748638      183885     8359656    10759822
- <t> (ms): E/rho=   21.9, poisson=   89.4, sorting=   35.5, avg/write=  237.5, MC=  762.1, mover=   498.3, bck=    1.4, total=  1646.1
- Saving 3D potentiel and density maps ...
-  
- ===== LEGACY DIAGNOSTIC it =        10001  =====
- phi min/max/sum =   0.000000000000000E+000   47.2587855190571     
-   36842745.4875648     
- ===========================================
-  
- Backing up simulation data ...
- Done!
- Pwall (W)=  -2.44E+04, Pabs (W)=   5.96E+04, Pcoll (W)=  -3.52E+04, Pinj (W)=   0.00E+00, I_w (A)=  -4.76E+02    4.81E+02  , Ek_w (eV)=   2.07E+01    3.02E+01
- it=    10001, t (us)=    6.2, np=   33976933    17722172      199765     8375793    11319953
- <t> (ms): E/rho=   21.9, poisson=   89.4, sorting=   36.0, avg/write=  243.0, MC=  758.5, mover=   512.1, bck=    1.3, total=  1662.4
- Saving 3D potentiel and density maps ...
-  
- ===== LEGACY DIAGNOSTIC it =        11001  =====
- phi min/max/sum =   0.000000000000000E+000   46.9131664785152     
-   36345390.2085748     
- ===========================================
-  
- Backing up simulation data ...
- Done!
- Pwall (W)=  -2.46E+04, Pabs (W)=   5.97E+04, Pcoll (W)=  -3.54E+04, Pinj (W)=   0.00E+00, I_w (A)=  -4.86E+02    4.88E+02  , Ek_w (eV)=   2.03E+01    3.02E+01
- it=    11001, t (us)=    6.9, np=   34429724    17660971      215682     8380680    11831011
- <t> (ms): E/rho=   21.9, poisson=   89.7, sorting=   36.5, avg/write=  245.7, MC=  769.0, mover=   522.1, bck=    1.5, total=  1686.5
- Saving 3D potentiel and density maps ...
-  
- ===== LEGACY DIAGNOSTIC it =        12001  =====
- phi min/max/sum =   0.000000000000000E+000   45.8988025494945     
-   35947643.2733549     
- ===========================================
-  
- Backing up simulation data ...
- Done!
- Pwall (W)=  -2.48E+04, Pabs (W)=   5.97E+04, Pcoll (W)=  -3.55E+04, Pinj (W)=   0.00E+00, I_w (A)=  -4.93E+02    4.94E+02  , Ek_w (eV)=   2.01E+01    3.01E+01
- it=    12001, t (us)=    7.5, np=   34788632    17573147      230858     8374720    12290140
- <t> (ms): E/rho=   21.9, poisson=   89.9, sorting=   36.9, avg/write=  249.1, MC=  758.1, mover=   530.1, bck=    1.4, total=  1687.5
- Saving 3D potentiel and density maps ...
-  
- ===== LEGACY DIAGNOSTIC it =        13001  =====
- phi min/max/sum =   0.000000000000000E+000   45.4457161478697     
-   35701814.5202707     
- ===========================================
-  
- Backing up simulation data ...
- Done!
- Pwall (W)=  -2.50E+04, Pabs (W)=   5.98E+04, Pcoll (W)=  -3.56E+04, Pinj (W)=   0.00E+00, I_w (A)=  -4.99E+02    5.01E+02  , Ek_w (eV)=   1.99E+01    3.01E+01
- it=    13001, t (us)=    8.1, np=   35085047    17479248      246496     8360819    12699692
- <t> (ms): E/rho=   22.0, poisson=   89.7, sorting=   37.2, avg/write=  251.6, MC=  755.9, mover=   536.7, bck=    1.6, total=  1694.6
- Saving 3D potentiel and density maps ...
-  
- ===== LEGACY DIAGNOSTIC it =        14001  =====
- phi min/max/sum =   0.000000000000000E+000   44.6981616063433     
-   35440463.5649265     
- ===========================================
-  
- Backing up simulation data ...
- Done!
- Pwall (W)=  -2.52E+04, Pabs (W)=   5.96E+04, Pcoll (W)=  -3.56E+04, Pinj (W)=   0.00E+00, I_w (A)=  -5.03E+02    5.05E+02  , Ek_w (eV)=   1.97E+01    3.02E+01
- it=    14001, t (us)=    8.7, np=   35320708    17359655      260983     8350431    13066254
- <t> (ms): E/rho=   22.0, poisson=   90.0, sorting=   37.5, avg/write=  253.8, MC=  755.9, mover=   542.6, bck=    1.5, total=  1703.2
- Saving 3D potentiel and density maps ...
-  
- ===== LEGACY DIAGNOSTIC it =        15001  =====
- phi min/max/sum =   0.000000000000000E+000   44.4084995152497     
-   35321885.8376273     
- ===========================================
-  
- Backing up simulation data ...
- Done!
- Pwall (W)=  -2.53E+04, Pabs (W)=   5.97E+04, Pcoll (W)=  -3.55E+04, Pinj (W)=   0.00E+00, I_w (A)=  -5.08E+02    5.10E+02  , Ek_w (eV)=   1.96E+01    3.01E+01
- it=    15001, t (us)=    9.4, np=   35501543    17230891      275233     8328906    13397772
- <t> (ms): E/rho=   21.9, poisson=   90.1, sorting=   37.7, avg/write=  255.8, MC=  764.4, mover=   546.9, bck=    1.5, total=  1718.3
- Saving 3D potentiel and density maps ...
-  
- ===== LEGACY DIAGNOSTIC it =        16001  =====
- phi min/max/sum =   0.000000000000000E+000   44.3913989727427     
-   35266566.3406485     
- ===========================================
-  
- Backing up simulation data ...
- Done!
- Pwall (W)=  -2.54E+04, Pabs (W)=   5.98E+04, Pcoll (W)=  -3.55E+04, Pinj (W)=   0.00E+00, I_w (A)=  -5.11E+02    5.12E+02  , Ek_w (eV)=   1.95E+01    3.02E+01
- it=    16001, t (us)=   10.0, np=   35647830    17104127      289035     8308958    13698580
- <t> (ms): E/rho=   21.9, poisson=   90.3, sorting=   37.9, avg/write=  257.9, MC=  761.8, mover=   550.4, bck=    1.5, total=  1721.6
- Saving 3D potentiel and density maps ...
-  
- ===== LEGACY DIAGNOSTIC it =        17001  =====
- phi min/max/sum =   0.000000000000000E+000   44.0998426669673     
-   35184385.2498868     
- ===========================================
-  
- Backing up simulation data ...
- Done!
- Pwall (W)=  -2.55E+04, Pabs (W)=   5.97E+04, Pcoll (W)=  -3.55E+04, Pinj (W)=   0.00E+00, I_w (A)=  -5.13E+02    5.13E+02  , Ek_w (eV)=   1.94E+01    3.02E+01
- it=    17001, t (us)=   10.6, np=   35761196    16979280      302496     8290849    13964717
- <t> (ms): E/rho=   21.9, poisson=   90.1, sorting=   38.0, avg/write=  259.3, MC=  762.7, mover=   553.2, bck=    1.5, total=  1726.8
- Saving 3D potentiel and density maps ...
-  
- ===== LEGACY DIAGNOSTIC it =        18001  =====
- phi min/max/sum =   0.000000000000000E+000   43.9207743454484     
-   35157497.8624869     
- ===========================================
-  
- Backing up simulation data ...
- Done!
- Pwall (W)=  -2.55E+04, Pabs (W)=   5.98E+04, Pcoll (W)=  -3.55E+04, Pinj (W)=   0.00E+00, I_w (A)=  -5.14E+02    5.15E+02  , Ek_w (eV)=   1.94E+01    3.01E+01
- it=    18001, t (us)=   11.2, np=   35855979    16866370      316609     8274742    14202379
- <t> (ms): E/rho=   21.9, poisson=   90.2, sorting=   38.1, avg/write=  260.0, MC=  760.3, mover=   555.2, bck=    1.4, total=  1727.1
- Saving 3D potentiel and density maps ...
-  
- ===== LEGACY DIAGNOSTIC it =        19001  =====
- phi min/max/sum =   0.000000000000000E+000   43.8847531132164     
-   35163969.9257043     
- ===========================================
-  
- Backing up simulation data ...
- Done!
- Pwall (W)=  -2.55E+04, Pabs (W)=   5.99E+04, Pcoll (W)=  -3.55E+04, Pinj (W)=   0.00E+00, I_w (A)=  -5.16E+02    5.16E+02  , Ek_w (eV)=   1.94E+01    3.01E+01
- it=    19001, t (us)=   11.9, np=   35944545    16771313      330322     8257206    14418883
- <t> (ms): E/rho=   22.0, poisson=   90.0, sorting=   38.2, avg/write=  260.6, MC=  756.0, mover=   556.8, bck=    1.6, total=  1725.1
- Saving 3D potentiel and density maps ...
-  
- ===== LEGACY DIAGNOSTIC it =        20001  =====
- phi min/max/sum =   0.000000000000000E+000   43.8287322435105     
-   35108941.0157216     
- ===========================================
-  
- Backing up simulation data ...
- Done!
- Pwall (W)=  -2.55E+04, Pabs (W)=   5.98E+04, Pcoll (W)=  -3.55E+04, Pinj (W)=   0.00E+00, I_w (A)=  -5.16E+02    5.17E+02  , Ek_w (eV)=   1.94E+01    3.01E+01
- it=    20001, t (us)=   12.5, np=   36019163    16680705      344662     8239309    14612885
- <t> (ms): E/rho=   21.9, poisson=   90.2, sorting=   38.3, avg/write=  261.6, MC=  746.7, mover=   558.0, bck=    1.5, total=  1718.2
- Saving 3D potentiel and density maps ...
-  
- ===== LEGACY DIAGNOSTIC it =        21001  =====
- phi min/max/sum =   0.000000000000000E+000   43.3074828798807     
-   35079605.2956689     
- ===========================================
-  
- Backing up simulation data ...
- Done!
- Pwall (W)=  -2.55E+04, Pabs (W)=   5.98E+04, Pcoll (W)=  -3.54E+04, Pinj (W)=   0.00E+00, I_w (A)=  -5.16E+02    5.17E+02  , Ek_w (eV)=   1.93E+01    3.00E+01
- it=    21001, t (us)=   13.1, np=   36081302    16598810      358597     8218289    14786777
- <t> (ms): E/rho=   21.9, poisson=   90.0, sorting=   38.3, avg/write=  262.9, MC=  755.7, mover=   559.3, bck=    1.6, total=  1729.7
- Saving 3D potentiel and density maps ...
-  
- ===== LEGACY DIAGNOSTIC it =        22001  =====
- phi min/max/sum =   0.000000000000000E+000   43.5475091796041     
-   35120625.2642365     
- ===========================================
-  
- Backing up simulation data ...
- Done!
- Pwall (W)=  -2.55E+04, Pabs (W)=   5.99E+04, Pcoll (W)=  -3.54E+04, Pinj (W)=   0.00E+00, I_w (A)=  -5.17E+02    5.17E+02  , Ek_w (eV)=   1.93E+01    3.00E+01
- it=    22001, t (us)=   13.7, np=   36141087    16535024      372471     8199533    14945669
- <t> (ms): E/rho=   22.0, poisson=   90.1, sorting=   38.4, avg/write=  263.6, MC=  750.9, mover=   560.4, bck=    1.5, total=  1726.8
- Saving 3D potentiel and density maps ...
-  
- ===== LEGACY DIAGNOSTIC it =        23001  =====
- phi min/max/sum =   0.000000000000000E+000   43.4984456790964     
-   35100500.2379993     
- ===========================================
-  
- Backing up simulation data ...
- Done!
- Pwall (W)=  -2.55E+04, Pabs (W)=   5.98E+04, Pcoll (W)=  -3.55E+04, Pinj (W)=   0.00E+00, I_w (A)=  -5.17E+02    5.18E+02  , Ek_w (eV)=   1.93E+01    2.99E+01
- it=    23001, t (us)=   14.3, np=   36201929    16476897      385657     8179934    15092626
- <t> (ms): E/rho=   21.9, poisson=   90.1, sorting=   38.4, avg/write=  263.5, MC=  758.8, mover=   561.4, bck=    1.6, total=  1735.6
- Saving 3D potentiel and density maps ...
-  
- ===== LEGACY DIAGNOSTIC it =        24001  =====
- phi min/max/sum =   0.000000000000000E+000   43.5245233105194     
-   35076938.2029870     
- ===========================================
-  
- Backing up simulation data ...
- Done!
- Pwall (W)=  -2.55E+04, Pabs (W)=   5.98E+04, Pcoll (W)=  -3.55E+04, Pinj (W)=   0.00E+00, I_w (A)=  -5.18E+02    5.18E+02  , Ek_w (eV)=   1.93E+01    2.99E+01
- it=    24001, t (us)=   15.0, np=   36252476    16423607      398486     8161464    15228636
- <t> (ms): E/rho=   21.9, poisson=   90.2, sorting=   38.5, avg/write=  264.4, MC=  755.3, mover=   562.3, bck=    1.5, total=  1734.2
- Saving 3D potentiel and density maps ...
-  
- ===== LEGACY DIAGNOSTIC it =        25001  =====
- phi min/max/sum =   0.000000000000000E+000   43.7556783695579     
-   35065441.0745034     
- ===========================================
-  
- Backing up simulation data ...
- Done!
- Pwall (W)=  -2.55E+04, Pabs (W)=   5.99E+04, Pcoll (W)=  -3.55E+04, Pinj (W)=   0.00E+00, I_w (A)=  -5.18E+02    5.18E+02  , Ek_w (eV)=   1.93E+01    2.99E+01
- it=    25001, t (us)=   15.6, np=   36298052    16377641      410253     8141921    15352668
- <t> (ms): E/rho=   22.0, poisson=   90.3, sorting=   38.6, avg/write=  265.4, MC=  753.8, mover=   563.0, bck=    1.6, total=  1734.7
- Saving 3D potentiel and density maps ...
-  
- ===== LEGACY DIAGNOSTIC it =        26001  =====
- phi min/max/sum =   0.000000000000000E+000   43.4218165587163     
-   35054581.3582963     
- ===========================================
-  
- Backing up simulation data ...
- Done!
- Pwall (W)=  -2.55E+04, Pabs (W)=   5.98E+04, Pcoll (W)=  -3.55E+04, Pinj (W)=   0.00E+00, I_w (A)=  -5.18E+02    5.19E+02  , Ek_w (eV)=   1.93E+01    2.98E+01
- it=    26001, t (us)=   16.2, np=   36350844    16333330      420367     8123391    15472647
- <t> (ms): E/rho=   22.0, poisson=   90.4, sorting=   38.6, avg/write=  264.7, MC=  755.7, mover=   563.9, bck=    1.5, total=  1736.8
- Saving 3D potentiel and density maps ...
-  
- ===== LEGACY DIAGNOSTIC it =        27001  =====
- phi min/max/sum =   0.000000000000000E+000   43.4423105030634     
-   35027339.6242934     
- ===========================================
-  
- Backing up simulation data ...
- Done!
- Pwall (W)=  -2.54E+04, Pabs (W)=   5.98E+04, Pcoll (W)=  -3.55E+04, Pinj (W)=   0.00E+00, I_w (A)=  -5.17E+02    5.18E+02  , Ek_w (eV)=   1.93E+01    2.98E+01
- it=    27001, t (us)=   16.8, np=   36396704    16284543      429160     8104828    15588273
- <t> (ms): E/rho=   21.9, poisson=   90.2, sorting=   38.6, avg/write=  266.1, MC=  753.8, mover=   564.7, bck=    1.6, total=  1736.9
- Saving 3D potentiel and density maps ...
-  
- ===== LEGACY DIAGNOSTIC it =        28001  =====
- phi min/max/sum =   0.000000000000000E+000   43.3379491558613     
-   35020515.4155880     
- ===========================================
-  
- Backing up simulation data ...
- Done!
- Pwall (W)=  -2.54E+04, Pabs (W)=   5.98E+04, Pcoll (W)=  -3.55E+04, Pinj (W)=   0.00E+00, I_w (A)=  -5.18E+02    5.19E+02  , Ek_w (eV)=   1.93E+01    2.97E+01
- it=    28001, t (us)=   17.5, np=   36434615    16244054      436554     8085610    15693397
- <t> (ms): E/rho=   22.0, poisson=   90.7, sorting=   38.7, avg/write=  265.1, MC=  751.2, mover=   565.8, bck=    1.5, total=  1734.9
- Saving 3D potentiel and density maps ...
-  
- ===== LEGACY DIAGNOSTIC it =        29001  =====
- phi min/max/sum =   0.000000000000000E+000   43.5835154061655     
-   34947226.8245310     
- ===========================================
-  
- Backing up simulation data ...
- Done!
- Pwall (W)=  -2.55E+04, Pabs (W)=   5.97E+04, Pcoll (W)=  -3.55E+04, Pinj (W)=   0.00E+00, I_w (A)=  -5.19E+02    5.19E+02  , Ek_w (eV)=   1.93E+01    2.97E+01
- it=    29001, t (us)=   18.1, np=   36468921    16204729      442602     8064487    15793376
- <t> (ms): E/rho=   22.0, poisson=   90.6, sorting=   38.8, avg/write=  265.2, MC=  758.6, mover=   566.1, bck=    1.6, total=  1742.9
- Saving 3D potentiel and density maps ...
-  
- ===== LEGACY DIAGNOSTIC it =        30001  =====
- phi min/max/sum =   0.000000000000000E+000   43.3425189269967     
-   34956680.2649189     
- ===========================================
-  
- Backing up simulation data ...
- Done!
- Pwall (W)=  -2.54E+04, Pabs (W)=   5.96E+04, Pcoll (W)=  -3.54E+04, Pinj (W)=   0.00E+00, I_w (A)=  -5.19E+02    5.20E+02  , Ek_w (eV)=   1.93E+01    2.97E+01
- it=    30001, t (us)=   18.7, np=   36492445    16167920      447469     8041727    15881203
- <t> (ms): E/rho=   21.9, poisson=   90.4, sorting=   38.8, avg/write=  267.0, MC=  765.3, mover=   565.5, bck=    1.5, total=  1750.4
- Saving 3D potentiel and density maps ...
-  
- ===== LEGACY DIAGNOSTIC it =        31001  =====
- phi min/max/sum =   0.000000000000000E+000   43.2438756420233     
-   34966974.0192651     
- ===========================================
-  
- Backing up simulation data ...
- Done!
- Pwall (W)=  -2.55E+04, Pabs (W)=   5.98E+04, Pcoll (W)=  -3.55E+04, Pinj (W)=   0.00E+00, I_w (A)=  -5.20E+02    5.20E+02  , Ek_w (eV)=   1.93E+01    2.97E+01
- it=    31001, t (us)=   19.3, np=   36518474    16139507      451670     8015806    15964591
- <t> (ms): E/rho=   21.9, poisson=   90.6, sorting=   38.8, avg/write=  266.5, MC=  745.3, mover=   565.3, bck=    1.6, total=  1730.0
- Saving 3D potentiel and density maps ...
-  
- ===== LEGACY DIAGNOSTIC it =        32001  =====
- phi min/max/sum =   0.000000000000000E+000   43.5239832955752     
-   34980687.8754068     
- ===========================================
-  
- Backing up simulation data ...
- Done!
- Pwall (W)=  -2.55E+04, Pabs (W)=   5.97E+04, Pcoll (W)=  -3.55E+04, Pinj (W)=   0.00E+00, I_w (A)=  -5.20E+02    5.21E+02  , Ek_w (eV)=   1.93E+01    2.96E+01
- it=    32001, t (us)=   20.0, np=   36542265    16113552      455648     7990452    16040995
- <t> (ms): E/rho=   22.0, poisson=   90.6, sorting=   38.8, avg/write=  266.1, MC=  756.8, mover=   565.6, bck=    1.5, total=  1741.4
- Saving 3D potentiel and density maps ...
-  
- ===== LEGACY DIAGNOSTIC it =        33001  =====
- phi min/max/sum =   0.000000000000000E+000   43.1865386114103     
-   34931868.8582482     
- ===========================================
-  
- Backing up simulation data ...
- Done!
- Pwall (W)=  -2.55E+04, Pabs (W)=   5.96E+04, Pcoll (W)=  -3.54E+04, Pinj (W)=   0.00E+00, I_w (A)=  -5.21E+02    5.21E+02  , Ek_w (eV)=   1.93E+01    2.96E+01
- it=    33001, t (us)=   20.6, np=   36557086    16084775      458319     7963364    16113222
- <t> (ms): E/rho=   21.9, poisson=   90.4, sorting=   38.9, avg/write=  268.0, MC=  756.1, mover=   565.5, bck=    1.6, total=  1742.4
- Saving 3D potentiel and density maps ...
-  
- ===== LEGACY DIAGNOSTIC it =        34001  =====
- phi min/max/sum =   0.000000000000000E+000   43.3281036694672     
-   34971139.8192918     
- ===========================================
-  
- Backing up simulation data ...
- Done!
- Pwall (W)=  -2.55E+04, Pabs (W)=   5.98E+04, Pcoll (W)=  -3.54E+04, Pinj (W)=   0.00E+00, I_w (A)=  -5.21E+02    5.21E+02  , Ek_w (eV)=   1.93E+01    2.96E+01
- it=    34001, t (us)=   21.2, np=   36573398    16064303      461141     7935176    16183866
- <t> (ms): E/rho=   21.9, poisson=   90.4, sorting=   38.9, avg/write=  268.4, MC=  751.6, mover=   565.4, bck=    1.5, total=  1738.2
+ Pwall (W)=  -1.07E+04, Pabs (W)=  -1.18E+04, Pcoll (W)=   0.00E+00, Pinj (W)=   0.00E+00, I_w (A)=  -8.46E+02    5.84E+02  , Ek_w (eV)=   1.01E+01    3.63E+00
+ it=     1001, t (us)=    0.6, np=   15184955    16189917
+ <t> (ms): E/rho=   19.8, poisson=   25.4, sorting=    5.8, avg/write=    1.1, MC=    0.0, mover=    49.5, bck=    0.6, total=   102.2
  Saving 3D potentiel and density maps ...

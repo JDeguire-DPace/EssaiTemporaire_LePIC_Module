@@ -1,0 +1,9 @@
+/scratch/deguire1/test_collision_flat/build_debug/CMakeFiles/core_deps.dir
+/scratch/deguire1/test_collision_flat/build_debug/CMakeFiles/config_base.dir
+/scratch/deguire1/test_collision_flat/build_debug/CMakeFiles/geometry_base.dir
+/scratch/deguire1/test_collision_flat/build_debug/CMakeFiles/fields_base.dir
+/scratch/deguire1/test_collision_flat/build_debug/CMakeFiles/pic_core_obj.dir
+/scratch/deguire1/test_collision_flat/build_debug/CMakeFiles/legacy_mg.dir
+/scratch/deguire1/test_collision_flat/build_debug/CMakeFiles/run_min.dir
+/scratch/deguire1/test_collision_flat/build_debug/CMakeFiles/edit_cache.dir
+/scratch/deguire1/test_collision_flat/build_debug/CMakeFiles/rebuild_cache.dir

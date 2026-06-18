@@ -76,6 +76,8 @@ contains
          bcnd     = self%state%dom%bcnd, &
          flag_pbc = int(self%state%dom%flag_pbc, int32))
 
+    call self%state%apply_dielectric_bc_to_phi()
+
     call solve_poisson_legacy( &
          pdec        = self%state%pdec, &
          phi_global  = self%state%fld%phi, &
@@ -200,6 +202,8 @@ contains
 
   call perform_collisions_step( &
       part          = self%state%part, &
+      n             = self%state%dom%n, &
+      h             = self%state%dom%h, &
       ntype_tracked = self%state%ntype, &
       ntype_all     = self%state%rxn%ntype, &
       mass          = self%state%chem%mass(1:self%state%rxn%ntype), &
@@ -384,6 +388,11 @@ contains
     t0 = MPI_Wtime()
     call self%state%apply_dielectric_bc_to_phi()
 
+    if (self%state%mpi_rank == 0 .and. istep == 1) then
+      write(*,*) "BEFORE POISSON it=", istep
+      write(*,*) "rho min/max/sum = ", minval(self%state%fld%rho), maxval(self%state%fld%rho), sum(self%state%fld%rho)
+      write(*,*) "phi min/max/sum = ", minval(self%state%fld%phi), maxval(self%state%fld%phi), sum(self%state%fld%phi)
+    end if
     call solve_poisson_legacy( &
       pdec        = self%state%pdec, &
       phi_global  = self%state%fld%phi, &
@@ -399,6 +408,12 @@ contains
       ng          = self%state%cfg%ng, &
       flag_pbc_in = self%state%dom%flag_pbc, &
       flag_nmn_in = self%state%dom%flag_nmn )
+
+      if (self%state%mpi_rank == 0 .and. istep == 1) then
+        write(*,*) "AFTER POISSON it=", istep
+        write(*,*) "rho min/max/sum = ", minval(self%state%fld%rho), maxval(self%state%fld%rho), sum(self%state%fld%rho)
+        write(*,*) "phi min/max/sum = ", minval(self%state%fld%phi), maxval(self%state%fld%phi), sum(self%state%fld%phi)
+      end if
 
     call calc_Efield_modular( &
       n    = int(self%state%dom%n, int32), &
@@ -433,22 +448,23 @@ contains
 
     ! Collisions
     t0 = MPI_Wtime()
-    if (self%state%params%nb_step_collisions > 0_int32) then
-      if (mod(istep, self%state%params%nb_step_collisions) == 0_int32) then
-        call self%collisions_step()
-      end if
-    end if
+    !if (self%state%params%nb_step_collisions > 0_int32) then
+    !  if (mod(istep, self%state%params%nb_step_collisions) == 0_int32) then
+    !    call self%collisions_step()
+    ! end if
+    !end if
     t1 = MPI_Wtime()
     self%t_MC = self%t_MC + (t1 - t0)
 
     ! Electron heating
-    if (self%state%params%nb_step_heating > 0_int32) then
-      if (mod(istep, self%state%params%nb_step_heating) == 0_int32) then
-        call self%state%compute_heating_region_moments()
-        call self%state%update_heating_vt(vt_heat)
-        call self%state%apply_electron_heating_local(vt_heat)
-      end if
-    end if
+    !!! MODIF HEATING
+    !if (self%state%params%nb_step_heating > 0_int32) then
+    !  if (mod(istep, self%state%params%nb_step_heating) == 0_int32) then
+    !    call self%state%compute_heating_region_moments()
+    !    call self%state%update_heating_vt(vt_heat)
+    !    call self%state%apply_electron_heating_local(vt_heat)
+    !  end if
+    !end if
 
     ! Deposit particles after all particle operations
     t0 = MPI_Wtime()
@@ -480,7 +496,7 @@ contains
     class(Simulation), intent(inout) :: self
     integer, intent(in) :: nsteps
 
-    integer(int32) :: istep,ptype
+    integer(int32) :: istep
 
     if (self%state%mpi_rank == 0) then
       write(*,*) " "
@@ -490,10 +506,13 @@ contains
     end if
 
     do istep = 1_int32, int(nsteps, int32)
-      if (mod(istep,self%state%cfg%nsav).eq.1_int32) then
+
+      if (mod(istep,self%state%cfg%nsav) == 1_int32) then
         call self%print_diagnostics(istep)
       end if
+
       call self%advance_one_step(istep)
+
     end do
   end subroutine run
 
@@ -628,6 +647,13 @@ contains
         " npart ", self%state%chem%pname(ptype) , &
         " = ", sum(self%state%part(ptype,:)%n)
     end do
+
+    write(*,'(a,i12,a)') " ===== MODULAR DIAGNOSTIC it = ", istep, " ====="
+    write(*,'(a,3ES24.15)') " phi min/max/sum = ", &
+      minval(self%state%fld%phi), &
+      maxval(self%state%fld%phi), &
+      sum(self%state%fld%phi)
+    write(*,'(a)') " ==========================================="
 
     write(*,'(a)') " -------------------------"
 
