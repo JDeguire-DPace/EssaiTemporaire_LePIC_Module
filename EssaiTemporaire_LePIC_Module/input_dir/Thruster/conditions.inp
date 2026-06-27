@@ -1,0 +1,29 @@
+thruster.dat ! name of file storing reactions
+10. ! Te (eV)
+7 ! # of levels in MG solver
+1.d-7, 1.6d0 ! Min. precision in residual, w for SOR [1.6]
+256 512 192 ! n: nx=2**n, ny=2**n. Number of grid points [2**7,2**3]
+0.15 0.75 1.25 2.75 0. 100. ! Particle heating region x<, x>, y<, y>, z<, z> [cm]
+0.74 ! Particle loading region [cm]
+2 ! # of magnetic field files (<0 positive ions not magnetized)
+128 256 96 ! Grid for the magnetic field map
+s gauss 1. 75. By 8.d10 0.5 0. 0. ! ext. file (y/n/s), name, scaling, B(G), direction, L/x0/y0/z0(cm)
+n thr 1. 100. By 1. 0.53 0. 0. ! ext. file (y/n/s), name, scaling, B(G), direction, L/x0/y0/z0(cm)
+-60.d3 -1.d8 ! Pabs(W) (<0 to turn off), Heating frequency (<0 == off)
+1.872d-2  -2 ! Inject current I(A) (<0 == off), options [1=fixed, 2= equal to ion losses, 3= e-beam (+Z), 4= emmissive cath. (+Z), <0 cosine]
+1.d-3 ! t_max(s)
+0.3  ! time coeff. k ; dt= k*dx/vt
+3.d17 ! n0 (m-3)
+1.d20 ! ng (m-3)
+100 ! np_cell: number of particles per cell (<0 for no background plasma)
+5 ! Number of wall labels, [ngrid+1:ngrid+2] is used for dielectric BC's (<0 do not save 3D density and potential maps)
+1000 ! frequency for saving data (<0 does not reset averaging)
+2000 -100 28.d-6 30.e-6 Y ! Frequency for simulation backup (<0 no averaging), # of plots (<0 off), time window [t1,t2], saved planes
+1.d0 ! k_eps0 (<0 iterative P, I_inj or Vgrd)
+no 1 1.5 2.5 0. 1.5 3 0.6 0.7 1. 1.1 1.5 1.6 ! Save pdf (y/n), ptype, yl, yr, zl, zr (cm), # of regions n_rg, xl & xr for each n_rg
+no 24 2 1. ! Restart (yes/no/external/gauss),  # of OMP threads, # of MPI, coefficient for particle duplication/removal
+no 0.8 0.8 1 2 2 ! Holes (y/n), Lhy*Lhz(cm), ny*nz holes, (PE) grid index
+0. 10. 3 1.d-6 ! jH-(mA/cm2) from H on PE surface, TH-(eV), characteristics of neg. ions on grid # [index], dielectric capacitance Ca/S (Fd/m2)
+-0.18 2 no 0. 0.2 0.6 0.8 ! Secondary emission coeff (<0 == off), grid index
+END
+

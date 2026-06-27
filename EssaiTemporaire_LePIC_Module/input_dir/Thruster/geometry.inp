@@ -1,0 +1,6 @@
+2. 4. 1.5 ! Box size: xmax, ymax, zmax
+0. 1.25 0. 0.75 -2.75 -1.5 3  ! (x<,y<,z<), (x>,y>,z>), V
+0.74 1.25 0. -0.77 2.75 -1.5 4 ! x> negatif: dielectric in YZ plane
+0.77 0. 0. 2. -4. -1.5 5 ! y> negatif: dielectric in XZ plane
+0. 1.25 0. 0. 2.75 1.5 -2 ! z> negatif: z=1 and n+1 set as periodic BC's
+2. 0. 0. 2. 4 1.5 -1

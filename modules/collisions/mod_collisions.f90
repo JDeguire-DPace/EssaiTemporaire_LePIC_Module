@@ -1,6 +1,8 @@
 module mod_collisions
   use iso_fortran_env,    only: int32, real64
+  use iso_fortran_env, only: int64
   use mod_particles,      only: ParticleSet
+  use mod_collisionDiagnostics, only: init_rxn_counts
   use mod_MCCcollisions,  only: perform_MCC_collisions
   use mod_BMCCcollisions, only: perform_BMCC_collisions
 
@@ -30,6 +32,11 @@ contains
     integer(int32), intent(in) :: mpi_rank
     real(real64), intent(inout) :: Pcoll(:,:)
     real(real64), intent(in) :: dom_volume
+    integer(int64), allocatable, save :: rxn_count(:)
+    integer(int32)        ::   s
+
+
+    call init_rxn_counts(int(size(sigv_mx,2), int32))
 
     ! MCC: projectile (tracked) + neutral background target
     call perform_MCC_collisions( &
@@ -53,6 +60,9 @@ contains
         iseed         = iseed, &
         mpi_rank      = mpi_rank, &
         Pcoll         = Pcoll)
+
+
+    
 
     ! BMCC: projectile (tracked) + charged tracked target (e.g. H+ + H-)
     call perform_BMCC_collisions( &

@@ -3,6 +3,7 @@ module mod_MCCcollisions
   use mod_particles,   only: ParticleSet
   use mod_RNG,         only: ran2
   use mod_collisionProducts, only: apply_collision_products
+  use mod_collisionDiagnostics, only: count_rxn
 
   implicit none
   private
@@ -186,6 +187,8 @@ contains
           if (rnd <= sum_nu .and. chosen_col > 0_int32) then
 
             accepted = accepted + 1_int32
+
+            call count_rxn(chosen_col)
 
             call apply_collision_products( &
                 part        = part, &

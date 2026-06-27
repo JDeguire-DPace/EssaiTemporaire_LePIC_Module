@@ -45,7 +45,7 @@
  Input file was read correctly ...
  eps0 HAS BEEN RE-SCALED: k_eps0=   36000.0000000000     
  Gas chemistry read correctly (end of file reached)
- Collision-less mode is set
+ Total number of reactions:          61
  Type of wall surfaces (1=metal, 2 & 3= dielectric):  1  1  1  1  0
  Gaussian magnetic filter field profile
  Bmax @ location:         126           0           0
@@ -53,15 +53,16 @@
  Frequency of calls to electron (Maxwellian) heating subroutine=   4
  Frequency of calls to sort subroutine=  10
  Frequency for averaging=    50
- Heating region: ix<=  1, ix>=   52
- Injection region: ix<=  1, ix>=   52, iy<=  1, iy>=   97, iz<=  1, iz>=  193
+ Heating region: ix<=***, ix>=  129
+ Injection region: ix<=***, ix>=  129, iy<=  1, iy>=   97, iz<=  1, iz>=  193
  Particle loading region: nx<= 129
  Loading particles ...
- Particles: [e]   [H+] 
- np=  18256320  18256320
+ Particles: [e]   [H2+] [H-]  [H3+] [H+] 
+ np=  18256320   8212933         0   4564865   5476368
  lde (mm)=   5.83998920113031     
  lpe (mm)=   10708.4415408690     
- vt (m/s)=   1452784.98634840        4392.84268275340     
+ vt (m/s)=   1452784.98634840       0.000000000000000E+000
+  0.000000000000000E+000  0.000000000000000E+000  0.000000000000000E+000
  <|v|> (m/s)=   1639292.31286467     
  dx (mm)=   3.12500000000000      dy (mm)=   3.33333333333333      dz (mm)=
    3.02083333333333     
@@ -78,7 +79,7 @@
  ng= 6, omega=   1.6
  nx= 128, ny=  96, nz= 192, # of cells:  1825632
  Save 3D density, potential and E-field maps option on
- *** Startup time (s):   0.6 ***
+ *** Startup time (s):   0.9 ***
   
  Running simulation ...
   
@@ -87,18 +88,2170 @@
    372240.000000000     
  ===========================================
   
- Pwall (W)=  -2.71E+05, Pabs (W)=   4.37E+04, Pcoll (W)=   0.00E+00, Pinj (W)=   0.00E+00, I_w (A)=  -2.25E+04    6.28E+01  , Ek_w (eV)=   1.20E+01    2.09E-01
- it=        1, t (us)=    0.0, np=   18176615    18256098
+ 
+ Accepted collision reactions:
+ 
+ Pwall (W)=  -2.72E+05, Pabs (W)=   4.44E+04, Pcoll (W)=   0.00E+00, Pinj (W)=   0.00E+00, I_w (A)=  -2.27E+04    0.00E+00  , Ek_w (eV)=   1.20E+01    0.00E+00
+ it=        1, t (us)=    0.0, np=   18176018     8212933           0     4564865     5476368
  Saving 3D potentiel and density maps ...
   
  ===== LEGACY DIAGNOSTIC it =         1001  =====
- phi min/max/sum =   0.000000000000000E+000   20.0000000000000     
-   12707893.3009410     
+ phi min/max/sum =   0.000000000000000E+000   20.2953375247510     
+   18741592.3554314     
  ===========================================
   
  Backing up simulation data ...
  Done!
- Pwall (W)=  -1.07E+04, Pabs (W)=  -1.18E+04, Pcoll (W)=   0.00E+00, Pinj (W)=   0.00E+00, I_w (A)=  -8.46E+02    5.84E+02  , Ek_w (eV)=   1.01E+01    3.63E+00
- it=     1001, t (us)=    0.6, np=   15184955    16189917
- <t> (ms): E/rho=   19.8, poisson=   25.4, sorting=    5.8, avg/write=    1.1, MC=    0.0, mover=    49.5, bck=    0.6, total=   102.2
+ 
+ Accepted collision reactions:
+ reaction    1 accepted =        98882
+ reaction    2 accepted =        22940
+ reaction    3 accepted =         9866
+ reaction    4 accepted =         6201
+ reaction    5 accepted =        22895
+ reaction    6 accepted =      5833887
+ reaction    7 accepted =     58655999
+ reaction    8 accepted =       150205
+ reaction    9 accepted =         1768
+ reaction   10 accepted =          202
+ reaction   11 accepted =      7934068
+ reaction   12 accepted =      8790410
+ reaction   13 accepted =      1405853
+ reaction   14 accepted =       141139
+ reaction   15 accepted =        11528
+ reaction   16 accepted =       157940
+ reaction   17 accepted =        14990
+ reaction   18 accepted =         3619
+ reaction   19 accepted =       146531
+ reaction   20 accepted =        21220
+ reaction   21 accepted =         7808
+ reaction   22 accepted =       128731
+ reaction   23 accepted =      1068231
+ reaction   24 accepted =        37193
+ reaction   25 accepted =       377061
+ reaction   26 accepted =        26873
+ reaction   27 accepted =         6796
+ reaction   28 accepted =        64236
+ reaction   29 accepted =        43531
+ reaction   30 accepted =         4358
+ reaction   31 accepted =         4236
+ reaction   32 accepted =         1836
+ reaction   33 accepted =         1878
+ reaction   34 accepted =       350439
+ reaction   35 accepted =        61917
+ reaction   36 accepted =        37390
+ reaction   37 accepted =       165812
+ reaction   38 accepted =          526
+ reaction   39 accepted =           35
+ reaction   40 accepted =       424041
+ reaction   41 accepted =        13843
+ reaction   42 accepted =        29940
+ reaction   43 accepted =        84473
+ reaction   44 accepted =        42742
+ reaction   45 accepted =       378062
+ reaction   46 accepted =       229259
+ reaction   47 accepted =       134228
+ reaction   48 accepted =        10205
+ reaction   49 accepted =         1745
+ reaction   50 accepted =          259
+ reaction   51 accepted =        16769
+ reaction   52 accepted =            7
+ reaction   53 accepted =           67
+ reaction   54 accepted =          339
+ reaction   55 accepted =           43
+ reaction   56 accepted =            1
+ reaction   57 accepted =           27
+ reaction   59 accepted =            9
+ reaction   60 accepted =          524
+ reaction   61 accepted =     20131215
+ 
+ Pwall (W)=  -1.21E+04, Pabs (W)=   6.04E+02, Pcoll (W)=  -8.02E+03, Pinj (W)=   0.00E+00, I_w (A)=  -9.84E+02    5.55E+02  , Ek_w (eV)=   9.86E+00    4.37E+00
+ it=     1001, t (us)=    0.6, np=   14811507     6927594       16356     4600410     4894241
+ <t> (ms): E/rho=   31.6, poisson=   27.2, sorting=    7.5, avg/write=    2.3, MC=   42.0, mover=    72.6, bck=    0.7, total=   183.8
+ Saving 3D potentiel and density maps ...
+  
+ ===== LEGACY DIAGNOSTIC it =         2001  =====
+ phi min/max/sum =   0.000000000000000E+000   20.0806065389284     
+   15333728.0574903     
+ ===========================================
+  
+ Backing up simulation data ...
+ Done!
+ 
+ Accepted collision reactions:
+ reaction    1 accepted =        32152
+ reaction    2 accepted =         4788
+ reaction    3 accepted =         1761
+ reaction    4 accepted =         1052
+ reaction    5 accepted =         2225
+ reaction    6 accepted =      5910242
+ reaction    7 accepted =     55964441
+ reaction    8 accepted =         8007
+ reaction    9 accepted =           83
+ reaction   10 accepted =            1
+ reaction   11 accepted =      7119624
+ reaction   12 accepted =      7797983
+ reaction   13 accepted =      1387613
+ reaction   14 accepted =       131664
+ reaction   15 accepted =        11593
+ reaction   16 accepted =        22299
+ reaction   17 accepted =         1329
+ reaction   18 accepted =          247
+ reaction   19 accepted =        17454
+ reaction   20 accepted =         1737
+ reaction   21 accepted =          548
+ reaction   22 accepted =        30189
+ reaction   23 accepted =       445209
+ reaction   24 accepted =         2343
+ reaction   25 accepted =        89566
+ reaction   26 accepted =         4533
+ reaction   27 accepted =         1097
+ reaction   28 accepted =         9508
+ reaction   29 accepted =         2819
+ reaction   30 accepted =         3814
+ reaction   31 accepted =         3825
+ reaction   32 accepted =          165
+ reaction   33 accepted =          143
+ reaction   34 accepted =       371955
+ reaction   35 accepted =        61874
+ reaction   36 accepted =        35163
+ reaction   37 accepted =       128208
+ reaction   38 accepted =           26
+ reaction   39 accepted =            3
+ reaction   40 accepted =       351558
+ reaction   41 accepted =        25592
+ reaction   42 accepted =        25264
+ reaction   43 accepted =        82486
+ reaction   44 accepted =        38679
+ reaction   45 accepted =       367316
+ reaction   46 accepted =       266808
+ reaction   47 accepted =       161627
+ reaction   48 accepted =        15398
+ reaction   49 accepted =         2685
+ reaction   50 accepted =          579
+ reaction   51 accepted =        19366
+ reaction   52 accepted =           27
+ reaction   53 accepted =          183
+ reaction   54 accepted =         1055
+ reaction   55 accepted =          162
+ reaction   57 accepted =           67
+ reaction   59 accepted =           19
+ reaction   60 accepted =         1546
+ reaction   61 accepted =     20246359
+ 
+ Pwall (W)=  -4.38E+03, Pabs (W)=   3.27E+02, Pcoll (W)=  -2.61E+03, Pinj (W)=   0.00E+00, I_w (A)=  -2.86E+02    4.65E+02  , Ek_w (eV)=   4.18E+00    6.85E+00
+ ==== LEG TRUE n1_xy tail ====
+   125   3.28729700E+17
+   126   3.53714970E+17
+   127   2.94988579E+17
+   128   2.04799655E+17
+   129   8.82359444E+16
+ ==== LEG TRUE n1_xy tail ====
+   125   3.28729700E+17
+   126   3.53714970E+17
+   127   2.94988579E+17
+   128   2.04799655E+17
+   129   8.82359444E+16
+ ==== LEG TRUE n1_xy tail ====
+   125   3.28729700E+17
+   126   3.53714970E+17
+   127   2.94988579E+17
+   128   2.04799655E+17
+   129   8.82359444E+16
+ ==== LEG TRUE n1_xy tail ====
+   125   3.28729700E+17
+   126   3.53714970E+17
+   127   2.94988579E+17
+   128   2.04799655E+17
+   129   8.82359444E+16
+ ==== LEG TRUE n1_xy tail ====
+   125   3.28729700E+17
+   126   3.53714970E+17
+   127   2.94988579E+17
+   128   2.04799655E+17
+   129   8.82359444E+16
+ it=     2001, t (us)=    1.2, np=   13749765     5729469       34635     4527303     4490151
+ <t> (ms): E/rho=   31.8, poisson=   23.8, sorting=    7.1, avg/write=    2.2, MC=   39.4, mover=    70.9, bck=    0.5, total=   175.6
+ Saving 3D potentiel and density maps ...
+  
+ ===== LEGACY DIAGNOSTIC it =         3001  =====
+ phi min/max/sum =   0.000000000000000E+000   20.0000000000000     
+   13304135.7853093     
+ ===========================================
+  
+ Backing up simulation data ...
+ Done!
+ 
+ Accepted collision reactions:
+ reaction    1 accepted =        12561
+ reaction    2 accepted =         1347
+ reaction    3 accepted =          406
+ reaction    4 accepted =          254
+ reaction    5 accepted =          356
+ reaction    6 accepted =      5764024
+ reaction    7 accepted =     52909253
+ reaction    8 accepted =          805
+ reaction    9 accepted =            7
+ reaction   11 accepted =      6404980
+ reaction   12 accepted =      6969944
+ reaction   13 accepted =      1316827
+ reaction   14 accepted =       118178
+ reaction   15 accepted =        11036
+ reaction   16 accepted =         5070
+ reaction   17 accepted =          200
+ reaction   18 accepted =           32
+ reaction   19 accepted =         3368
+ reaction   20 accepted =          253
+ reaction   21 accepted =           91
+ reaction   22 accepted =         8709
+ reaction   23 accepted =       209426
+ reaction   24 accepted =          240
+ reaction   25 accepted =        25831
+ reaction   26 accepted =          966
+ reaction   27 accepted =          226
+ reaction   28 accepted =         1890
+ reaction   29 accepted =          307
+ reaction   30 accepted =         3538
+ reaction   31 accepted =         3541
+ reaction   32 accepted =           23
+ reaction   33 accepted =           21
+ reaction   34 accepted =       380452
+ reaction   35 accepted =        62022
+ reaction   36 accepted =        31599
+ reaction   37 accepted =        97608
+ reaction   38 accepted =            5
+ reaction   40 accepted =       299760
+ reaction   41 accepted =        22277
+ reaction   42 accepted =        22091
+ reaction   43 accepted =        80433
+ reaction   44 accepted =        36851
+ reaction   45 accepted =       363233
+ reaction   46 accepted =       285602
+ reaction   47 accepted =       175981
+ reaction   48 accepted =        18122
+ reaction   49 accepted =         2853
+ reaction   50 accepted =          931
+ reaction   51 accepted =        21287
+ reaction   52 accepted =           45
+ reaction   53 accepted =          308
+ reaction   54 accepted =         1750
+ reaction   55 accepted =          231
+ reaction   56 accepted =            2
+ reaction   57 accepted =          129
+ reaction   59 accepted =           49
+ reaction   60 accepted =         2718
+ reaction   61 accepted =     19756828
+ 
+ Pwall (W)=  -2.83E+03, Pabs (W)=   2.82E+02, Pcoll (W)=  -1.42E+03, Pinj (W)=   0.00E+00, I_w (A)=  -2.24E+02    3.07E+02  , Ek_w (eV)=   3.53E+00    6.62E+00
+ it=     3001, t (us)=    1.9, np=   12901328     4868051       54027     4515526     4239239
+ <t> (ms): E/rho=   33.4, poisson=   21.6, sorting=    6.8, avg/write=    2.1, MC=   37.8, mover=    72.7, bck=    0.5, total=   174.8
+ Saving 3D potentiel and density maps ...
+  
+ ===== LEGACY DIAGNOSTIC it =         4001  =====
+ phi min/max/sum =   0.000000000000000E+000   20.0000000000000     
+   11551429.8544575     
+ ===========================================
+  
+ Backing up simulation data ...
+ Done!
+ 
+ Accepted collision reactions:
+ reaction    1 accepted =         5913
+ reaction    2 accepted =          495
+ reaction    3 accepted =          130
+ reaction    4 accepted =           72
+ reaction    5 accepted =          100
+ reaction    6 accepted =      5585650
+ reaction    7 accepted =     50019561
+ reaction    8 accepted =          125
+ reaction    9 accepted =            1
+ reaction   11 accepted =      5800146
+ reaction   12 accepted =      6292181
+ reaction   13 accepted =      1238780
+ reaction   14 accepted =       106850
+ reaction   15 accepted =        10145
+ reaction   16 accepted =         1621
+ reaction   17 accepted =           40
+ reaction   18 accepted =            3
+ reaction   19 accepted =          975
+ reaction   20 accepted =           43
+ reaction   21 accepted =           10
+ reaction   22 accepted =         3129
+ reaction   23 accepted =       110376
+ reaction   24 accepted =           33
+ reaction   25 accepted =         9386
+ reaction   26 accepted =          284
+ reaction   27 accepted =           71
+ reaction   28 accepted =          487
+ reaction   29 accepted =           42
+ reaction   30 accepted =         3106
+ reaction   31 accepted =         3212
+ reaction   32 accepted =            6
+ reaction   33 accepted =            3
+ reaction   34 accepted =       391640
+ reaction   35 accepted =        62135
+ reaction   36 accepted =        27674
+ reaction   37 accepted =        74349
+ reaction   40 accepted =       260183
+ reaction   41 accepted =        19411
+ reaction   42 accepted =        18858
+ reaction   43 accepted =        78418
+ reaction   44 accepted =        35170
+ reaction   45 accepted =       358083
+ reaction   46 accepted =       294749
+ reaction   47 accepted =       183248
+ reaction   48 accepted =        19439
+ reaction   49 accepted =         3051
+ reaction   50 accepted =         1116
+ reaction   51 accepted =        22842
+ reaction   52 accepted =           73
+ reaction   53 accepted =          460
+ reaction   54 accepted =         2643
+ reaction   55 accepted =          342
+ reaction   56 accepted =            3
+ reaction   57 accepted =          196
+ reaction   59 accepted =           98
+ reaction   60 accepted =         4135
+ reaction   61 accepted =     19139760
+ 
+ Pwall (W)=  -2.11E+03, Pabs (W)=   2.46E+02, Pcoll (W)=  -1.00E+03, Pinj (W)=   0.00E+00, I_w (A)=  -1.89E+02    2.37E+02  , Ek_w (eV)=   3.36E+00    6.20E+00
+ it=     4001, t (us)=    2.5, np=   12179418     4192820       74246     4519370     4037679
+ <t> (ms): E/rho=   33.3, poisson=   20.7, sorting=    6.6, avg/write=    2.0, MC=   36.9, mover=    71.2, bck=    0.5, total=   171.3
+ Saving 3D potentiel and density maps ...
+  
+ ===== LEGACY DIAGNOSTIC it =         5001  =====
+ phi min/max/sum =   0.000000000000000E+000   20.0000000000000     
+   10356605.1371940     
+ ===========================================
+  
+ Backing up simulation data ...
+ Done!
+ 
+ Accepted collision reactions:
+ reaction    1 accepted =         2858
+ reaction    2 accepted =          204
+ reaction    3 accepted =           54
+ reaction    4 accepted =           22
+ reaction    5 accepted =           31
+ reaction    6 accepted =      5389017
+ reaction    7 accepted =     47240005
+ reaction    8 accepted =           30
+ reaction    9 accepted =            1
+ reaction   11 accepted =      5248902
+ reaction   12 accepted =      5678915
+ reaction   13 accepted =      1159904
+ reaction   14 accepted =        96349
+ reaction   15 accepted =         9358
+ reaction   16 accepted =          652
+ reaction   17 accepted =           16
+ reaction   18 accepted =            1
+ reaction   19 accepted =          336
+ reaction   20 accepted =           12
+ reaction   21 accepted =            4
+ reaction   22 accepted =         1241
+ reaction   23 accepted =        60180
+ reaction   24 accepted =            1
+ reaction   25 accepted =         3834
+ reaction   26 accepted =          112
+ reaction   27 accepted =           30
+ reaction   28 accepted =          136
+ reaction   29 accepted =           24
+ reaction   30 accepted =         2812
+ reaction   31 accepted =         2930
+ reaction   32 accepted =            2
+ reaction   34 accepted =       396648
+ reaction   35 accepted =        62547
+ reaction   36 accepted =        24473
+ reaction   37 accepted =        56322
+ reaction   40 accepted =       227479
+ reaction   41 accepted =        17104
+ reaction   42 accepted =        16372
+ reaction   43 accepted =        75791
+ reaction   44 accepted =        34050
+ reaction   45 accepted =       350934
+ reaction   46 accepted =       292783
+ reaction   47 accepted =       182534
+ reaction   48 accepted =        19364
+ reaction   49 accepted =         3001
+ reaction   50 accepted =         1308
+ reaction   51 accepted =        24607
+ reaction   52 accepted =           84
+ reaction   53 accepted =          602
+ reaction   54 accepted =         3446
+ reaction   55 accepted =          415
+ reaction   56 accepted =            6
+ reaction   57 accepted =          252
+ reaction   59 accepted =          112
+ reaction   60 accepted =         5346
+ reaction   61 accepted =     18271682
+ 
+ Pwall (W)=  -1.67E+03, Pabs (W)=   2.05E+02, Pcoll (W)=  -7.78E+02, Pinj (W)=   0.00E+00, I_w (A)=  -1.72E+02    1.96E+02  , Ek_w (eV)=   3.24E+00    5.70E+00
+ it=     5001, t (us)=    3.1, np=   11518711     3640250       95740     4523704     3864362
+ <t> (ms): E/rho=   33.3, poisson=   20.2, sorting=    6.4, avg/write=    2.0, MC=   33.2, mover=    69.9, bck=    0.4, total=   165.5
+ Saving 3D potentiel and density maps ...
+  
+ ===== LEGACY DIAGNOSTIC it =         6001  =====
+ phi min/max/sum =   0.000000000000000E+000   20.0000000000000     
+   9532373.66224439     
+ ===========================================
+  
+ Backing up simulation data ...
+ Done!
+ 
+ Accepted collision reactions:
+ reaction    1 accepted =         1377
+ reaction    2 accepted =           97
+ reaction    3 accepted =            7
+ reaction    4 accepted =            9
+ reaction    5 accepted =           11
+ reaction    6 accepted =      5174309
+ reaction    7 accepted =     44501808
+ reaction    8 accepted =           18
+ reaction   11 accepted =      4737058
+ reaction   12 accepted =      5114680
+ reaction   13 accepted =      1077617
+ reaction   14 accepted =        85531
+ reaction   15 accepted =         8617
+ reaction   16 accepted =          292
+ reaction   17 accepted =            4
+ reaction   19 accepted =          132
+ reaction   20 accepted =            3
+ reaction   21 accepted =            1
+ reaction   22 accepted =          543
+ reaction   23 accepted =        32799
+ reaction   24 accepted =            7
+ reaction   25 accepted =         1649
+ reaction   26 accepted =           46
+ reaction   27 accepted =           13
+ reaction   28 accepted =           65
+ reaction   29 accepted =            6
+ reaction   30 accepted =         2578
+ reaction   31 accepted =         2587
+ reaction   33 accepted =            1
+ reaction   34 accepted =       401222
+ reaction   35 accepted =        62565
+ reaction   36 accepted =        21265
+ reaction   37 accepted =        42008
+ reaction   40 accepted =       198712
+ reaction   41 accepted =        14932
+ reaction   42 accepted =        14357
+ reaction   43 accepted =        73467
+ reaction   44 accepted =        32772
+ reaction   45 accepted =       340153
+ reaction   46 accepted =       287977
+ reaction   47 accepted =       180124
+ reaction   48 accepted =        19202
+ reaction   49 accepted =         2827
+ reaction   50 accepted =         1391
+ reaction   51 accepted =        26231
+ reaction   52 accepted =          101
+ reaction   53 accepted =          747
+ reaction   54 accepted =         4296
+ reaction   55 accepted =          552
+ reaction   56 accepted =            5
+ reaction   57 accepted =          326
+ reaction   58 accepted =            3
+ reaction   59 accepted =          133
+ reaction   60 accepted =         6832
+ reaction   61 accepted =     17670311
+ 
+ Pwall (W)=  -1.39E+03, Pabs (W)=   1.71E+02, Pcoll (W)=  -6.39E+02, Pinj (W)=   0.00E+00, I_w (A)=  -1.58E+02    1.68E+02  , Ek_w (eV)=   3.19E+00    5.28E+00
+ it=     6001, t (us)=    3.7, np=   10911727     3180326      118445     4520228     3707513
+ <t> (ms): E/rho=   34.3, poisson=   20.0, sorting=    6.2, avg/write=    2.0, MC=   31.7, mover=    70.5, bck=    0.4, total=   165.2
+ Saving 3D potentiel and density maps ...
+  
+ ===== LEGACY DIAGNOSTIC it =         7001  =====
+ phi min/max/sum =   0.000000000000000E+000   20.0000000000000     
+   8938691.96557035     
+ ===========================================
+  
+ Backing up simulation data ...
+ Done!
+ 
+ Accepted collision reactions:
+ reaction    1 accepted =          773
+ reaction    2 accepted =           39
+ reaction    3 accepted =            7
+ reaction    4 accepted =            4
+ reaction    5 accepted =            5
+ reaction    6 accepted =      4968381
+ reaction    7 accepted =     41834889
+ reaction    8 accepted =           10
+ reaction   11 accepted =      4263027
+ reaction   12 accepted =      4601922
+ reaction   13 accepted =       994996
+ reaction   14 accepted =        75373
+ reaction   15 accepted =         7746
+ reaction   16 accepted =          145
+ reaction   17 accepted =            1
+ reaction   19 accepted =           52
+ reaction   20 accepted =            1
+ reaction   21 accepted =            1
+ reaction   22 accepted =          258
+ reaction   23 accepted =        17855
+ reaction   24 accepted =            2
+ reaction   25 accepted =          781
+ reaction   26 accepted =           19
+ reaction   27 accepted =            4
+ reaction   28 accepted =           26
+ reaction   29 accepted =            3
+ reaction   30 accepted =         2417
+ reaction   31 accepted =         2326
+ reaction   34 accepted =       404455
+ reaction   35 accepted =        62589
+ reaction   36 accepted =        18726
+ reaction   37 accepted =        30907
+ reaction   40 accepted =       175349
+ reaction   41 accepted =        13089
+ reaction   42 accepted =        12679
+ reaction   43 accepted =        70700
+ reaction   44 accepted =        31480
+ reaction   45 accepted =       331256
+ reaction   46 accepted =       281878
+ reaction   47 accepted =       176010
+ reaction   48 accepted =        18963
+ reaction   49 accepted =         2597
+ reaction   50 accepted =         1372
+ reaction   51 accepted =        27594
+ reaction   52 accepted =          116
+ reaction   53 accepted =          933
+ reaction   54 accepted =         5102
+ reaction   55 accepted =          650
+ reaction   56 accepted =            5
+ reaction   57 accepted =          409
+ reaction   58 accepted =            1
+ reaction   59 accepted =          161
+ reaction   60 accepted =         7833
+ reaction   61 accepted =     16749955
+ 
+ Pwall (W)=  -1.17E+03, Pabs (W)=   1.35E+02, Pcoll (W)=  -5.45E+02, Pinj (W)=   0.00E+00, I_w (A)=  -1.41E+02    1.48E+02  , Ek_w (eV)=   3.08E+00    4.96E+00
+ it=     7001, t (us)=    4.4, np=   10365302     2789762      142172     4507866     3562364
+ <t> (ms): E/rho=   34.5, poisson=   19.9, sorting=    6.1, avg/write=    2.0, MC=   28.1, mover=    70.0, bck=    0.4, total=   161.0
+ Saving 3D potentiel and density maps ...
+  
+ ===== LEGACY DIAGNOSTIC it =         8001  =====
+ phi min/max/sum =   0.000000000000000E+000   20.0000000000000     
+   8430375.54554027     
+ ===========================================
+  
+ Backing up simulation data ...
+ Done!
+ 
+ Accepted collision reactions:
+ reaction    1 accepted =          406
+ reaction    2 accepted =           17
+ reaction    3 accepted =            4
+ reaction    4 accepted =            1
+ reaction    5 accepted =            3
+ reaction    6 accepted =      4764137
+ reaction    7 accepted =     39304885
+ reaction    8 accepted =            6
+ reaction   11 accepted =      3834707
+ reaction   12 accepted =      4134721
+ reaction   13 accepted =       916490
+ reaction   14 accepted =        66423
+ reaction   15 accepted =         7002
+ reaction   16 accepted =           83
+ reaction   17 accepted =            4
+ reaction   19 accepted =           30
+ reaction   20 accepted =            1
+ reaction   22 accepted =          129
+ reaction   23 accepted =        10277
+ reaction   24 accepted =            3
+ reaction   25 accepted =          345
+ reaction   26 accepted =           10
+ reaction   27 accepted =            1
+ reaction   28 accepted =           18
+ reaction   29 accepted =            2
+ reaction   30 accepted =         2098
+ reaction   31 accepted =         2087
+ reaction   34 accepted =       406917
+ reaction   35 accepted =        62858
+ reaction   36 accepted =        16132
+ reaction   37 accepted =        22506
+ reaction   40 accepted =       154903
+ reaction   41 accepted =        11702
+ reaction   42 accepted =        11369
+ reaction   43 accepted =        68243
+ reaction   44 accepted =        30301
+ reaction   45 accepted =       318817
+ reaction   46 accepted =       274517
+ reaction   47 accepted =       171752
+ reaction   48 accepted =        18803
+ reaction   49 accepted =         2609
+ reaction   50 accepted =         1352
+ reaction   51 accepted =        29149
+ reaction   52 accepted =          140
+ reaction   53 accepted =         1077
+ reaction   54 accepted =         6202
+ reaction   55 accepted =          774
+ reaction   56 accepted =           10
+ reaction   57 accepted =          475
+ reaction   58 accepted =            5
+ reaction   59 accepted =          202
+ reaction   60 accepted =         9405
+ reaction   61 accepted =     16026975
+ 
+ Pwall (W)=  -1.01E+03, Pabs (W)=   1.17E+02, Pcoll (W)=  -4.78E+02, Pinj (W)=   0.00E+00, I_w (A)=  -1.26E+02    1.33E+02  , Ek_w (eV)=   3.03E+00    4.70E+00
+ it=     8001, t (us)=    5.0, np=    9875994     2455820      166815     4487442     3425990
+ <t> (ms): E/rho=   34.6, poisson=   19.7, sorting=    6.0, avg/write=    2.1, MC=   26.0, mover=    69.2, bck=    0.4, total=   157.9
+ Saving 3D potentiel and density maps ...
+  
+ ===== LEGACY DIAGNOSTIC it =         9001  =====
+ phi min/max/sum =   0.000000000000000E+000   20.0000000000000     
+   7947596.12094793     
+ ===========================================
+  
+ Backing up simulation data ...
+ Done!
+ 
+ Accepted collision reactions:
+ reaction    1 accepted =          211
+ reaction    2 accepted =           11
+ reaction    3 accepted =            2
+ reaction    4 accepted =            1
+ reaction    5 accepted =            4
+ reaction    6 accepted =      4559089
+ reaction    7 accepted =     36934628
+ reaction    8 accepted =            1
+ reaction   11 accepted =      3450102
+ reaction   12 accepted =      3706166
+ reaction   13 accepted =       841213
+ reaction   14 accepted =        58816
+ reaction   15 accepted =         5991
+ reaction   16 accepted =           41
+ reaction   17 accepted =            1
+ reaction   19 accepted =           15
+ reaction   20 accepted =            2
+ reaction   22 accepted =           61
+ reaction   23 accepted =         6118
+ reaction   24 accepted =            1
+ reaction   25 accepted =          207
+ reaction   26 accepted =            2
+ reaction   27 accepted =            2
+ reaction   28 accepted =           12
+ reaction   29 accepted =            1
+ reaction   30 accepted =         2055
+ reaction   31 accepted =         1898
+ reaction   34 accepted =       407890
+ reaction   35 accepted =        62138
+ reaction   36 accepted =        14198
+ reaction   37 accepted =        16230
+ reaction   40 accepted =       136604
+ reaction   41 accepted =        10562
+ reaction   42 accepted =        10076
+ reaction   43 accepted =        65807
+ reaction   44 accepted =        29003
+ reaction   45 accepted =       309722
+ reaction   46 accepted =       267208
+ reaction   47 accepted =       168119
+ reaction   48 accepted =        18308
+ reaction   49 accepted =         2454
+ reaction   50 accepted =         1358
+ reaction   51 accepted =        30518
+ reaction   52 accepted =          157
+ reaction   53 accepted =         1283
+ reaction   54 accepted =         7094
+ reaction   55 accepted =          907
+ reaction   56 accepted =            1
+ reaction   57 accepted =          569
+ reaction   58 accepted =            3
+ reaction   59 accepted =          210
+ reaction   60 accepted =        11136
+ reaction   61 accepted =     15346786
+ 
+ Pwall (W)=  -8.76E+02, Pabs (W)=   1.07E+02, Pcoll (W)=  -4.27E+02, Pinj (W)=   0.00E+00, I_w (A)=  -1.13E+02    1.21E+02  , Ek_w (eV)=   2.96E+00    4.49E+00
+ it=     9001, t (us)=    5.6, np=    9433829     2168215      192143     4457865     3298335
+ <t> (ms): E/rho=   34.5, poisson=   19.7, sorting=    5.9, avg/write=    2.0, MC=   24.1, mover=    68.4, bck=    0.4, total=   155.0
+ Saving 3D potentiel and density maps ...
+  
+ ===== LEGACY DIAGNOSTIC it =        10001  =====
+ phi min/max/sum =   0.000000000000000E+000   20.0000000000000     
+   7478364.60836798     
+ ===========================================
+  
+ Backing up simulation data ...
+ Done!
+ 
+ Accepted collision reactions:
+ reaction    1 accepted =          161
+ reaction    2 accepted =            5
+ reaction    3 accepted =            1
+ reaction    4 accepted =            2
+ reaction    5 accepted =            1
+ reaction    6 accepted =      4367227
+ reaction    7 accepted =     34673464
+ reaction    8 accepted =            2
+ reaction   11 accepted =      3100936
+ reaction   12 accepted =      3319567
+ reaction   13 accepted =       764373
+ reaction   14 accepted =        50193
+ reaction   15 accepted =         5359
+ reaction   16 accepted =           27
+ reaction   17 accepted =            1
+ reaction   19 accepted =           10
+ reaction   20 accepted =            1
+ reaction   22 accepted =           57
+ reaction   23 accepted =         3916
+ reaction   25 accepted =          140
+ reaction   26 accepted =            5
+ reaction   27 accepted =            3
+ reaction   28 accepted =            9
+ reaction   29 accepted =            1
+ reaction   30 accepted =         1904
+ reaction   31 accepted =         1782
+ reaction   34 accepted =       409872
+ reaction   35 accepted =        62150
+ reaction   36 accepted =        12537
+ reaction   37 accepted =        11623
+ reaction   40 accepted =       121786
+ reaction   41 accepted =         9613
+ reaction   42 accepted =         8817
+ reaction   43 accepted =        63963
+ reaction   44 accepted =        28427
+ reaction   45 accepted =       299986
+ reaction   46 accepted =       259756
+ reaction   47 accepted =       163216
+ reaction   48 accepted =        17967
+ reaction   49 accepted =         2341
+ reaction   50 accepted =         1195
+ reaction   51 accepted =        31853
+ reaction   52 accepted =          158
+ reaction   53 accepted =         1417
+ reaction   54 accepted =         8323
+ reaction   55 accepted =         1042
+ reaction   56 accepted =            9
+ reaction   57 accepted =          701
+ reaction   58 accepted =            1
+ reaction   59 accepted =          204
+ reaction   60 accepted =        12241
+ reaction   61 accepted =     14897920
+ 
+ Pwall (W)=  -7.70E+02, Pabs (W)=   1.03E+02, Pcoll (W)=  -3.85E+02, Pinj (W)=   0.00E+00, I_w (A)=  -1.03E+02    1.10E+02  , Ek_w (eV)=   2.92E+00    4.28E+00
+ it=    10001, t (us)=    6.2, np=    9027699     1919743      218528     4421373     3178830
+ <t> (ms): E/rho=   34.6, poisson=   19.6, sorting=    5.8, avg/write=    2.0, MC=   23.5, mover=    67.7, bck=    0.4, total=   153.5
+ Saving 3D potentiel and density maps ...
+  
+ ===== LEGACY DIAGNOSTIC it =        11001  =====
+ phi min/max/sum =   0.000000000000000E+000   20.0000000000000     
+   7093047.17551660     
+ ===========================================
+  
+ Backing up simulation data ...
+ Done!
+ 
+ Accepted collision reactions:
+ reaction    1 accepted =          110
+ reaction    2 accepted =            3
+ reaction    4 accepted =            1
+ reaction    6 accepted =      4181912
+ reaction    7 accepted =     32536137
+ reaction   11 accepted =      2780881
+ reaction   12 accepted =      2969917
+ reaction   13 accepted =       694554
+ reaction   14 accepted =        43275
+ reaction   15 accepted =         4720
+ reaction   16 accepted =           16
+ reaction   19 accepted =            3
+ reaction   22 accepted =           45
+ reaction   23 accepted =         2517
+ reaction   25 accepted =          117
+ reaction   26 accepted =            2
+ reaction   27 accepted =            3
+ reaction   28 accepted =            4
+ reaction   30 accepted =         1781
+ reaction   31 accepted =         1763
+ reaction   34 accepted =       407049
+ reaction   35 accepted =        61613
+ reaction   36 accepted =        10977
+ reaction   37 accepted =         8044
+ reaction   40 accepted =       108217
+ reaction   41 accepted =         8991
+ reaction   42 accepted =         7883
+ reaction   43 accepted =        61741
+ reaction   44 accepted =        27413
+ reaction   45 accepted =       289832
+ reaction   46 accepted =       252855
+ reaction   47 accepted =       159419
+ reaction   48 accepted =        17535
+ reaction   49 accepted =         2322
+ reaction   50 accepted =         1130
+ reaction   51 accepted =        33280
+ reaction   52 accepted =          191
+ reaction   53 accepted =         1586
+ reaction   54 accepted =         9294
+ reaction   55 accepted =         1237
+ reaction   56 accepted =            9
+ reaction   57 accepted =          789
+ reaction   58 accepted =            2
+ reaction   59 accepted =          239
+ reaction   60 accepted =        13768
+ reaction   61 accepted =     14337555
+ 
+ Pwall (W)=  -6.86E+02, Pabs (W)=   9.91E+01, Pcoll (W)=  -3.50E+02, Pinj (W)=   0.00E+00, I_w (A)=  -9.42E+01    1.00E+02  , Ek_w (eV)=   2.94E+00    4.09E+00
+ it=    11001, t (us)=    6.9, np=    8652237     1704178      245807     4379383     3067724
+ <t> (ms): E/rho=   34.6, poisson=   19.6, sorting=    5.7, avg/write=    2.0, MC=   22.1, mover=    67.1, bck=    0.3, total=   151.4
+ Saving 3D potentiel and density maps ...
+  
+ ===== LEGACY DIAGNOSTIC it =        12001  =====
+ phi min/max/sum =   0.000000000000000E+000   20.0000000000000     
+   6734380.49897155     
+ ===========================================
+  
+ Backing up simulation data ...
+ Done!
+ 
+ Accepted collision reactions:
+ reaction    1 accepted =           68
+ reaction    2 accepted =            5
+ reaction    3 accepted =            2
+ reaction    6 accepted =      4001202
+ reaction    7 accepted =     30500239
+ reaction    8 accepted =            1
+ reaction   11 accepted =      2492908
+ reaction   12 accepted =      2650857
+ reaction   13 accepted =       626638
+ reaction   14 accepted =        36700
+ reaction   15 accepted =         4086
+ reaction   16 accepted =           16
+ reaction   19 accepted =            3
+ reaction   22 accepted =           17
+ reaction   23 accepted =         1841
+ reaction   25 accepted =           73
+ reaction   26 accepted =            3
+ reaction   27 accepted =            1
+ reaction   28 accepted =            3
+ reaction   29 accepted =            2
+ reaction   30 accepted =         1737
+ reaction   31 accepted =         1674
+ reaction   34 accepted =       406819
+ reaction   35 accepted =        61492
+ reaction   36 accepted =         9707
+ reaction   37 accepted =         5841
+ reaction   40 accepted =        96283
+ reaction   41 accepted =         8107
+ reaction   42 accepted =         7085
+ reaction   43 accepted =        59462
+ reaction   44 accepted =        26615
+ reaction   45 accepted =       281685
+ reaction   46 accepted =       245808
+ reaction   47 accepted =       155049
+ reaction   48 accepted =        17269
+ reaction   49 accepted =         2263
+ reaction   50 accepted =         1083
+ reaction   51 accepted =        34486
+ reaction   52 accepted =          231
+ reaction   53 accepted =         1765
+ reaction   54 accepted =        10360
+ reaction   55 accepted =         1366
+ reaction   56 accepted =           15
+ reaction   57 accepted =          900
+ reaction   58 accepted =            6
+ reaction   59 accepted =          232
+ reaction   60 accepted =        15414
+ reaction   61 accepted =     13862594
+ 
+ Pwall (W)=  -6.21E+02, Pabs (W)=   1.05E+02, Pcoll (W)=  -3.20E+02, Pinj (W)=   0.00E+00, I_w (A)=  -8.82E+01    9.20E+01  , Ek_w (eV)=   2.97E+00    3.90E+00
+ it=    12001, t (us)=    7.5, np=    8298271     1514988      273862     4332652     2964497
+ <t> (ms): E/rho=   35.0, poisson=   19.6, sorting=    5.6, avg/write=    2.0, MC=   21.2, mover=    67.1, bck=    0.3, total=   150.8
+ Saving 3D potentiel and density maps ...
+  
+ ===== LEGACY DIAGNOSTIC it =        13001  =====
+ phi min/max/sum =   0.000000000000000E+000   20.0000000000000     
+   6459976.64347259     
+ ===========================================
+  
+ Backing up simulation data ...
+ Done!
+ 
+ Accepted collision reactions:
+ reaction    1 accepted =           43
+ reaction    2 accepted =            2
+ reaction    3 accepted =            2
+ reaction    5 accepted =            1
+ reaction    6 accepted =      3831593
+ reaction    7 accepted =     28572860
+ reaction   11 accepted =      2234088
+ reaction   12 accepted =      2365091
+ reaction   13 accepted =       563230
+ reaction   14 accepted =        31520
+ reaction   15 accepted =         3565
+ reaction   16 accepted =           10
+ reaction   17 accepted =            1
+ reaction   19 accepted =            5
+ reaction   22 accepted =           10
+ reaction   23 accepted =         1198
+ reaction   25 accepted =           48
+ reaction   26 accepted =            3
+ reaction   28 accepted =            2
+ reaction   30 accepted =         1619
+ reaction   31 accepted =         1493
+ reaction   34 accepted =       402867
+ reaction   35 accepted =        60595
+ reaction   36 accepted =         8708
+ reaction   37 accepted =         4032
+ reaction   40 accepted =        85497
+ reaction   41 accepted =         7396
+ reaction   42 accepted =         6354
+ reaction   43 accepted =        58234
+ reaction   44 accepted =        25686
+ reaction   45 accepted =       274302
+ reaction   46 accepted =       239197
+ reaction   47 accepted =       150431
+ reaction   48 accepted =        16936
+ reaction   49 accepted =         2265
+ reaction   50 accepted =          965
+ reaction   51 accepted =        35255
+ reaction   52 accepted =          253
+ reaction   53 accepted =         1905
+ reaction   54 accepted =        11360
+ reaction   55 accepted =         1532
+ reaction   56 accepted =            8
+ reaction   57 accepted =         1092
+ reaction   58 accepted =            5
+ reaction   59 accepted =          251
+ reaction   60 accepted =        16786
+ reaction   61 accepted =     13463906
+ 
+ Pwall (W)=  -5.56E+02, Pabs (W)=   1.03E+02, Pcoll (W)=  -2.93E+02, Pinj (W)=   0.00E+00, I_w (A)=  -8.18E+01    8.45E+01  , Ek_w (eV)=   2.91E+00    3.76E+00
+ it=    13001, t (us)=    8.1, np=    7968224     1350281      301974     4282451     2867807
+ <t> (ms): E/rho=   35.0, poisson=   19.5, sorting=    5.5, avg/write=    1.9, MC=   20.7, mover=    66.9, bck=    0.3, total=   149.8
+ Saving 3D potentiel and density maps ...
+  
+ ===== LEGACY DIAGNOSTIC it =        14001  =====
+ phi min/max/sum =   0.000000000000000E+000   20.0000000000000     
+   6199661.43345469     
+ ===========================================
+  
+ Backing up simulation data ...
+ Done!
+ 
+ Accepted collision reactions:
+ reaction    1 accepted =           35
+ reaction    2 accepted =            2
+ reaction    4 accepted =            2
+ reaction    6 accepted =      3666395
+ reaction    7 accepted =     26759410
+ reaction    8 accepted =            1
+ reaction   11 accepted =      1999538
+ reaction   12 accepted =      2108677
+ reaction   13 accepted =       502466
+ reaction   14 accepted =        26908
+ reaction   15 accepted =         3000
+ reaction   16 accepted =            8
+ reaction   19 accepted =            2
+ reaction   22 accepted =           15
+ reaction   23 accepted =          851
+ reaction   25 accepted =           23
+ reaction   28 accepted =            2
+ reaction   30 accepted =         1465
+ reaction   31 accepted =         1584
+ reaction   34 accepted =       400390
+ reaction   35 accepted =        59735
+ reaction   36 accepted =         7762
+ reaction   37 accepted =         2966
+ reaction   40 accepted =        76067
+ reaction   41 accepted =         6824
+ reaction   42 accepted =         5498
+ reaction   43 accepted =        56480
+ reaction   44 accepted =        24381
+ reaction   45 accepted =       264681
+ reaction   46 accepted =       233107
+ reaction   47 accepted =       146302
+ reaction   48 accepted =        16558
+ reaction   49 accepted =         2136
+ reaction   50 accepted =          883
+ reaction   51 accepted =        36311
+ reaction   52 accepted =          249
+ reaction   53 accepted =         2257
+ reaction   54 accepted =        12532
+ reaction   55 accepted =         1629
+ reaction   56 accepted =            7
+ reaction   57 accepted =         1114
+ reaction   58 accepted =            8
+ reaction   59 accepted =          256
+ reaction   60 accepted =        18491
+ reaction   61 accepted =     13104434
+ 
+ Pwall (W)=  -5.05E+02, Pabs (W)=   9.40E+01, Pcoll (W)=  -2.70E+02, Pinj (W)=   0.00E+00, I_w (A)=  -7.63E+01    7.81E+01  , Ek_w (eV)=   2.91E+00    3.62E+00
+ it=    14001, t (us)=    8.7, np=    7658045     1205455      330575     4228854     2778111
+ <t> (ms): E/rho=   35.1, poisson=   19.4, sorting=    5.4, avg/write=    2.0, MC=   20.3, mover=    66.3, bck=    0.3, total=   148.9
+ Saving 3D potentiel and density maps ...
+  
+ ===== LEGACY DIAGNOSTIC it =        15001  =====
+ phi min/max/sum =   0.000000000000000E+000   20.0000000000000     
+   5942758.70487633     
+ ===========================================
+  
+ Backing up simulation data ...
+ Done!
+ 
+ Accepted collision reactions:
+ reaction    1 accepted =           24
+ reaction    2 accepted =            4
+ reaction    6 accepted =      3508464
+ reaction    7 accepted =     25055979
+ reaction   11 accepted =      1790651
+ reaction   12 accepted =      1878899
+ reaction   13 accepted =       449119
+ reaction   14 accepted =        22614
+ reaction   15 accepted =         2642
+ reaction   16 accepted =            2
+ reaction   19 accepted =            2
+ reaction   22 accepted =           14
+ reaction   23 accepted =          635
+ reaction   24 accepted =            1
+ reaction   25 accepted =           27
+ reaction   28 accepted =            3
+ reaction   30 accepted =         1482
+ reaction   31 accepted =         1483
+ reaction   34 accepted =       396248
+ reaction   35 accepted =        58890
+ reaction   36 accepted =         7004
+ reaction   37 accepted =         2050
+ reaction   40 accepted =        68258
+ reaction   41 accepted =         6362
+ reaction   42 accepted =         5046
+ reaction   43 accepted =        55083
+ reaction   44 accepted =        24107
+ reaction   45 accepted =       257785
+ reaction   46 accepted =       226924
+ reaction   47 accepted =       142878
+ reaction   48 accepted =        16464
+ reaction   49 accepted =         2050
+ reaction   50 accepted =          777
+ reaction   51 accepted =        36799
+ reaction   52 accepted =          251
+ reaction   53 accepted =         2336
+ reaction   54 accepted =        13797
+ reaction   55 accepted =         1791
+ reaction   56 accepted =           17
+ reaction   57 accepted =         1272
+ reaction   58 accepted =            9
+ reaction   59 accepted =          293
+ reaction   60 accepted =        19745
+ reaction   61 accepted =     12803888
+ 
+ Pwall (W)=  -4.58E+02, Pabs (W)=   7.77E+01, Pcoll (W)=  -2.49E+02, Pinj (W)=   0.00E+00, I_w (A)=  -7.07E+01    7.28E+01  , Ek_w (eV)=   2.87E+00    3.50E+00
+ it=    15001, t (us)=    9.4, np=    7368130     1077839      359254     4172956     2692934
+ <t> (ms): E/rho=   35.1, poisson=   19.5, sorting=    5.3, avg/write=    2.0, MC=   20.2, mover=    65.9, bck=    0.3, total=   148.3
+ Saving 3D potentiel and density maps ...
+  
+ ===== LEGACY DIAGNOSTIC it =        16001  =====
+ phi min/max/sum =   0.000000000000000E+000   20.0000000000000     
+   5701460.61466496     
+ ===========================================
+  
+ Backing up simulation data ...
+ Done!
+ 
+ Accepted collision reactions:
+ reaction    1 accepted =           14
+ reaction    6 accepted =      3363019
+ reaction    7 accepted =     23468009
+ reaction   11 accepted =      1604289
+ reaction   12 accepted =      1676267
+ reaction   13 accepted =       399032
+ reaction   14 accepted =        19291
+ reaction   15 accepted =         2272
+ reaction   16 accepted =            4
+ reaction   17 accepted =            1
+ reaction   19 accepted =            2
+ reaction   22 accepted =            4
+ reaction   23 accepted =          462
+ reaction   25 accepted =           25
+ reaction   26 accepted =            1
+ reaction   30 accepted =         1407
+ reaction   31 accepted =         1452
+ reaction   34 accepted =       392736
+ reaction   35 accepted =        58736
+ reaction   36 accepted =         6060
+ reaction   37 accepted =         1429
+ reaction   40 accepted =        60913
+ reaction   41 accepted =         5791
+ reaction   42 accepted =         4516
+ reaction   43 accepted =        53268
+ reaction   44 accepted =        23349
+ reaction   45 accepted =       250108
+ reaction   46 accepted =       220593
+ reaction   47 accepted =       138771
+ reaction   48 accepted =        15758
+ reaction   49 accepted =         2066
+ reaction   50 accepted =          683
+ reaction   51 accepted =        37508
+ reaction   52 accepted =          275
+ reaction   53 accepted =         2457
+ reaction   54 accepted =        14722
+ reaction   55 accepted =         1934
+ reaction   56 accepted =           16
+ reaction   57 accepted =         1323
+ reaction   58 accepted =            5
+ reaction   59 accepted =          365
+ reaction   60 accepted =        21374
+ reaction   61 accepted =     12358413
+ 
+ Pwall (W)=  -4.18E+02, Pabs (W)=   6.11E+01, Pcoll (W)=  -2.30E+02, Pinj (W)=   0.00E+00, I_w (A)=  -6.57E+01    6.78E+01  , Ek_w (eV)=   2.86E+00    3.39E+00
+ it=    16001, t (us)=   10.0, np=    7096622      965160      388121     4115481     2613346
+ <t> (ms): E/rho=   35.1, poisson=   19.5, sorting=    5.2, avg/write=    2.0, MC=   19.5, mover=    65.4, bck=    0.3, total=   147.0
+ Saving 3D potentiel and density maps ...
+  
+ ===== LEGACY DIAGNOSTIC it =        17001  =====
+ phi min/max/sum =   0.000000000000000E+000   20.0000000000000     
+   5475081.04800641     
+ ===========================================
+  
+ Backing up simulation data ...
+ Done!
+ 
+ Accepted collision reactions:
+ reaction    1 accepted =            6
+ reaction    6 accepted =      3223298
+ reaction    7 accepted =     21989015
+ reaction   11 accepted =      1438439
+ reaction   12 accepted =      1500845
+ reaction   13 accepted =       355244
+ reaction   14 accepted =        16113
+ reaction   15 accepted =         1938
+ reaction   16 accepted =            2
+ reaction   19 accepted =            3
+ reaction   22 accepted =            6
+ reaction   23 accepted =          341
+ reaction   25 accepted =           15
+ reaction   26 accepted =            1
+ reaction   28 accepted =            1
+ reaction   29 accepted =            1
+ reaction   30 accepted =         1430
+ reaction   31 accepted =         1333
+ reaction   34 accepted =       386821
+ reaction   35 accepted =        57621
+ reaction   36 accepted =         5586
+ reaction   37 accepted =         1153
+ reaction   40 accepted =        54420
+ reaction   41 accepted =         5508
+ reaction   42 accepted =         4069
+ reaction   43 accepted =        52015
+ reaction   44 accepted =        22314
+ reaction   45 accepted =       243026
+ reaction   46 accepted =       214871
+ reaction   47 accepted =       134572
+ reaction   48 accepted =        15089
+ reaction   49 accepted =         1956
+ reaction   50 accepted =          624
+ reaction   51 accepted =        38031
+ reaction   52 accepted =          286
+ reaction   53 accepted =         2579
+ reaction   54 accepted =        16143
+ reaction   55 accepted =         2060
+ reaction   56 accepted =           16
+ reaction   57 accepted =         1315
+ reaction   58 accepted =            6
+ reaction   59 accepted =          319
+ reaction   60 accepted =        23065
+ reaction   61 accepted =     11870000
+ 
+ Pwall (W)=  -3.87E+02, Pabs (W)=   5.00E+01, Pcoll (W)=  -2.14E+02, Pinj (W)=   0.00E+00, I_w (A)=  -6.15E+01    6.37E+01  , Ek_w (eV)=   2.83E+00    3.33E+00
+ it=    17001, t (us)=   10.6, np=    6840611      865149      417099     4056063     2537829
+ <t> (ms): E/rho=   35.1, poisson=   19.5, sorting=    5.2, avg/write=    2.0, MC=   18.7, mover=    65.0, bck=    0.3, total=   145.8
+ Saving 3D potentiel and density maps ...
+  
+ ===== LEGACY DIAGNOSTIC it =        18001  =====
+ phi min/max/sum =  -3.118647933970739E-003   20.0000000000000     
+   5265776.54653167     
+ ===========================================
+  
+ Backing up simulation data ...
+ Done!
+ 
+ Accepted collision reactions:
+ reaction    1 accepted =           10
+ reaction    3 accepted =            1
+ reaction    5 accepted =            1
+ reaction    6 accepted =      3087613
+ reaction    7 accepted =     20608262
+ reaction    8 accepted =            1
+ reaction   11 accepted =      1290756
+ reaction   12 accepted =      1338895
+ reaction   13 accepted =       312961
+ reaction   14 accepted =        13654
+ reaction   15 accepted =         1674
+ reaction   16 accepted =            4
+ reaction   20 accepted =            1
+ reaction   22 accepted =            1
+ reaction   23 accepted =          262
+ reaction   25 accepted =           16
+ reaction   26 accepted =            1
+ reaction   28 accepted =            2
+ reaction   30 accepted =         1364
+ reaction   31 accepted =         1354
+ reaction   34 accepted =       382090
+ reaction   35 accepted =        56550
+ reaction   36 accepted =         5029
+ reaction   37 accepted =          783
+ reaction   40 accepted =        48882
+ reaction   41 accepted =         4978
+ reaction   42 accepted =         3668
+ reaction   43 accepted =        50060
+ reaction   44 accepted =        21791
+ reaction   45 accepted =       235449
+ reaction   46 accepted =       207916
+ reaction   47 accepted =       130953
+ reaction   48 accepted =        14830
+ reaction   49 accepted =         1863
+ reaction   50 accepted =          542
+ reaction   51 accepted =        38511
+ reaction   52 accepted =          316
+ reaction   53 accepted =         2897
+ reaction   54 accepted =        17128
+ reaction   55 accepted =         2243
+ reaction   56 accepted =           15
+ reaction   57 accepted =         1512
+ reaction   58 accepted =            4
+ reaction   59 accepted =          343
+ reaction   60 accepted =        24307
+ reaction   61 accepted =     11392387
+ 
+ Pwall (W)=  -3.60E+02, Pabs (W)=   4.12E+01, Pcoll (W)=  -1.96E+02, Pinj (W)=   0.00E+00, I_w (A)=  -5.76E+01    6.00E+01  , Ek_w (eV)=   2.82E+00    3.29E+00
+ it=    18001, t (us)=   11.2, np=    6599005      775525      445805     3996137     2465889
+ <t> (ms): E/rho=   35.2, poisson=   19.4, sorting=    5.1, avg/write=    2.0, MC=   18.0, mover=    64.5, bck=    0.3, total=   144.5
+ Saving 3D potentiel and density maps ...
+  
+ ===== LEGACY DIAGNOSTIC it =        19001  =====
+ phi min/max/sum =  -4.100217045833849E-003   20.0000000000000     
+   5075546.49881001     
+ ===========================================
+  
+ Backing up simulation data ...
+ Done!
+ 
+ Accepted collision reactions:
+ reaction    1 accepted =            3
+ reaction    2 accepted =            1
+ reaction    6 accepted =      2964371
+ reaction    7 accepted =     19315150
+ reaction   11 accepted =      1157531
+ reaction   12 accepted =      1194723
+ reaction   13 accepted =       277385
+ reaction   14 accepted =        11676
+ reaction   15 accepted =         1360
+ reaction   16 accepted =            1
+ reaction   19 accepted =            1
+ reaction   22 accepted =            4
+ reaction   23 accepted =          191
+ reaction   25 accepted =           13
+ reaction   26 accepted =            1
+ reaction   30 accepted =         1361
+ reaction   31 accepted =         1360
+ reaction   34 accepted =       375799
+ reaction   35 accepted =        55699
+ reaction   36 accepted =         4511
+ reaction   37 accepted =          580
+ reaction   40 accepted =        43616
+ reaction   41 accepted =         4746
+ reaction   42 accepted =         3300
+ reaction   43 accepted =        48957
+ reaction   44 accepted =        21107
+ reaction   45 accepted =       229060
+ reaction   46 accepted =       200796
+ reaction   47 accepted =       126945
+ reaction   48 accepted =        14229
+ reaction   49 accepted =         1778
+ reaction   50 accepted =          469
+ reaction   51 accepted =        38680
+ reaction   52 accepted =          300
+ reaction   53 accepted =         3165
+ reaction   54 accepted =        18244
+ reaction   55 accepted =         2332
+ reaction   56 accepted =           14
+ reaction   57 accepted =         1605
+ reaction   58 accepted =            7
+ reaction   59 accepted =          408
+ reaction   60 accepted =        25651
+ reaction   61 accepted =     10828136
+ 
+ Pwall (W)=  -3.37E+02, Pabs (W)=   3.62E+01, Pcoll (W)=  -1.81E+02, Pinj (W)=   0.00E+00, I_w (A)=  -5.50E+01    5.67E+01  , Ek_w (eV)=   2.77E+00    3.23E+00
+ it=    19001, t (us)=   11.9, np=    6367142      696010      474286     3935008     2397295
+ <t> (ms): E/rho=   35.1, poisson=   19.2, sorting=    5.1, avg/write=    1.9, MC=   17.1, mover=    64.3, bck=    0.3, total=   142.9
+ Saving 3D potentiel and density maps ...
+  
+ ===== LEGACY DIAGNOSTIC it =        20001  =====
+ phi min/max/sum =   0.000000000000000E+000   20.0000000000000     
+   4898046.48263623     
+ ===========================================
+  
+ Backing up simulation data ...
+ Done!
+ 
+ Accepted collision reactions:
+ reaction    1 accepted =            6
+ reaction    2 accepted =            1
+ reaction    6 accepted =      2837780
+ reaction    7 accepted =     18108675
+ reaction   11 accepted =      1037394
+ reaction   12 accepted =      1070345
+ reaction   13 accepted =       243534
+ reaction   14 accepted =         9685
+ reaction   15 accepted =         1233
+ reaction   16 accepted =            1
+ reaction   19 accepted =            1
+ reaction   22 accepted =            3
+ reaction   23 accepted =          131
+ reaction   25 accepted =            7
+ reaction   30 accepted =         1345
+ reaction   31 accepted =         1323
+ reaction   34 accepted =       369239
+ reaction   35 accepted =        55308
+ reaction   36 accepted =         4119
+ reaction   37 accepted =          377
+ reaction   40 accepted =        39395
+ reaction   41 accepted =         4373
+ reaction   42 accepted =         2973
+ reaction   43 accepted =        47395
+ reaction   44 accepted =        20542
+ reaction   45 accepted =       222104
+ reaction   46 accepted =       194530
+ reaction   47 accepted =       122192
+ reaction   48 accepted =        13448
+ reaction   49 accepted =         1652
+ reaction   50 accepted =          429
+ reaction   51 accepted =        38703
+ reaction   52 accepted =          310
+ reaction   53 accepted =         3252
+ reaction   54 accepted =        19501
+ reaction   55 accepted =         2497
+ reaction   56 accepted =           17
+ reaction   57 accepted =         1723
+ reaction   58 accepted =            3
+ reaction   59 accepted =          344
+ reaction   60 accepted =        27026
+ reaction   61 accepted =     10447584
+ 
+ Pwall (W)=  -3.12E+02, Pabs (W)=   3.02E+01, Pcoll (W)=  -1.66E+02, Pinj (W)=   0.00E+00, I_w (A)=  -5.18E+01    5.38E+01  , Ek_w (eV)=   2.71E+00    3.18E+00
+ it=    20001, t (us)=   12.5, np=    6147121      623988      502606     3873105     2332366
+ <t> (ms): E/rho=   35.2, poisson=   19.0, sorting=    5.0, avg/write=    2.0, MC=   17.1, mover=    63.7, bck=    0.3, total=   142.3
+ Saving 3D potentiel and density maps ...
+  
+ ===== LEGACY DIAGNOSTIC it =        21001  =====
+ phi min/max/sum =  -5.616457488412824E-003   20.0000000000000     
+   4713552.37720622     
+ ===========================================
+  
+ Backing up simulation data ...
+ Done!
+ 
+ Accepted collision reactions:
+ reaction    1 accepted =            5
+ reaction    6 accepted =      2724317
+ reaction    7 accepted =     16974075
+ reaction   11 accepted =       931278
+ reaction   12 accepted =       956417
+ reaction   13 accepted =       213778
+ reaction   14 accepted =         7951
+ reaction   15 accepted =         1030
+ reaction   16 accepted =            1
+ reaction   23 accepted =           84
+ reaction   25 accepted =            7
+ reaction   30 accepted =         1359
+ reaction   31 accepted =         1341
+ reaction   34 accepted =       363547
+ reaction   35 accepted =        54445
+ reaction   36 accepted =         3616
+ reaction   37 accepted =          258
+ reaction   40 accepted =        35183
+ reaction   41 accepted =         4083
+ reaction   42 accepted =         2641
+ reaction   43 accepted =        45281
+ reaction   44 accepted =        20523
+ reaction   45 accepted =       215705
+ reaction   46 accepted =       187316
+ reaction   47 accepted =       117992
+ reaction   48 accepted =        12807
+ reaction   49 accepted =         1664
+ reaction   50 accepted =          380
+ reaction   51 accepted =        38475
+ reaction   52 accepted =          349
+ reaction   53 accepted =         3507
+ reaction   54 accepted =        20236
+ reaction   55 accepted =         2658
+ reaction   56 accepted =           17
+ reaction   57 accepted =         1734
+ reaction   58 accepted =            7
+ reaction   59 accepted =          386
+ reaction   60 accepted =        28339
+ reaction   61 accepted =      9846939
+ 
+ Pwall (W)=  -2.84E+02, Pabs (W)=   2.71E+01, Pcoll (W)=  -1.52E+02, Pinj (W)=   0.00E+00, I_w (A)=  -4.81E+01    5.11E+01  , Ek_w (eV)=   2.55E+00    3.14E+00
+ it=    21001, t (us)=   13.1, np=    5941195      559364      530392     3811154     2270132
+ <t> (ms): E/rho=   35.1, poisson=   18.7, sorting=    4.9, avg/write=    1.9, MC=   16.2, mover=    63.4, bck=    0.3, total=   140.5
+ Saving 3D potentiel and density maps ...
+  
+ ===== LEGACY DIAGNOSTIC it =        22001  =====
+ phi min/max/sum =   0.000000000000000E+000   20.0000000000000     
+   4575378.57354797     
+ ===========================================
+  
+ Backing up simulation data ...
+ Done!
+ 
+ Accepted collision reactions:
+ reaction    1 accepted =            1
+ reaction    6 accepted =      2611862
+ reaction    7 accepted =     15915296
+ reaction   11 accepted =       835824
+ reaction   12 accepted =       853556
+ reaction   13 accepted =       187614
+ reaction   14 accepted =         6652
+ reaction   15 accepted =          813
+ reaction   19 accepted =            2
+ reaction   23 accepted =           55
+ reaction   25 accepted =            6
+ reaction   28 accepted =            2
+ reaction   30 accepted =         1280
+ reaction   31 accepted =         1396
+ reaction   34 accepted =       356883
+ reaction   35 accepted =        53557
+ reaction   36 accepted =         3137
+ reaction   37 accepted =          200
+ reaction   40 accepted =        31546
+ reaction   41 accepted =         3556
+ reaction   42 accepted =         2392
+ reaction   43 accepted =        44043
+ reaction   44 accepted =        19708
+ reaction   45 accepted =       209495
+ reaction   46 accepted =       180102
+ reaction   47 accepted =       113122
+ reaction   48 accepted =        12144
+ reaction   49 accepted =         1491
+ reaction   50 accepted =          308
+ reaction   51 accepted =        38232
+ reaction   52 accepted =          360
+ reaction   53 accepted =         3660
+ reaction   54 accepted =        21297
+ reaction   55 accepted =         2771
+ reaction   56 accepted =           16
+ reaction   57 accepted =         1876
+ reaction   58 accepted =           17
+ reaction   59 accepted =          390
+ reaction   60 accepted =        29242
+ reaction   61 accepted =      9249662
+ 
+ Pwall (W)=  -2.70E+02, Pabs (W)=   2.44E+01, Pcoll (W)=  -1.38E+02, Pinj (W)=   0.00E+00, I_w (A)=  -4.74E+01    4.84E+01  , Ek_w (eV)=   2.55E+00    3.06E+00
+ it=    22001, t (us)=   13.7, np=    5738171      501028      558008     3749450     2211200
+ <t> (ms): E/rho=   35.2, poisson=   18.8, sorting=    4.9, avg/write=    1.9, MC=   15.4, mover=    63.0, bck=    0.3, total=   139.5
+ Saving 3D potentiel and density maps ...
+ >10% of collisions are missed due to an insufficient number of ppc
+ Err(%)=    12.56, ptype=  1
+  
+ ===== LEGACY DIAGNOSTIC it =        23001  =====
+ phi min/max/sum =   0.000000000000000E+000   20.0000000000000     
+   4385975.24361317     
+ ===========================================
+  
+ Backing up simulation data ...
+ Done!
+ 
+ Accepted collision reactions:
+ reaction    1 accepted =            1
+ reaction    6 accepted =      2507659
+ reaction    7 accepted =     14929356
+ reaction   11 accepted =       747858
+ reaction   12 accepted =       763713
+ reaction   13 accepted =       163886
+ reaction   14 accepted =         5506
+ reaction   15 accepted =          714
+ reaction   16 accepted =            2
+ reaction   21 accepted =            1
+ reaction   22 accepted =            1
+ reaction   23 accepted =           49
+ reaction   25 accepted =            1
+ reaction   30 accepted =         1346
+ reaction   31 accepted =         1313
+ reaction   34 accepted =       349907
+ reaction   35 accepted =        52237
+ reaction   36 accepted =         2830
+ reaction   37 accepted =          131
+ reaction   40 accepted =        28528
+ reaction   41 accepted =         3012
+ reaction   42 accepted =         2122
+ reaction   43 accepted =        42771
+ reaction   44 accepted =        19114
+ reaction   45 accepted =       203980
+ reaction   46 accepted =       173539
+ reaction   47 accepted =       108318
+ reaction   48 accepted =        11601
+ reaction   49 accepted =         1336
+ reaction   50 accepted =          235
+ reaction   51 accepted =        37869
+ reaction   52 accepted =          336
+ reaction   53 accepted =         3908
+ reaction   54 accepted =        22359
+ reaction   55 accepted =         2917
+ reaction   56 accepted =           19
+ reaction   57 accepted =         1960
+ reaction   58 accepted =           11
+ reaction   59 accepted =          387
+ reaction   60 accepted =        30708
+ reaction   61 accepted =      8635856
+ 
+ Pwall (W)=  -2.30E+02, Pabs (W)=   2.36E+01, Pcoll (W)=  -1.25E+02, Pinj (W)=   0.00E+00, I_w (A)=  -4.26E+01    4.60E+01  , Ek_w (eV)=   2.13E+00    3.01E+00
+ it=    23001, t (us)=   14.3, np=    5552949      448489      585022     3688037     2154983
+ <t> (ms): E/rho=   35.2, poisson=   18.2, sorting=    4.9, avg/write=    1.9, MC=   14.5, mover=    62.7, bck=    0.2, total=   137.8
+ Saving 3D potentiel and density maps ...
+  
+ ===== LEGACY DIAGNOSTIC it =        24001  =====
+ phi min/max/sum =  -2.754792842963021E-004   20.0000000000000     
+   4262842.55248258     
+ ===========================================
+  
+ Backing up simulation data ...
+ Done!
+ 
+ Accepted collision reactions:
+ reaction    1 accepted =            1
+ reaction    6 accepted =      2412837
+ reaction    7 accepted =     14026639
+ reaction   11 accepted =       673268
+ reaction   12 accepted =       683321
+ reaction   13 accepted =       141828
+ reaction   14 accepted =         4467
+ reaction   15 accepted =          565
+ reaction   22 accepted =            3
+ reaction   23 accepted =           31
+ reaction   25 accepted =            5
+ reaction   26 accepted =            1
+ reaction   28 accepted =            1
+ reaction   30 accepted =         1292
+ reaction   31 accepted =         1313
+ reaction   34 accepted =       342550
+ reaction   35 accepted =        51464
+ reaction   36 accepted =         2465
+ reaction   37 accepted =           78
+ reaction   40 accepted =        25270
+ reaction   41 accepted =         2581
+ reaction   42 accepted =         1910
+ reaction   43 accepted =        41324
+ reaction   44 accepted =        18759
+ reaction   45 accepted =       197698
+ reaction   46 accepted =       167827
+ reaction   47 accepted =       104701
+ reaction   48 accepted =        11009
+ reaction   49 accepted =         1198
+ reaction   50 accepted =          227
+ reaction   51 accepted =        37666
+ reaction   52 accepted =          356
+ reaction   53 accepted =         4066
+ reaction   54 accepted =        23321
+ reaction   55 accepted =         3002
+ reaction   56 accepted =           22
+ reaction   57 accepted =         2155
+ reaction   58 accepted =           10
+ reaction   59 accepted =          359
+ reaction   60 accepted =        31686
+ reaction   61 accepted =      8031974
+ 
+ Pwall (W)=  -1.91E+02, Pabs (W)=   2.41E+01, Pcoll (W)=  -1.12E+02, Pinj (W)=   0.00E+00, I_w (A)=  -3.96E+01    4.37E+01  , Ek_w (eV)=   1.49E+00    2.99E+00
+ it=    24001, t (us)=   15.0, np=    5379360      401533      611271     3626710     2101400
+ <t> (ms): E/rho=   35.1, poisson=   17.9, sorting=    4.8, avg/write=    2.1, MC=   13.8, mover=    62.5, bck=    0.3, total=   136.5
+ Saving 3D potentiel and density maps ...
+  
+ ===== LEGACY DIAGNOSTIC it =        25001  =====
+ phi min/max/sum =   0.000000000000000E+000   20.0000000000000     
+   4267591.21263944     
+ ===========================================
+  
+ >10% of collisions are missed due to an insufficient number of ppc
+ Err(%)=    18.59, ptype=  1
+ Backing up simulation data ...
+ Done!
+ 
+ Accepted collision reactions:
+ reaction    1 accepted =            1
+ reaction    6 accepted =      2311731
+ reaction    7 accepted =     13158141
+ reaction   11 accepted =       604939
+ reaction   12 accepted =       612292
+ reaction   13 accepted =       122971
+ reaction   14 accepted =         3620
+ reaction   15 accepted =          453
+ reaction   16 accepted =            1
+ reaction   19 accepted =            1
+ reaction   22 accepted =            2
+ reaction   23 accepted =           23
+ reaction   25 accepted =            3
+ reaction   30 accepted =         1287
+ reaction   31 accepted =         1248
+ reaction   34 accepted =       337233
+ reaction   35 accepted =        50858
+ reaction   36 accepted =         2249
+ reaction   37 accepted =           47
+ reaction   40 accepted =        23167
+ reaction   41 accepted =         2246
+ reaction   42 accepted =         1728
+ reaction   43 accepted =        39846
+ reaction   44 accepted =        18180
+ reaction   45 accepted =       193101
+ reaction   46 accepted =       161514
+ reaction   47 accepted =       101041
+ reaction   48 accepted =        10569
+ reaction   49 accepted =         1118
+ reaction   50 accepted =          156
+ reaction   51 accepted =        37375
+ reaction   52 accepted =          346
+ reaction   53 accepted =         4228
+ reaction   54 accepted =        24581
+ reaction   55 accepted =         3223
+ reaction   56 accepted =           13
+ reaction   57 accepted =         2061
+ reaction   58 accepted =           13
+ reaction   59 accepted =          321
+ reaction   60 accepted =        32736
+ reaction   61 accepted =      7447285
+ 
+ Pwall (W)=  -2.04E+02, Pabs (W)=   1.90E+01, Pcoll (W)=  -1.00E+02, Pinj (W)=   0.00E+00, I_w (A)=  -4.20E+01    4.09E+01  , Ek_w (eV)=   2.19E+00    2.73E+00
+ it=    25001, t (us)=   15.6, np=    5196914      359928      638278     3566136     2052206
+ <t> (ms): E/rho=   35.2, poisson=   17.6, sorting=    4.8, avg/write=    1.9, MC=   13.2, mover=    62.2, bck=    0.3, total=   135.1
+ Saving 3D potentiel and density maps ...
+  
+ ===== LEGACY DIAGNOSTIC it =        26001  =====
+ phi min/max/sum =  -1.772591460243124E-003   20.0000000000000     
+   4308067.85293204     
+ ===========================================
+  
+ Backing up simulation data ...
+ Done!
+ 
+ Accepted collision reactions:
+ reaction    6 accepted =      2217518
+ reaction    7 accepted =     12354782
+ reaction   11 accepted =       545712
+ reaction   12 accepted =       551196
+ reaction   13 accepted =       108514
+ reaction   14 accepted =         3051
+ reaction   15 accepted =          409
+ reaction   22 accepted =            1
+ reaction   23 accepted =           22
+ reaction   25 accepted =            2
+ reaction   30 accepted =         1200
+ reaction   31 accepted =         1274
+ reaction   34 accepted =       329844
+ reaction   35 accepted =        50000
+ reaction   36 accepted =         1859
+ reaction   37 accepted =           40
+ reaction   40 accepted =        20729
+ reaction   41 accepted =         1880
+ reaction   42 accepted =         1566
+ reaction   43 accepted =        39171
+ reaction   44 accepted =        17728
+ reaction   45 accepted =       188388
+ reaction   46 accepted =       156853
+ reaction   47 accepted =        97646
+ reaction   48 accepted =        10072
+ reaction   49 accepted =         1032
+ reaction   50 accepted =          173
+ reaction   51 accepted =        36470
+ reaction   52 accepted =          361
+ reaction   53 accepted =         4383
+ reaction   54 accepted =        25443
+ reaction   55 accepted =         3327
+ reaction   56 accepted =           13
+ reaction   57 accepted =         2219
+ reaction   58 accepted =           10
+ reaction   59 accepted =          311
+ reaction   60 accepted =        34071
+ reaction   61 accepted =      6938676
+ 
+ Pwall (W)=  -1.95E+02, Pabs (W)=   1.74E+01, Pcoll (W)=  -9.28E+01, Pinj (W)=   0.00E+00, I_w (A)=  -3.97E+01    3.89E+01  , Ek_w (eV)=   2.40E+00    2.57E+00
+ it=    26001, t (us)=   16.2, np=    5023912      322901      664364     3505754     2005612
+ <t> (ms): E/rho=   35.2, poisson=   17.1, sorting=    4.8, avg/write=    1.9, MC=   12.8, mover=    61.9, bck=    0.2, total=   134.0
+ Saving 3D potentiel and density maps ...
+  
+ ===== LEGACY DIAGNOSTIC it =        27001  =====
+ phi min/max/sum =   0.000000000000000E+000   20.0000000000000     
+   4229240.33600812     
+ ===========================================
+  
+ Backing up simulation data ...
+ Done!
+ 
+ Accepted collision reactions:
+ reaction    1 accepted =            1
+ reaction    2 accepted =            1
+ reaction    5 accepted =            1
+ reaction    6 accepted =      2125220
+ reaction    7 accepted =     11624688
+ reaction   11 accepted =       495513
+ reaction   12 accepted =       500183
+ reaction   13 accepted =        94893
+ reaction   14 accepted =         2622
+ reaction   15 accepted =          415
+ reaction   23 accepted =           22
+ reaction   25 accepted =            1
+ reaction   30 accepted =         1219
+ reaction   31 accepted =         1255
+ reaction   34 accepted =       324339
+ reaction   35 accepted =        48508
+ reaction   36 accepted =         1670
+ reaction   37 accepted =           34
+ reaction   40 accepted =        18432
+ reaction   41 accepted =         1706
+ reaction   42 accepted =         1373
+ reaction   43 accepted =        37964
+ reaction   44 accepted =        17396
+ reaction   45 accepted =       183016
+ reaction   46 accepted =       153416
+ reaction   47 accepted =        94717
+ reaction   48 accepted =         9753
+ reaction   49 accepted =          980
+ reaction   50 accepted =          125
+ reaction   51 accepted =        35554
+ reaction   52 accepted =          319
+ reaction   53 accepted =         4367
+ reaction   54 accepted =        26658
+ reaction   55 accepted =         3458
+ reaction   56 accepted =           23
+ reaction   57 accepted =         2171
+ reaction   58 accepted =           18
+ reaction   59 accepted =          352
+ reaction   60 accepted =        35218
+ reaction   61 accepted =      6418012
+ 
+ Pwall (W)=  -1.89E+02, Pabs (W)=   1.83E+01, Pcoll (W)=  -8.76E+01, Pinj (W)=   0.00E+00, I_w (A)=  -3.68E+01    3.76E+01  , Ek_w (eV)=   2.52E+00    2.57E+00
+ it=    27001, t (us)=   16.8, np=    4862451      289741      689461     3445021     1960345
+ <t> (ms): E/rho=   35.3, poisson=   16.8, sorting=    4.8, avg/write=    1.9, MC=   12.4, mover=    61.9, bck=    0.2, total=   133.3
+ Saving 3D potentiel and density maps ...
+ >10% of collisions are missed due to an insufficient number of ppc
+ Err(%)=    25.64, ptype=  1
+  
+ ===== LEGACY DIAGNOSTIC it =        28001  =====
+ phi min/max/sum =  -7.750084913005979E-004   20.0000000000000     
+   4078174.41227225     
+ ===========================================
+  
+ Backing up simulation data ...
+ Done!
+ 
+ Accepted collision reactions:
+ reaction    1 accepted =            2
+ reaction    6 accepted =      2045806
+ reaction    7 accepted =     10966071
+ reaction    8 accepted =            1
+ reaction   11 accepted =       453830
+ reaction   12 accepted =       457669
+ reaction   13 accepted =        83586
+ reaction   14 accepted =         2309
+ reaction   15 accepted =          292
+ reaction   22 accepted =            1
+ reaction   23 accepted =           22
+ reaction   25 accepted =            4
+ reaction   30 accepted =         1249
+ reaction   31 accepted =         1131
+ reaction   34 accepted =       317742
+ reaction   35 accepted =        48128
+ reaction   36 accepted =         1414
+ reaction   37 accepted =           21
+ reaction   40 accepted =        16736
+ reaction   41 accepted =         1648
+ reaction   42 accepted =         1220
+ reaction   43 accepted =        37156
+ reaction   44 accepted =        17041
+ reaction   45 accepted =       179278
+ reaction   46 accepted =       149040
+ reaction   47 accepted =        92274
+ reaction   48 accepted =         9459
+ reaction   49 accepted =          936
+ reaction   50 accepted =          111
+ reaction   51 accepted =        35011
+ reaction   52 accepted =          384
+ reaction   53 accepted =         4655
+ reaction   54 accepted =        27934
+ reaction   55 accepted =         3542
+ reaction   56 accepted =           18
+ reaction   57 accepted =         2267
+ reaction   58 accepted =           14
+ reaction   59 accepted =          375
+ reaction   60 accepted =        36022
+ reaction   61 accepted =      5924051
+ 
+ Pwall (W)=  -1.85E+02, Pabs (W)=   2.13E+01, Pcoll (W)=  -8.27E+01, Pinj (W)=   0.00E+00, I_w (A)=  -3.48E+01    3.67E+01  , Ek_w (eV)=   2.43E+00    2.73E+00
+ it=    28001, t (us)=   17.5, np=    4709784      259570      712994     3383982     1915707
+ <t> (ms): E/rho=   35.8, poisson=   16.7, sorting=    4.8, avg/write=    2.1, MC=   12.3, mover=    63.4, bck=    0.2, total=   135.3
+ Saving 3D potentiel and density maps ...
+  
+ ===== LEGACY DIAGNOSTIC it =        29001  =====
+ phi min/max/sum =  -1.248658550558913E-002   20.0000000000000     
+   3963971.05664932     
+ ===========================================
+  
+ Backing up simulation data ...
+ Done!
+ 
+ Accepted collision reactions:
+ reaction    1 accepted =            3
+ reaction    6 accepted =      1965188
+ reaction    7 accepted =     10354723
+ reaction   11 accepted =       414154
+ reaction   12 accepted =       416671
+ reaction   13 accepted =        73986
+ reaction   14 accepted =         1968
+ reaction   15 accepted =          264
+ reaction   22 accepted =            1
+ reaction   23 accepted =           27
+ reaction   25 accepted =            4
+ reaction   26 accepted =            1
+ reaction   30 accepted =         1223
+ reaction   31 accepted =         1190
+ reaction   34 accepted =       310572
+ reaction   35 accepted =        46997
+ reaction   36 accepted =         1197
+ reaction   37 accepted =           22
+ reaction   40 accepted =        14844
+ reaction   41 accepted =         1403
+ reaction   42 accepted =         1090
+ reaction   43 accepted =        35982
+ reaction   44 accepted =        16413
+ reaction   45 accepted =       174145
+ reaction   46 accepted =       143474
+ reaction   47 accepted =        89515
+ reaction   48 accepted =         9010
+ reaction   49 accepted =          863
+ reaction   50 accepted =          117
+ reaction   51 accepted =        34240
+ reaction   52 accepted =          365
+ reaction   53 accepted =         4882
+ reaction   54 accepted =        28207
+ reaction   55 accepted =         3656
+ reaction   56 accepted =           21
+ reaction   57 accepted =         2335
+ reaction   58 accepted =           11
+ reaction   59 accepted =          417
+ reaction   60 accepted =        37118
+ reaction   61 accepted =      5418049
+ 
+ Pwall (W)=  -1.73E+02, Pabs (W)=   2.52E+01, Pcoll (W)=  -7.65E+01, Pinj (W)=   0.00E+00, I_w (A)=  -3.40E+01    3.55E+01  , Ek_w (eV)=   2.10E+00    2.84E+00
+ it=    29001, t (us)=   18.1, np=    4561871      232863      734746     3322253     1872629
+ <t> (ms): E/rho=   35.9, poisson=   16.2, sorting=    4.7, avg/write=    2.0, MC=   11.9, mover=    63.2, bck=    0.2, total=   134.0
+ Saving 3D potentiel and density maps ...
+  
+ ===== LEGACY DIAGNOSTIC it =        30001  =====
+ phi min/max/sum =  -2.091704686149329E-002   20.0000000000000     
+   3846589.52033453     
+ ===========================================
+  
+ >10% of collisions are missed due to an insufficient number of ppc
+ Err(%)=    33.98, ptype=  1
+ Backing up simulation data ...
+ Done!
+ 
+ Accepted collision reactions:
+ reaction    1 accepted =            1
+ reaction    6 accepted =      1889377
+ reaction    7 accepted =      9774250
+ reaction   11 accepted =       377564
+ reaction   12 accepted =       380381
+ reaction   13 accepted =        65210
+ reaction   14 accepted =         1630
+ reaction   15 accepted =          196
+ reaction   16 accepted =            1
+ reaction   23 accepted =            9
+ reaction   25 accepted =            1
+ reaction   30 accepted =         1167
+ reaction   31 accepted =         1212
+ reaction   34 accepted =       304644
+ reaction   35 accepted =        46111
+ reaction   36 accepted =         1142
+ reaction   37 accepted =           10
+ reaction   40 accepted =        13267
+ reaction   41 accepted =         1288
+ reaction   42 accepted =          937
+ reaction   43 accepted =        35100
+ reaction   44 accepted =        16244
+ reaction   45 accepted =       169788
+ reaction   46 accepted =       139115
+ reaction   47 accepted =        86397
+ reaction   48 accepted =         8639
+ reaction   49 accepted =          804
+ reaction   50 accepted =           95
+ reaction   51 accepted =        33716
+ reaction   52 accepted =          384
+ reaction   53 accepted =         4896
+ reaction   54 accepted =        29194
+ reaction   55 accepted =         3808
+ reaction   56 accepted =           17
+ reaction   57 accepted =         2421
+ reaction   58 accepted =            8
+ reaction   59 accepted =          418
+ reaction   60 accepted =        37862
+ reaction   61 accepted =      4941972
+ 
+ Pwall (W)=  -1.42E+02, Pabs (W)=   2.80E+01, Pcoll (W)=  -7.01E+01, Pinj (W)=   0.00E+00, I_w (A)=  -3.20E+01    3.43E+01  , Ek_w (eV)=   1.31E+00    2.86E+00
+ it=    30001, t (us)=   18.7, np=    4422115      208858      755251     3261004     1830828
+ <t> (ms): E/rho=   35.8, poisson=   16.3, sorting=    4.7, avg/write=    2.0, MC=   11.6, mover=    62.9, bck=    0.2, total=   133.5
+ Saving 3D potentiel and density maps ...
+  
+ ===== LEGACY DIAGNOSTIC it =        31001  =====
+ phi min/max/sum =  -4.335593924664483E-003   20.0000000000000     
+   3742937.00493944     
+ ===========================================
+  
+ Backing up simulation data ...
+ Done!
+ 
+ Accepted collision reactions:
+ reaction    1 accepted =            1
+ reaction    6 accepted =      1818551
+ reaction    7 accepted =      9228739
+ reaction   11 accepted =       346171
+ reaction   12 accepted =       347336
+ reaction   13 accepted =        57570
+ reaction   14 accepted =         1374
+ reaction   15 accepted =          197
+ reaction   16 accepted =            1
+ reaction   23 accepted =           13
+ reaction   25 accepted =            1
+ reaction   30 accepted =         1161
+ reaction   31 accepted =         1203
+ reaction   34 accepted =       298258
+ reaction   35 accepted =        44895
+ reaction   36 accepted =          902
+ reaction   37 accepted =           12
+ reaction   40 accepted =        11826
+ reaction   41 accepted =          994
+ reaction   42 accepted =          929
+ reaction   43 accepted =        33770
+ reaction   44 accepted =        15962
+ reaction   45 accepted =       165234
+ reaction   46 accepted =       134965
+ reaction   47 accepted =        83162
+ reaction   48 accepted =         8116
+ reaction   49 accepted =          781
+ reaction   50 accepted =          106
+ reaction   51 accepted =        32774
+ reaction   52 accepted =          349
+ reaction   53 accepted =         5111
+ reaction   54 accepted =        29842
+ reaction   55 accepted =         3928
+ reaction   56 accepted =           15
+ reaction   57 accepted =         2486
+ reaction   58 accepted =           12
+ reaction   59 accepted =          404
+ reaction   60 accepted =        38878
+ reaction   61 accepted =      4482477
+ 
+ Pwall (W)=  -1.22E+02, Pabs (W)=   2.90E+01, Pcoll (W)=  -6.29E+01, Pinj (W)=   0.00E+00, I_w (A)=  -3.08E+01    3.26E+01  , Ek_w (eV)=   8.83E-01    2.81E+00
+ it=    31001, t (us)=   19.3, np=    4288340      187529      774354     3201054     1791178
+ <t> (ms): E/rho=   35.8, poisson=   16.2, sorting=    4.6, avg/write=    1.9, MC=   11.2, mover=    62.7, bck=    0.2, total=   132.7
+ Saving 3D potentiel and density maps ...
+  
+ ===== LEGACY DIAGNOSTIC it =        32001  =====
+ phi min/max/sum =  -5.027104113143220E-003   20.0000000000000     
+   3709938.88453237     
+ ===========================================
+  
+ Backing up simulation data ...
+ Done!
+ 
+ Accepted collision reactions:
+ reaction    1 accepted =            1
+ reaction    6 accepted =      1749745
+ reaction    7 accepted =      8723085
+ reaction   11 accepted =       315146
+ reaction   12 accepted =       316844
+ reaction   13 accepted =        50306
+ reaction   14 accepted =         1177
+ reaction   15 accepted =          149
+ reaction   23 accepted =           18
+ reaction   25 accepted =            2
+ reaction   30 accepted =         1202
+ reaction   31 accepted =         1130
+ reaction   34 accepted =       290279
+ reaction   35 accepted =        44275
+ reaction   36 accepted =          796
+ reaction   37 accepted =            8
+ reaction   40 accepted =        10789
+ reaction   41 accepted =          859
+ reaction   42 accepted =          777
+ reaction   43 accepted =        32763
+ reaction   44 accepted =        15665
+ reaction   45 accepted =       160992
+ reaction   46 accepted =       129813
+ reaction   47 accepted =        80003
+ reaction   48 accepted =         7630
+ reaction   49 accepted =          693
+ reaction   50 accepted =           73
+ reaction   51 accepted =        32169
+ reaction   52 accepted =          375
+ reaction   53 accepted =         5127
+ reaction   54 accepted =        30634
+ reaction   55 accepted =         3905
+ reaction   56 accepted =           18
+ reaction   57 accepted =         2438
+ reaction   58 accepted =           13
+ reaction   59 accepted =          383
+ reaction   60 accepted =        39207
+ reaction   61 accepted =      4042947
+ 
+ Pwall (W)=  -1.06E+02, Pabs (W)=   2.54E+01, Pcoll (W)=  -5.57E+01, Pinj (W)=   0.00E+00, I_w (A)=  -2.92E+01    3.06E+01  , Ek_w (eV)=   8.23E-01    2.61E+00
+ it=    32001, t (us)=   20.0, np=    4160525      168354      793491     3143336     1754225
+ <t> (ms): E/rho=   35.8, poisson=   16.0, sorting=    4.6, avg/write=    1.9, MC=   10.9, mover=    62.5, bck=    0.3, total=   132.1
+ Saving 3D potentiel and density maps ...
+ >10% of collisions are missed due to an insufficient number of ppc
+ Err(%)=    43.12, ptype=  1
+  
+ ===== LEGACY DIAGNOSTIC it =        33001  =====
+ phi min/max/sum =  -4.977673306144945E-003   20.0000000000000     
+   3715086.40524172     
+ ===========================================
+  
+ Backing up simulation data ...
+ Done!
+ 
+ Accepted collision reactions:
+ reaction    6 accepted =      1686153
+ reaction    7 accepted =      8249956
+ reaction   11 accepted =       287898
+ reaction   12 accepted =       289189
+ reaction   13 accepted =        43913
+ reaction   14 accepted =         1023
+ reaction   15 accepted =          133
+ reaction   23 accepted =           24
+ reaction   25 accepted =            1
+ reaction   30 accepted =         1131
+ reaction   31 accepted =         1136
+ reaction   34 accepted =       285069
+ reaction   35 accepted =        43285
+ reaction   36 accepted =          716
+ reaction   37 accepted =            5
+ reaction   40 accepted =         9801
+ reaction   41 accepted =          734
+ reaction   42 accepted =          695
+ reaction   43 accepted =        32110
+ reaction   44 accepted =        15118
+ reaction   45 accepted =       157852
+ reaction   46 accepted =       125894
+ reaction   47 accepted =        77444
+ reaction   48 accepted =         7338
+ reaction   49 accepted =          626
+ reaction   50 accepted =           73
+ reaction   51 accepted =        30694
+ reaction   52 accepted =          358
+ reaction   53 accepted =         5356
+ reaction   54 accepted =        31324
+ reaction   55 accepted =         4065
+ reaction   56 accepted =           16
+ reaction   57 accepted =         2508
+ reaction   58 accepted =           12
+ reaction   59 accepted =          338
+ reaction   60 accepted =        39817
+ reaction   61 accepted =      3635475
+ 
+ Pwall (W)=  -9.87E+01, Pabs (W)=   1.94E+01, Pcoll (W)=  -5.03E+01, Pinj (W)=   0.00E+00, I_w (A)=  -2.89E+01    2.89E+01  , Ek_w (eV)=   1.02E+00    2.35E+00
+ it=    33001, t (us)=   20.6, np=    4034280      151193      811920     3087903     1719048
+ <t> (ms): E/rho=   35.9, poisson=   16.0, sorting=    4.6, avg/write=    2.1, MC=   10.7, mover=    62.3, bck=    0.2, total=   131.7
+ Saving 3D potentiel and density maps ...
+  
+ ===== LEGACY DIAGNOSTIC it =        34001  =====
+ phi min/max/sum =  -1.008848535086359E-002   20.0000000000000     
+   3677264.10964109     
+ ===========================================
+  
+ Backing up simulation data ...
+ Done!
+ 
+ Accepted collision reactions:
+ reaction    1 accepted =            2
+ reaction    6 accepted =      1621651
+ reaction    7 accepted =      7813603
+ reaction   11 accepted =       264509
+ reaction   12 accepted =       266543
+ reaction   13 accepted =        38929
+ reaction   14 accepted =          887
+ reaction   15 accepted =          109
+ reaction   22 accepted =            1
+ reaction   23 accepted =           17
+ reaction   30 accepted =         1024
+ reaction   31 accepted =         1110
+ reaction   34 accepted =       278902
+ reaction   35 accepted =        42359
+ reaction   36 accepted =          617
+ reaction   37 accepted =            6
+ reaction   40 accepted =         8764
+ reaction   41 accepted =          627
+ reaction   42 accepted =          669
+ reaction   43 accepted =        31628
+ reaction   44 accepted =        14782
+ reaction   45 accepted =       154361
+ reaction   46 accepted =       122898
+ reaction   47 accepted =        75348
+ reaction   48 accepted =         6993
+ reaction   49 accepted =          596
+ reaction   50 accepted =           65
+ reaction   51 accepted =        30094
+ reaction   52 accepted =          392
+ reaction   53 accepted =         5540
+ reaction   54 accepted =        32047
+ reaction   55 accepted =         4286
+ reaction   56 accepted =           10
+ reaction   57 accepted =         2542
+ reaction   58 accepted =           16
+ reaction   59 accepted =          320
+ reaction   60 accepted =        40826
+ reaction   61 accepted =      3263565
+ 
+ Pwall (W)=  -8.83E+01, Pabs (W)=   1.67E+01, Pcoll (W)=  -4.62E+01, Pinj (W)=   0.00E+00, I_w (A)=  -2.71E+01    2.78E+01  , Ek_w (eV)=   9.95E-01    2.17E+00
+ it=    34001, t (us)=   21.2, np=    3915188      135924      830058     3033647     1685015
+ <t> (ms): E/rho=   35.9, poisson=   16.0, sorting=    4.5, avg/write=    1.9, MC=   10.4, mover=    62.1, bck=    0.2, total=   131.0
+ Saving 3D potentiel and density maps ...
+  
+ ===== LEGACY DIAGNOSTIC it =        35001  =====
+ phi min/max/sum =  -1.311818825083517E-003   20.0000000000000     
+   3587056.34336277     
+ ===========================================
+  
+ >10% of collisions are missed due to an insufficient number of ppc
+ Err(%)=    51.97, ptype=  1
+ Backing up simulation data ...
+ Done!
+ 
+ Accepted collision reactions:
+ reaction    1 accepted =            1
+ reaction    6 accepted =      1560962
+ reaction    7 accepted =      7419964
+ reaction   11 accepted =       244067
+ reaction   12 accepted =       245396
+ reaction   13 accepted =        34785
+ reaction   14 accepted =          800
+ reaction   15 accepted =          115
+ reaction   23 accepted =           11
+ reaction   25 accepted =            1
+ reaction   30 accepted =         1023
+ reaction   31 accepted =         1083
+ reaction   34 accepted =       273323
+ reaction   35 accepted =        41805
+ reaction   36 accepted =          496
+ reaction   37 accepted =            4
+ reaction   40 accepted =         7693
+ reaction   41 accepted =          571
+ reaction   42 accepted =          596
+ reaction   43 accepted =        30661
+ reaction   44 accepted =        14622
+ reaction   45 accepted =       151424
+ reaction   46 accepted =       120185
+ reaction   47 accepted =        73320
+ reaction   48 accepted =         7007
+ reaction   49 accepted =          601
+ reaction   50 accepted =           50
+ reaction   51 accepted =        29501
+ reaction   52 accepted =          399
+ reaction   53 accepted =         5515
+ reaction   54 accepted =        32524
+ reaction   55 accepted =         4398
+ reaction   56 accepted =           18
+ reaction   57 accepted =         2532
+ reaction   58 accepted =           19
+ reaction   59 accepted =          321
+ reaction   60 accepted =        41274
+ reaction   61 accepted =      2929112
+ 
+ Pwall (W)=  -8.13E+01, Pabs (W)=   1.64E+01, Pcoll (W)=  -4.28E+01, Pinj (W)=   0.00E+00, I_w (A)=  -2.56E+01    2.68E+01  , Ek_w (eV)=   8.76E-01    2.15E+00
+ it=    35001, t (us)=   21.8, np=    3801886      122290      847645     2980044     1652182
+ <t> (ms): E/rho=   35.9, poisson=   16.0, sorting=    4.5, avg/write=    1.9, MC=   10.2, mover=    61.8, bck=    0.2, total=   130.6
  Saving 3D potentiel and density maps ...

@@ -1,7 +1,7 @@
 subroutine collisions(it,vxp,n,h,ntype,nmax,sig,sig_Er,sig_list,sig_Eex, &
      ncol_mx,npt_mx,cnt_col,P_loss,sour_xy,sour_xz,Plist,pl_max,sigv_mx,&
      col_info,np_red,flag_dead,flag_cex,nproc,np_tot,iseed,nproc_mpi,mpi_rank,&
-     ss2D_xy,ss2D_xz,ss2D_yz,flag_diag)
+     ss2D_xy,ss2D_xz,ss2D_yz,flag_diag, rxn_count)
 !     ===================================================================
 !     VERSION:         0.7
 !     LAST MOD:      Dec/23
@@ -80,6 +80,7 @@ subroutine collisions(it,vxp,n,h,ntype,nmax,sig,sig_Er,sig_list,sig_Eex, &
        ss2D_xy(2,0:n(1)+2,0:n(2)+2,ntype,nproc),&
        ss2D_xz(2,0:n(1)+2,0:n(3)+2,ntype,nproc),&
        ss2D_yz(2,0:n(2)+2,0:n(3)+2,ntype,nproc)
+   integer(kind=8) :: rxn_count(ncol_mx)
 
   !
   ! Set collision parameters
@@ -185,7 +186,7 @@ subroutine collisions(it,vxp,n,h,ntype,nmax,sig,sig_Er,sig_list,sig_Eex, &
           sig_list,sig_Eex,ncol_mx,npt_mx,cnt_col,P_loss,sour_xy,sour_xz, &
           col_info,np_red,flag_dead,nproc,np_tot,iseed_OMP,Plist,pl_max, &
           np_add,Nc,ptype,sav_ttype,iproc,np_tot_rg,nu_max_OMP,err_coll,flag_cex,&
-          ss2D_xy,ss2D_xz,ss2D_yz,flag_diag)
+          ss2D_xy,ss2D_xz,ss2D_yz,flag_diag, rxn_count)
 
      iseed(iproc)= iseed_OMP
 
@@ -215,7 +216,7 @@ subroutine collision_OMP(vxp,n,h,ntype,nmax,sig,sig_Er, &
      sig_list,sig_Eex,ncol_mx,npt_mx,cnt_col,P_loss,sour_xy,sour_xz, &
      col_info,np_red,flag_dead,nproc,np_tot,iseed,Plist,pl_max,np_add,Nc,&
      ptype,sav_ttype,iproc,np_tot_rg,nu_max_OMP,err_coll,flag_cex,&
-     ss2D_xy,ss2D_xz,ss2D_yz,flag_diag)
+     ss2D_xy,ss2D_xz,ss2D_yz,flag_diag, rxn_count)
 !     ===================================================================
 !     VERSION:         0.3
 !     LAST MOD:       Dec/23
@@ -254,6 +255,7 @@ subroutine collision_OMP(vxp,n,h,ntype,nmax,sig,sig_Er, &
        ss2D_yz(2,0:n(2)+2,0:n(3)+2,ntype,nproc)
   ! Extra
   character:: answer*1
+  integer(kind=8) :: rxn_count(ncol_mx)
 
   ! Initialization
   dEk_lost=0.d0
@@ -756,6 +758,9 @@ subroutine collision_OMP(vxp,n,h,ntype,nmax,sig,sig_Er, &
         it= sav_it(ttype)
         ! Target particle processor
         tproc= sav_tproc(ttype)
+
+        !$OMP ATOMIC
+         rxn_count(c_ind) = rxn_count(c_ind) + 1_8
 
         !
         ! All reactions but charge exchange

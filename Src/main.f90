@@ -106,6 +106,7 @@ program main
        yl_rg,yr_rg,zl_rg,zr_rg,dtime,omega,cnt_dead_tmp,sum_beam_div(4),Ca,x,np_dup,&
        phi0_RF,f0_RF,phi1_RF,f1_RF
   character:: rname*20,name*20,pnum*1,pnum_bck*3,plnum*3,corrnum*3
+  integer(kind=8) :: rxn_count(ncol_mx)
 
   CALL MPI_Init(ierr)                             ! starts MPI
   CALL MPI_Comm_rank(MPI_COMM_WORLD, mpi_rank, ierr)  ! get current process id
@@ -764,7 +765,7 @@ program main
   !
   ! Start iteration 
   !
-  do it=1, 1005!ntmax
+  do it=1, 35005!ntmax
 
      time= time + dt
      if(time.ge.tmax) exit ! Stop calculation
@@ -1116,7 +1117,7 @@ program main
            call collisions(it,vxp,n,h,ntype,nmax,sig,sig_Er,sig_list,sig_Eex,&
                 ncol_mx,npt_mx,cnt_col,P_loss,sour_xy,sour_xz,Plist,pl_max,sigv_mx,&
                 col_info,np_red,flag_dead,flag_cex,nproc,np_tot,iseed,nproc_mpi,mpi_rank,&
-                ss2D_xy,ss2D_xz,ss2D_yz,flag_diag)
+                ss2D_xy,ss2D_xz,ss2D_yz,flag_diag, rxn_count)
         endif
         
         call calc_avg(n,h,np,p_mts_xy,p_mts_xz,p_mts_yz,data_pavg_xy,&
@@ -1196,7 +1197,7 @@ program main
         call collisions(it,vxp,n,h,ntype,nmax,sig,sig_Er,sig_list,sig_Eex,&
              ncol_mx,npt_mx,cnt_col,P_loss,sour_xy,sour_xz,Plist,pl_max,sigv_mx,&
              col_info,np_red,flag_dead,flag_cex,nproc,np_tot,iseed,nproc_mpi,mpi_rank,&
-             ss2D_xy,ss2D_xz,ss2D_yz,flag_diag)
+             ss2D_xy,ss2D_xz,ss2D_yz,flag_diag,rxn_count)
         ctime(5)= ctime(5) + MSTIMER() 
      endif
 
@@ -1394,6 +1395,17 @@ program main
      !
      if( MOD(it,nsav).eq.1 ) then
 
+         write(*,*)
+         write(*,*) 'Accepted collision reactions:'
+
+         do i = 1, ncol_mx
+            if (rxn_count(i) > 0_8) then
+               write(*,'(" reaction ",I4," accepted = ",I12)') i, rxn_count(i)
+            endif
+         enddo
+
+         write(*,*)
+         rxn_count = 0_8
         ! MPI SUM
         sum_np_tot= SUM(np_tot,DIM=2) ! sum over OMP proc
         if(nproc_mpi.gt.1) then ! sum over MPI proc

@@ -95,9 +95,6 @@ contains
     !   - cell_id(i) is sorted and nondecreasing
     !   - cell_count(ic) is valid
     !   - cell_start(ic) is valid
-    !
-    ! This is the modern replacement of the legacy particle sorting
-    ! + Plist construction, at the level of one ParticleSet.
     !=============================================================
     class(ParticleSet), intent(inout) :: part
     integer(int32),     intent(in)    :: n(3)
@@ -122,13 +119,16 @@ contains
     ncells = n(1) * n(2) * n(3)
 
     call part%ensure_cell_storage(ncells)
+    call compute_particle_cell_ids(part, n, h)
 
     if (np <= 1_int32) then
-      call compute_particle_cell_ids(part, n, h)
+      write(*,*) "SORT DEBUG"
+      write(*,*) "npart=", part%n
+      write(*,*) "sum(cell_count)=", sum(part%cell_count)
+      write(*,*) "max(cell_count)=", maxval(part%cell_count)
+      write(*,*) "nonzero cells=", count(part%cell_count > 0)
       return
     end if
-
-    call compute_particle_cell_ids(part, n, h)
 
     allocate(next_slot(ncells))
     next_slot = part%cell_start
@@ -155,6 +155,7 @@ contains
       w_new(pos)       = part%w(i)
       sp_new(pos)      = part%sp(i)
       cell_id_new(pos) = ic
+
       flag_dead_new(pos) = part%flag_dead(i)
       flag_cex_new(pos)  = part%flag_cex(i)
 
@@ -170,16 +171,23 @@ contains
     part%w(1:np)       = w_new
     part%sp(1:np)      = sp_new
     part%cell_id(1:np) = cell_id_new
+
     part%flag_dead(1:np) = flag_dead_new
     part%flag_cex(1:np)  = flag_cex_new
+
+    ! write(*,*) "SORT DEBUG"
+    ! write(*,*) "npart=", part%n
+    ! write(*,*) "sum(cell_count)=", sum(part%cell_count)
+    ! write(*,*) "max(cell_count)=", maxval(part%cell_count)
+    ! write(*,*) "nonzero cells=", count(part%cell_count > 0)
 
     deallocate(next_slot)
     deallocate(x_new, y_new, z_new)
     deallocate(vx_new, vy_new, vz_new)
     deallocate(w_new, sp_new, cell_id_new)
     deallocate(flag_dead_new, flag_cex_new)
-  end subroutine sort_particles_by_cell
 
+  end subroutine sort_particles_by_cell
 
   logical function check_particles_are_sorted(part) result(ok)
     !=============================================================

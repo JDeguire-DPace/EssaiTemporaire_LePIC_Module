@@ -1,4 +1,4 @@
-special2.dat ! name of file storing reactions
+hydrogen2.dat ! name of file storing reactions
 6. ! Te (eV)
 6 ! # of levels in MG solver
 1.d-8, 1.6d0 ! Min. precision in residual, w for SOR [1.6]

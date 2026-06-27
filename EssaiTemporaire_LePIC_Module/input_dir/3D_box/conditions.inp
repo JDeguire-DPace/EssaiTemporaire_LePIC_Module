@@ -1,0 +1,27 @@
+argon.dat ! name of file storing reactions
+5. ! Te (eV)
+5 ! # of levels in MG solver
+1.d-7, 1.4d0 ! Min. precision in residual, w for SOR [1.6]
+64 64 64 ! n: nx=2**n, ny=2**n. Number of grid points [2**7,2**3]
+0. 10. 0. 100. 0. 100. ! Particle heating region x<, x>, y<, y>, z<, z> [cm]
+10. ! Particle loading region [cm]
+0 ! # of magnetic field files (<0 pos. ions not magnetized)
+64 64 64 ! Grid for the magnetic field map
+130.d0 1.d8 ! Pabs(W) (<0 to turn off), Heating frequency (<0 == off)
+-10. -2 ! Inject current I(A) (<0 == off), options [1=fixed, 2= equal to ion losses, 3= e-beam (+Z), 4= emmissive cath. (+Z), <0 cosine]
+1.d-3 ! t_max(s)
+0.5  ! time coeff. k ; dt= k*dx/vt
+1.d17 ! n0 (m-3)
+3.2d19 ! ng (m-3)
+20 ! np_cell: number of particles per cell (<0 for no background plasma)
+4 ! Number of wall labels, [ngrid+1:ngrid+2] is used for dielectric BC's (<0 do not save 3D density and potential maps)
+1000 ! frequency for saving data (<0 does not reset averaging)
+1000 -100 50.d-6 100.e-6 Z ! Frequency for simulation backup (<0 no averaging), # of plots (<0 off), time window [t1,t2], saved planes
+3200.d0 ! k_eps0 (<0 iterative P, I_inj or Vgrd)
+no 1 0. 10. 0. 10. 1 0. 10. ! Save pdf (y/n), ptype, yl, yr, zl, zr (cm), # of regions n_rg, xl & xr for each n_rg
+yes 68 16 1. ! Restart (yes/no/external/gauss),  # of OMP threads, # of MPI, coefficient for particle duplication/removal
+no 0.8 1 1 2 ! Holes (y/n), Lh(cm), ny*nz holes, (PE) grid index
+0. 1. 3 0. 1.d-4 ! jH-(mA/cm2) from H on PE surface, TH-(eV), characteristics of neg. ions on grid # [index], dielectric potential, Ca/S (Fd/m2)
+-0.18 2 no 0. 0.2 0.6 0.8 ! Secondary emission coeff (<0 == off), grid index
+END
+

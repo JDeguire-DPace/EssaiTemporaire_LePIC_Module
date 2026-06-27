@@ -11,6 +11,7 @@ module mod_simulation
                                        write_plane_xy_scalar_2d, write_plane_xz_scalar_2d, &
                                        write_plane_yz_scalar_2d
   use mod_constants,             only: eps0
+  use mod_collisionDiagnostics, only: print_rxn_counts, reset_rxn_counts
   use mod_collisions, only: perform_collisions_step
   use mpi
 
@@ -355,12 +356,12 @@ contains
     tstep0 = MPI_Wtime()
 
     ! Sorting
-    t0 = MPI_Wtime()
-    if (mod(istep, self%state%params%nb_step_sort) == 1_int32) then
-      call self%state%sort_particles_local()
-    end if
-    t1 = MPI_Wtime()
-    self%t_sort = self%t_sort + (t1 - t0)
+    ! t0 = MPI_Wtime()
+    ! if (mod(istep, self%state%params%nb_step_sort) == 1_int32) then
+    !   call self%state%sort_particles_local()
+    ! end if
+    ! t1 = MPI_Wtime()
+    ! self%t_sort = self%t_sort + (t1 - t0)
 
     ! E/rho
     t0 = MPI_Wtime()
@@ -448,11 +449,20 @@ contains
 
     ! Collisions
     t0 = MPI_Wtime()
-    !if (self%state%params%nb_step_collisions > 0_int32) then
-    !  if (mod(istep, self%state%params%nb_step_collisions) == 0_int32) then
-    !    call self%collisions_step()
-    ! end if
-    !end if
+    if (self%state%params%nb_step_collisions > 0_int32) then
+      if (mod(istep, self%state%params%nb_step_collisions) == 0_int32) then
+
+        ! Legacy-like: build Plist/cell lists from current post-mover particles
+        call self%state%sort_particles_local()
+
+        t1 = MPI_Wtime()
+        self%t_sort = self%t_sort + (t1 - t0)
+
+        t0 = MPI_Wtime()
+        call self%collisions_step()
+
+      end if
+    end if
     t1 = MPI_Wtime()
     self%t_MC = self%t_MC + (t1 - t0)
 
@@ -523,77 +533,6 @@ contains
     call self%state%finalize()
   end subroutine finalize
 
-  ! subroutine print_diagnostics(self,istep)
-  !   class(Simulation), intent(inout) :: self
-  !   integer(int32), intent(in)   :: istep
-  !   integer(int32)               :: ptype
-  !   real(real64)                 :: simulation_time
-  !   real(real64) :: Pwall, Pabs, Pcoll, Pinj
-  !   real(real64) :: Iw1, Iw2
-  !   real(real64) :: Ekw1, Ekw2
-
-  !   Pabs  = sum(self%state%P_loss(2,:,:)) / &
-  !       (real(self%state%cfg%nsav - 1_int32, real64) * self%state%params%dt)
-  !   Pcoll = sum(self%state%P_loss(3,:,:)) * self%state%params%Nm(1) / &
-  !       (real(self%state%cfg%nsav - 1_int32, real64) * self%state%params%dt)
-  !   Pinj  = sum(self%state%P_loss(4,:,:))
-  !   Pwall = -sum(self%state%P_loss(1,:,:)) / &
-  !       (real(self%state%cfg%nsav - 1_int32, real64) * self%state%params%dt)
-
-
-
-  !   Iw1 = sum(self%state%p_mac(1,1,:,:)) / &
-  !         (real(self%state%cfg%nsav - 1_int32, real64) * self%state%params%dt)
-
-  !   Iw2 = sum(self%state%p_mac(2:self%state%ntype,1,:,:)) / &
-  !         (real(self%state%cfg%nsav - 1_int32, real64) * self%state%params%dt)
-
-  !   Ekw1 = 0.0_real64
-  !   if (abs(sum(self%state%p_mac(1,1,:,:))) > 0.0_real64) then
-  !     Ekw1 = sum(self%state%p_mac(1,2,:,:)) / &
-  !           abs(sum(self%state%p_mac(1,1,:,:)))
-  !   end if
-
-  !   Ekw2 = 0.0_real64
-  !   if (sum(abs(self%state%p_mac(2:self%state%ntype,1,:,:))) > 0.0_real64) then
-  !     Ekw2 = sum(self%state%p_mac(2:self%state%ntype,2,:,:)) / &
-  !           sum(abs(self%state%p_mac(2:self%state%ntype,1,:,:)))
-  !   end if
-
-
-  !   write(*,'(a)') " "
-  !   write(*,'(a)') " "
-  !   write(*,'(a,i0,a,F8.3,a)') ' TIME STEP ', istep, ' --> ', self%state%params%dt*istep*1.d6, " us"
-
-  !   write(*,'(a)') " -------------------------"
-  !   write(*,'(a)') " Particles diagnostics: "
-  !   do ptype = 1_int32, self%state%rxn%ntype-self%state%rxn%n_neu
-  !     write(*,'(a,a,a,i0)') " npart ", self%state%chem%pname(ptype) , " = ", sum(self%state%part(ptype,:)%n)
-  !   end do
-
-  !   write(*,'(a)') " -------------------------"
-  !   write(*,"(a)") " Power diagnostics: "
-  !   write(*,'(A,ES10.2)')  ' Pwall (W)  = ', Pwall
-  !   write(*,'(A,ES10.2)')  ' Pabs  (W)  = ', Pabs
-  !   write(*,'(A,ES10.2)')  ' Pcoll (W)  = ', Pcoll
-  !   write(*,'(A,ES10.2)')  ' Pinj  (W)  = ', Pinj
-
-  !   write(*,'(a,ES10.2,ES10.2)')  ' I_w  (A)  = ', Iw1, Iw2
-  !   write(*,'(a,ES10.2,ES10.2)')  ' Ek_w (eV) = ', Ekw1, Ekw2
-  !   write(*,'(a)') " -------------------------"
-
-
-  !   write(*,'(a)') "  "
-
-
-  !   ! Reset legacy-style power accumulators after printing
-  !   if (allocated(self%state%P_loss) .or. allocated(self%state%p_mac)) then
-  !     self%state%P_loss = 0.0_real64
-  !     self%state%p_mac  = 0.0_real64
-  !   end if
-
-  ! end subroutine print_diagnostics
-
   subroutine print_diagnostics(self,istep)
     class(Simulation), intent(inout) :: self
     integer(int32), intent(in)   :: istep
@@ -602,6 +541,9 @@ contains
     real(real64) :: Pwall, Pabs, Pcoll, Pinj
     real(real64) :: Iw1, Iw2
     real(real64) :: Ekw1, Ekw2
+
+    call print_rxn_counts()
+    call reset_rxn_counts()
 
     Pabs  = sum(self%state%P_loss(2,:,:)) / &
         (real(self%state%cfg%nsav - 1_int32, real64) * self%state%params%dt)

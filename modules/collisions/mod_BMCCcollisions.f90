@@ -15,6 +15,7 @@ module mod_BMCCcollisions
   use iso_fortran_env,  only: int32, int8, real64
   use mod_particles,    only: ParticleSet
   use mod_RNG,          only: ran2
+  use mod_collisionDiagnostics, only: count_rxn
 
   implicit none
   private
@@ -155,12 +156,22 @@ contains
               if (part(ttype,iproc)%n <= 0_int32) cycle
 
               ! Random target particle
-              call select_local_target_particle( &
+              !!! MODIF
+              ! call select_local_target_particle( &
+              !     part(ttype,iproc), &
+              !     part(ptype,iproc)%x(ip), &
+              !     part(ptype,iproc)%y(ip), &
+              !     part(ptype,iproc)%z(ip), &
+              !     n, h, iseed(iproc), it)
+
+              ! if (it <= 0_int32) cycle
+
+              call select_target_from_cell_list( &
                   part(ttype,iproc), &
                   part(ptype,iproc)%x(ip), &
                   part(ptype,iproc)%y(ip), &
                   part(ptype,iproc)%z(ip), &
-                  n, h, iseed(iproc), it)
+                  n, h, iseed(iproc), it, n_ttype_avg, Nm(ttype))
 
               if (it <= 0_int32) cycle
 
@@ -173,9 +184,9 @@ contains
               Ekr   = 0.5_real64 * mu * vr * vr / QE_ABS
               sig_p = interp_sigma(Ekr, sig, ind_col, sig_Er, count_valid_pts(sig_Er))
 
-              n_ttype_avg = estimate_local_density(part(ttype,iproc), &
-                  part(ptype,iproc)%x(ip), part(ptype,iproc)%y(ip), &
-                  part(ptype,iproc)%z(ip), n, h, Nm(ttype))
+              ! n_ttype_avg = estimate_local_density(part(ttype,iproc), &
+              !     part(ptype,iproc)%x(ip), part(ptype,iproc)%y(ip), &
+              !     part(ptype,iproc)%z(ip), n, h, Nm(ttype))
               nu_icol     = n_ttype_avg * sig_p * vr
 
               nu_store(icol)   = nu_icol
@@ -214,6 +225,9 @@ contains
             end do
 
             if (chosen_col > 0_int32 .and. chosen_it > 0_int32) then
+
+              call count_rxn(chosen_col)
+            
               call apply_bmcc_products( &
                   part, iproc, ptype, ip, chosen_ttype, chosen_it, &
                   tvx, tvy, tvz, chosen_col, col_info, sig_Eex, &
@@ -573,5 +587,71 @@ contains
     ndens = real(count_local, real64) * Nm / Vlocal
 
   end function estimate_local_density
+
+  subroutine select_target_from_cell_list(p, xp, yp, zp, n, h, iseed, it, ndens, Nm)
+    type(ParticleSet), intent(in) :: p
+    real(real64), intent(in) :: xp, yp, zp
+    integer(int32), intent(in) :: n(3)
+    real(real64), intent(in) :: h(3)
+    integer(int32), intent(inout) :: iseed
+    integer(int32), intent(out) :: it
+    real(real64), intent(out) :: ndens
+    real(real64), intent(in) :: Nm
+
+    integer(int32) :: ix, iy, iz
+    integer(int32) :: icell, ic_try
+    integer(int32) :: first, cnt, offset, idir
+    integer(int32) :: neigh(7)
+    real(real64) :: rnd, Vc
+
+    it = 0_int32
+    ndens = 0.0_real64
+
+    if (p%n <= 0_int32) return
+    if (.not. allocated(p%cell_start)) return
+    if (.not. allocated(p%cell_count)) return
+
+    ix = int(xp / h(1), int32) + 1_int32
+    iy = int(yp / h(2), int32) + 1_int32
+    iz = int(zp / h(3), int32) + 1_int32
+
+    ix = max(1_int32, min(n(1), ix))
+    iy = max(1_int32, min(n(2), iy))
+    iz = max(1_int32, min(n(3), iz))
+
+    icell = (ix-1_int32) + n(1)*((iy-1_int32) + n(2)*(iz-1_int32)) + 1_int32
+
+    neigh = 0_int32
+    neigh(1) = icell
+    if (ix < n(1)) neigh(2) = icell + 1_int32
+    if (ix > 1_int32) neigh(3) = icell - 1_int32
+    if (iy < n(2)) neigh(4) = icell + n(1)
+    if (iy > 1_int32) neigh(5) = icell - n(1)
+    if (iz < n(3)) neigh(6) = icell + n(1)*n(2)
+    if (iz > 1_int32) neigh(7) = icell - n(1)*n(2)
+
+    do idir = 1_int32, 7_int32
+      ic_try = neigh(idir)
+      if (ic_try <= 0_int32) cycle
+      if (ic_try > size(p%cell_count)) cycle
+
+
+
+      cnt = p%cell_count(ic_try)
+      if (cnt <= 0_int32) cycle
+
+      first = p%cell_start(ic_try)
+
+      rnd = ran2(iseed)
+      offset = int(real(cnt, real64)*rnd, int32)
+      if (offset >= cnt) offset = cnt - 1_int32
+
+      it = first + offset
+
+      Vc = h(1)*h(2)*h(3)
+      ndens = real(cnt, real64)*Nm/Vc
+      return
+    end do
+  end subroutine select_target_from_cell_list
 
 end module mod_BMCCcollisions
