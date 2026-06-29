@@ -332,6 +332,7 @@ contains
 
     if (.not. allocated(self%part)) return
 
+    !$omp parallel do collapse(2) private(ptype,iproc,ok_sorted,ok_cells) schedule(static)
     do ptype = 1, self%ntype
       do iproc = 1, self%nproc
         if (.not. allocated(self%part(ptype,iproc)%x)) cycle

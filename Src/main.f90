@@ -52,6 +52,7 @@
 program main
   use omp_lib
   use mpi
+  use mod_gwenael_debug
   implicit none
   include 'particle_info.h'
   include 'constants.h'
@@ -1406,6 +1407,8 @@ program main
 
          write(*,*)
          rxn_count = 0_8
+         call gwenael_print_debug(ntype)
+         call gwenael_reset_debug()
         ! MPI SUM
         sum_np_tot= SUM(np_tot,DIM=2) ! sum over OMP proc
         if(nproc_mpi.gt.1) then ! sum over MPI proc
@@ -1457,6 +1460,10 @@ program main
            
            ! Save PDE solver residual & # of iterations
            write(40,*) res,niter,nint(ksor)
+
+           ! Also print to stdout (directly comparable to the modular
+           ! side's "k_it_avg"/"res_avg" in the poisson timing breakdown)
+           write(*,'(a,i5,a,es10.2)') ' LEGACY poisson niter= ', niter, ', res= ', res
 
            ! Save negative ion impact characteristics on num_grd
            if( tag_neg.gt.0 .and. sum_cex(1).gt.0 ) &

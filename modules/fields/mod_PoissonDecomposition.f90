@@ -63,7 +63,12 @@ contains
     self%k0 = self%rank * self%m
     self%k1 = self%k0 + self%m - 1
 
-    allocate(self%phi_dom(0:nx+2, 0:ny+2, 0:self%m+2))
+    ! phi_dom's z range starts at -1, not 0: pdesolver (legacy multigrid)
+    ! expects one extra ghost layer below the local domain
+    ! (u(0:n1+2,0:n2+2,-1:m+2)). Allocating it here lets
+    ! mod_PoissonSolver_legacy pass phi_dom straight through with no
+    ! temporary copy.
+    allocate(self%phi_dom(0:nx+2, 0:ny+2, -1:self%m+2))
     allocate(self%rhs_dom(0:nx+1, 0:ny+1, 0:self%m+1))
     allocate(self%bcnd_dom(0:nx+2, 0:ny+2, 0:self%m+2))
 

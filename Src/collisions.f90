@@ -1,3 +1,67 @@
+module mod_gwenael_debug
+  !===========================================================================
+  ! Debug instrumentation added to compare LEGACY collision_OMP's DSMC
+  ! target search / local-density behaviour against the new modular
+  ! mod_collisionsGwenael port, ttype-by-ttype. Mirrors exactly the
+  ! quantities recorded on the modular side (see mod_collisionDiagnostics
+  ! in the modular tree): a snapshot of np_mx(ttype), running counts of
+  ! Plist target-search successes/failures, and np_t statistics (including
+  ! a count of np_t exceeding np_mx, which the null-collision method
+  ! assumes never happens).
+  !
+  ! Subsampled the same way as the modular side: only every 1000th trial
+  ! (gated on the existing `ic` trial counter, never an extra ran2() draw)
+  ! is recorded, so the physics RNG stream is completely unaffected by
+  ! whether this instrumentation is active.
+  !===========================================================================
+  implicit none
+  integer, parameter :: ntype_dbg_mx = 32
+
+  real(kind=8),    save :: dbg_np_mx(ntype_dbg_mx)         = 0.d0
+  integer(kind=8), save :: dbg_search_ok(ntype_dbg_mx)     = 0
+  integer(kind=8), save :: dbg_search_fail(ntype_dbg_mx)   = 0
+  integer(kind=8), save :: dbg_npt_count(ntype_dbg_mx)     = 0
+  real(kind=8),    save :: dbg_npt_sum(ntype_dbg_mx)       = 0.d0
+  real(kind=8),    save :: dbg_npt_max(ntype_dbg_mx)       = 0.d0
+  integer(kind=8), save :: dbg_npt_exceeds(ntype_dbg_mx)   = 0
+
+contains
+
+  subroutine gwenael_print_debug(ntype)
+    integer, intent(in) :: ntype
+    integer :: s
+    real(kind=8) :: avg
+    write(*,'(a)') " ----- LEGACY collisions.f90 debug diagnostics -----"
+    do s=1,min(ntype,ntype_dbg_mx)
+       if( dbg_search_ok(s).eq.0 .and. dbg_search_fail(s).eq.0 ) cycle
+       avg= 0.d0
+       if( dbg_npt_count(s).gt.0 ) avg= dbg_npt_sum(s)/dble(dbg_npt_count(s))
+       write(*,'(a,i3,a,es12.4,a,i10,a,i10,a,es12.4,a,es12.4,a,i10)') &
+            " ttype=", s, &
+            " np_mx=", dbg_np_mx(s), &
+            " search_ok=", dbg_search_ok(s), &
+            " search_fail=", dbg_search_fail(s), &
+            " np_t_avg=", avg, &
+            " np_t_max=", dbg_npt_max(s), &
+            " np_t>np_mx count=", dbg_npt_exceeds(s)
+    enddo
+    write(*,'(a)') " ----------------------------------------------------"
+  end subroutine gwenael_print_debug
+
+  subroutine gwenael_reset_debug()
+    dbg_search_ok   = 0
+    dbg_search_fail = 0
+    dbg_npt_count   = 0
+    dbg_npt_sum     = 0.d0
+    dbg_npt_max     = 0.d0
+    dbg_npt_exceeds = 0
+    ! dbg_np_mx is a snapshot, not accumulated - left alone, overwritten
+    ! by the next call to the recording site in subroutine collisions
+  end subroutine gwenael_reset_debug
+
+end module mod_gwenael_debug
+
+
 subroutine collisions(it,vxp,n,h,ntype,nmax,sig,sig_Er,sig_list,sig_Eex, &
      ncol_mx,npt_mx,cnt_col,P_loss,sour_xy,sour_xz,Plist,pl_max,sigv_mx,&
      col_info,np_red,flag_dead,flag_cex,nproc,np_tot,iseed,nproc_mpi,mpi_rank,&
@@ -54,6 +118,7 @@ subroutine collisions(it,vxp,n,h,ntype,nmax,sig,sig_Er,sig_list,sig_Eex, &
 !     -------------------------------------------------------------------
   use omp_lib
   use mpi
+  use mod_gwenael_debug
   implicit none
   include 'particle_info.h'
   include 'constants.h'
@@ -107,6 +172,7 @@ subroutine collisions(it,vxp,n,h,ntype,nmax,sig,sig_Er,sig_list,sig_Eex, &
         ttype= col_info(ind_col,ind_nby+n_re)
         sav_ttype(ind_col)= ttype
         nu_max(ptype)= nu_max(ptype) + np_mx(ttype)*sigv_mx(ptype,ind_col)
+        if( ttype.ge.1 .and. ttype.le.ntype_dbg_mx ) dbg_np_mx(ttype)= np_mx(ttype)
      enddo
 
 
@@ -224,6 +290,7 @@ subroutine collision_OMP(vxp,n,h,ntype,nmax,sig,sig_Er, &
 !     COMMENTS:     
 !     NOTES:   
 !     -------------------------------------------------------------------
+  use mod_gwenael_debug
   implicit none
   include 'particle_info.h'
   include 'constants.h'
@@ -405,6 +472,10 @@ subroutine collision_OMP(vxp,n,h,ntype,nmax,sig,sig_Er, &
                  ! Count errors
                  if( charge(ttype).ge.0.d0 .and. ix.le.ix_PE ) &
                       err_coll(ptype,iproc)= err_coll(ptype,iproc) + 1
+                 if( mod(ic,1000).eq.0 .and. ttype.ge.1 .and. ttype.le.ntype_dbg_mx ) then
+                    !$OMP ATOMIC
+                    dbg_search_fail(ttype)= dbg_search_fail(ttype) + 1
+                 endif
                  ! Jump to next reaction
                  goto 105 
               endif
@@ -430,6 +501,12 @@ subroutine collision_OMP(vxp,n,h,ntype,nmax,sig,sig_Er, &
                 Plist(ict-1,ttype,tproc)*rnd(1) + 1
            sav_it(ttype)= it
            sav_tproc(ttype)= tproc
+
+           if( mod(ic,1000).eq.0 .and. ttype.ge.1 .and. ttype.le.ntype_dbg_mx &
+                .and. charge(ttype).ne.0.d0 ) then
+              !$OMP ATOMIC
+              dbg_search_ok(ttype)= dbg_search_ok(ttype) + 1
+           endif
 
            !
            ! Properties of target particle
@@ -531,6 +608,20 @@ subroutine collision_OMP(vxp,n,h,ntype,nmax,sig,sig_Er, &
                       np_red(ix,iy+1,iz,ttype) + np_red(ix+1,iy+1,iz,ttype) + &
                       np_red(ix,iy,iz+1,ttype) + np_red(ix+1,iy,iz+1,ttype) +  &
                       np_red(ix,iy+1,iz+1,ttype) + np_red(ix+1,iy+1,iz+1,ttype) ) 
+
+                 if( mod(ic,1000).eq.0 .and. ttype.ge.1 .and. ttype.le.ntype_dbg_mx ) then
+                    !$OMP ATOMIC
+                    dbg_npt_count(ttype)= dbg_npt_count(ttype) + 1
+                    !$OMP ATOMIC
+                    dbg_npt_sum(ttype)= dbg_npt_sum(ttype) + np_t
+                    !$OMP CRITICAL (dbg_npt_max_update)
+                    if( np_t.gt.dbg_npt_max(ttype) ) dbg_npt_max(ttype)= np_t
+                    !$OMP END CRITICAL (dbg_npt_max_update)
+                    if( np_t.gt.np_mx(ttype) ) then
+                       !$OMP ATOMIC
+                       dbg_npt_exceeds(ttype)= dbg_npt_exceeds(ttype) + 1
+                    endif
+                 endif
               endif
 
               nu(icol)= np_t*sig_p*vr(ttype)/nu_max_OMP(iproc)

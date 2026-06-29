@@ -4,14 +4,15 @@ module mod_simulation
   use mod_state,                 only: State
   use mod_density,               only: reduce_species_density, build_rho_from_np
   use mod_chargeDeposition,      only: clear_np_thread, deposit_particle_set_to_np_thread
-  use mod_PoissonSolver_legacy,  only: solve_poisson_legacy
+  use mod_PoissonSolver_legacy,  only: solve_poisson_legacy, print_poisson_breakdown, reset_poisson_breakdown
   use mod_electricField,         only: calc_Efield_modular
   use mod_output_2d,             only: write_density_planes, write_scalar_planes, &
                                        write_vector_component_planes, &
                                        write_plane_xy_scalar_2d, write_plane_xz_scalar_2d, &
                                        write_plane_yz_scalar_2d
   use mod_constants,             only: eps0
-  use mod_collisionDiagnostics, only: print_rxn_counts, reset_rxn_counts
+  use mod_collisionDiagnostics, only: print_rxn_counts, reset_rxn_counts, &
+                                       print_debug_diagnostics, reset_debug_diagnostics
   use mod_collisions, only: perform_collisions_step
   use mpi
 
@@ -225,7 +226,9 @@ contains
       mpi_rank      = int(self%state%mpi_rank, int32), &
       Pcoll         = self%state%P_loss(3,:,:), &
       dom_volume    = self%state%dom%h(1) * self%state%dom%h(2) * self%state%dom%h(3) * &
-                      real(self%state%dom%n(1)*self%state%dom%n(2)*self%state%dom%n(3), real64))
+                      real(self%state%dom%n(1)*self%state%dom%n(2)*self%state%dom%n(3), real64), &
+      np_red        = self%state%fld%np, &
+      bcnd          = self%state%dom%bcnd)
 
   end subroutine collisions_step
 
@@ -447,6 +450,17 @@ contains
     t1 = MPI_Wtime()
     self%t_mover = self%t_mover + (t1 - t0)
 
+    ! Deposit particles BEFORE collisions (legacy ordering: calc_rho is
+    ! called before collisions in Src/main.f90, so the density collisions
+    ! read - np_red/np_mx - is always synchronized with the SAME particle
+    ! positions collisions are about to act on, never a step stale. This
+    ! single deposit still also feeds next iteration's E/rho/Poisson, same
+    ! as before - nothing else deposits again before then.)
+    t0 = MPI_Wtime()
+    call self%deposit_all_particles()
+    t1 = MPI_Wtime()
+    self%t_Erho = self%t_Erho + (t1 - t0)
+
     ! Collisions
     t0 = MPI_Wtime()
     if (self%state%params%nb_step_collisions > 0_int32) then
@@ -475,12 +489,6 @@ contains
     !    call self%state%apply_electron_heating_local(vt_heat)
     !  end if
     !end if
-
-    ! Deposit particles after all particle operations
-    t0 = MPI_Wtime()
-    call self%deposit_all_particles()
-    t1 = MPI_Wtime()
-    self%t_Erho = self%t_Erho + (t1 - t0)
 
     ! Output/write
     t0 = MPI_Wtime()
@@ -544,6 +552,8 @@ contains
 
     call print_rxn_counts()
     call reset_rxn_counts()
+    call print_debug_diagnostics()
+    call reset_debug_diagnostics()
 
     Pabs  = sum(self%state%P_loss(2,:,:)) / &
         (real(self%state%cfg%nsav - 1_int32, real64) * self%state%params%dt)
@@ -641,6 +651,8 @@ contains
       write(*,'(a)') " -------------------------"
     end if
 
+    call print_poisson_breakdown(self%t_count)
+
 
     
 
@@ -656,6 +668,7 @@ contains
     ! Reset timers
     self%t_Erho    = 0.0_real64
     self%t_poisson = 0.0_real64
+    call reset_poisson_breakdown()
     self%t_sort    = 0.0_real64
     self%t_avg     = 0.0_real64
     self%t_MC      = 0.0_real64

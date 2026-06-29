@@ -11,7 +11,67 @@ module mod_particle_sorting
   public :: check_cell_indexing
   public :: get_cell_particle_range
 
+  ! --- persistent scratch buffers for sort_particles_by_cell -----------
+  ! Buffers only grow (doubling, same convention as ParticleSet%ensure_capacity)
+  ! and are never deallocated mid-run, avoiding a large heap
+  ! allocate+deallocate on every single sort (previously: 11 arrays sized to
+  ! the full particle count, reallocated from scratch every call).
+  !
+  ! mod_state%sort_particles_local parallelizes over (ptype,iproc) with
+  ! !$omp parallel do, so these are declared threadprivate: every OpenMP
+  ! thread gets and keeps its own persistent copy, growing independently,
+  ! with no risk of two threads stomping on a shared buffer.
+  integer(int32), save :: scratch_cap = 0_int32
+  integer(int32), save :: cell_scratch_cap = 0_int32
+
+  integer(int32), allocatable, save :: next_slot(:)
+  integer(int32), allocatable, save :: cell_id_new(:)
+  integer(int32), allocatable, save :: sp_new(:)
+  real(real64),   allocatable, save :: x_new(:), y_new(:), z_new(:)
+  real(real64),   allocatable, save :: vx_new(:), vy_new(:), vz_new(:)
+  real(real64),   allocatable, save :: w_new(:)
+  integer(int8),  allocatable, save :: flag_dead_new(:)
+  integer(int32), allocatable, save :: flag_cex_new(:)
+
+  !$omp threadprivate(scratch_cap, cell_scratch_cap, next_slot, cell_id_new, &
+  !$omp                sp_new, x_new, y_new, z_new, vx_new, vy_new, vz_new, &
+  !$omp                w_new, flag_dead_new, flag_cex_new)
+
 contains
+
+  subroutine ensure_sort_scratch(np)
+    integer(int32), intent(in) :: np
+    integer(int32) :: new_cap
+
+    if (np <= scratch_cap) return
+
+    new_cap = max(np, max(1_int32, 2_int32*scratch_cap))
+
+    if (allocated(x_new)) then
+      deallocate(x_new, y_new, z_new, vx_new, vy_new, vz_new, w_new, &
+                 sp_new, cell_id_new, flag_dead_new, flag_cex_new)
+    end if
+
+    allocate(x_new(new_cap), y_new(new_cap), z_new(new_cap))
+    allocate(vx_new(new_cap), vy_new(new_cap), vz_new(new_cap))
+    allocate(w_new(new_cap))
+    allocate(sp_new(new_cap))
+    allocate(cell_id_new(new_cap))
+    allocate(flag_dead_new(new_cap))
+    allocate(flag_cex_new(new_cap))
+
+    scratch_cap = new_cap
+  end subroutine ensure_sort_scratch
+
+  subroutine ensure_sort_cell_scratch(ncells)
+    integer(int32), intent(in) :: ncells
+
+    if (ncells <= cell_scratch_cap) return
+
+    if (allocated(next_slot)) deallocate(next_slot)
+    allocate(next_slot(ncells))
+    cell_scratch_cap = ncells
+  end subroutine ensure_sort_cell_scratch
 
   pure integer(int32) function cell_index_from_position(x, y, z, h, n) result(ic)
     !=============================================================
@@ -102,16 +162,6 @@ contains
 
     integer(int32) :: np, ncells
     integer(int32) :: i, ic, pos
-    integer(int32), allocatable :: next_slot(:)
-    integer(int32), allocatable :: cell_id_new(:)
-    integer(int32), allocatable :: sp_new(:)
-
-    real(real64), allocatable :: x_new(:), y_new(:), z_new(:)
-    real(real64), allocatable :: vx_new(:), vy_new(:), vz_new(:)
-    real(real64), allocatable :: w_new(:)
-
-    integer(int8),  allocatable :: flag_dead_new(:)
-    integer(int32), allocatable :: flag_cex_new(:)
 
     if (.not. allocated(part%x)) return
 
@@ -121,26 +171,12 @@ contains
     call part%ensure_cell_storage(ncells)
     call compute_particle_cell_ids(part, n, h)
 
-    if (np <= 1_int32) then
-      write(*,*) "SORT DEBUG"
-      write(*,*) "npart=", part%n
-      write(*,*) "sum(cell_count)=", sum(part%cell_count)
-      write(*,*) "max(cell_count)=", maxval(part%cell_count)
-      write(*,*) "nonzero cells=", count(part%cell_count > 0)
-      return
-    end if
+    if (np <= 1_int32) return
 
-    allocate(next_slot(ncells))
-    next_slot = part%cell_start
+    call ensure_sort_scratch(np)
+    call ensure_sort_cell_scratch(ncells)
 
-    allocate(x_new(np), y_new(np), z_new(np))
-    allocate(vx_new(np), vy_new(np), vz_new(np))
-    allocate(w_new(np))
-    allocate(sp_new(np))
-    allocate(cell_id_new(np))
-
-    allocate(flag_dead_new(np))
-    allocate(flag_cex_new(np))
+    next_slot(1:ncells) = part%cell_start(1:ncells)
 
     do i = 1, np
       ic  = part%cell_id(i)
@@ -162,30 +198,18 @@ contains
       next_slot(ic) = next_slot(ic) + 1_int32
     end do
 
-    part%x(1:np)       = x_new
-    part%y(1:np)       = y_new
-    part%z(1:np)       = z_new
-    part%vx(1:np)      = vx_new
-    part%vy(1:np)      = vy_new
-    part%vz(1:np)      = vz_new
-    part%w(1:np)       = w_new
-    part%sp(1:np)      = sp_new
-    part%cell_id(1:np) = cell_id_new
+    part%x(1:np)       = x_new(1:np)
+    part%y(1:np)       = y_new(1:np)
+    part%z(1:np)       = z_new(1:np)
+    part%vx(1:np)      = vx_new(1:np)
+    part%vy(1:np)      = vy_new(1:np)
+    part%vz(1:np)      = vz_new(1:np)
+    part%w(1:np)       = w_new(1:np)
+    part%sp(1:np)      = sp_new(1:np)
+    part%cell_id(1:np) = cell_id_new(1:np)
 
-    part%flag_dead(1:np) = flag_dead_new
-    part%flag_cex(1:np)  = flag_cex_new
-
-    ! write(*,*) "SORT DEBUG"
-    ! write(*,*) "npart=", part%n
-    ! write(*,*) "sum(cell_count)=", sum(part%cell_count)
-    ! write(*,*) "max(cell_count)=", maxval(part%cell_count)
-    ! write(*,*) "nonzero cells=", count(part%cell_count > 0)
-
-    deallocate(next_slot)
-    deallocate(x_new, y_new, z_new)
-    deallocate(vx_new, vy_new, vz_new)
-    deallocate(w_new, sp_new, cell_id_new)
-    deallocate(flag_dead_new, flag_cex_new)
+    part%flag_dead(1:np) = flag_dead_new(1:np)
+    part%flag_cex(1:np)  = flag_cex_new(1:np)
 
   end subroutine sort_particles_by_cell
 

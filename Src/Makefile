@@ -27,6 +27,11 @@ install:
 main.o: main.f90
 	$(CC) $(OPT) -c  -o main.o main.f90
 
+# main.f90 now 'use mod_gwenael_debug' (defined inside collisions.f90,
+# debug instrumentation for the collisions/np_mx comparison) - force
+# collisions.o to build first so the .mod file exists.
+main.o: collisions.o
+
 load_part.o: load_part.f90
 	$(CC) $(OPT) -c  -o load_part.o load_part.f90
 

@@ -197,7 +197,7 @@ contains
     allocate(self%iseed(nproc))
 
     do iproc = 1_int32, int(nproc, int32)
-      self%iseed(iproc) = 123456_int32 * iproc * int(10*mpi_rank + 1, int32)
+      self%iseed(iproc) = 234567_int32 * iproc * int(10*mpi_rank + 1, int32)
     end do
   end subroutine init_seeds
 
