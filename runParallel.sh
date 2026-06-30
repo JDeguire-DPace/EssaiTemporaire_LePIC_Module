@@ -11,4 +11,4 @@ export OMP_PLACES=cores
 
 echo "OMP_NUM_THREADS=$OMP_NUM_THREADS"
 
-mpirun -np 1 ./3dphpic.exe > run.dump
+mpirun -np 1 ./run_min > run.dump
