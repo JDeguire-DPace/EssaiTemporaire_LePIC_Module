@@ -1114,11 +1114,12 @@ program main
            ss2D_xz= 0.d0
            ss2D_xy= 0.d0
            ss2D_yz= 0.d0
-
-           call collisions(it,vxp,n,h,ntype,nmax,sig,sig_Er,sig_list,sig_Eex,&
-                ncol_mx,npt_mx,cnt_col,P_loss,sour_xy,sour_xz,Plist,pl_max,sigv_mx,&
-                col_info,np_red,flag_dead,flag_cex,nproc,np_tot,iseed,nproc_mpi,mpi_rank,&
-                ss2D_xy,ss2D_xz,ss2D_yz,flag_diag, rxn_count)
+           !!!MODIFICATION REMOVE COLLISIONS
+         !   call collisions(it,vxp,n,h,ntype,nmax,sig,sig_Er,sig_list,sig_Eex,&
+         !        ncol_mx,npt_mx,cnt_col,P_loss,sour_xy,sour_xz,Plist,pl_max,sigv_mx,&
+         !        col_info,np_red,flag_dead,flag_cex,nproc,np_tot,iseed,nproc_mpi,mpi_rank,&
+         !        ss2D_xy,ss2D_xz,ss2D_yz,flag_diag, rxn_count)
+           !!!END MODIFICATION
         endif
         
         call calc_avg(n,h,np,p_mts_xy,p_mts_xz,p_mts_yz,data_pavg_xy,&
@@ -1195,10 +1196,12 @@ program main
      if( it.gt.1 .and. ncol.gt.0 .and. MOD(it,ns_coll).eq.1 ) then
         call dens_red(n,np,np_red,bcnd,ntype,nproc,nproc_mpi)
         flag_diag=0
-        call collisions(it,vxp,n,h,ntype,nmax,sig,sig_Er,sig_list,sig_Eex,&
-             ncol_mx,npt_mx,cnt_col,P_loss,sour_xy,sour_xz,Plist,pl_max,sigv_mx,&
-             col_info,np_red,flag_dead,flag_cex,nproc,np_tot,iseed,nproc_mpi,mpi_rank,&
-             ss2D_xy,ss2D_xz,ss2D_yz,flag_diag,rxn_count)
+        !!!MODIFICATION REMOVE COLLISIONS
+      !   call collisions(it,vxp,n,h,ntype,nmax,sig,sig_Er,sig_list,sig_Eex,&
+      !        ncol_mx,npt_mx,cnt_col,P_loss,sour_xy,sour_xz,Plist,pl_max,sigv_mx,&
+      !        col_info,np_red,flag_dead,flag_cex,nproc,np_tot,iseed,nproc_mpi,mpi_rank,&
+      !        ss2D_xy,ss2D_xz,ss2D_yz,flag_diag,rxn_count)
+         !!!END MODIFICATION
         ctime(5)= ctime(5) + MSTIMER() 
      endif
 
@@ -1237,10 +1240,11 @@ program main
      sum_dEk(iproc)=0.d0
         
      ! Electron heating
-     if( MOD(it,ns_heat).eq.0 .and. flag_heat.eq.1 ) then 
-        if(flag_inj.eq.1) vt= vt0(1) ! Constant electron temperature 
-        call eheating(h,vxp,nmax,ntype,nproc,iseed_OMP,np_tot,vt,iproc,P_loss)
-     endif
+     !!!MODIFICATION
+   !   if( MOD(it,ns_heat).eq.0 .and. flag_heat.eq.1 ) then 
+   !      if(flag_inj.eq.1) vt= vt0(1) ! Constant electron temperature 
+   !      call eheating(h,vxp,nmax,ntype,nproc,iseed_OMP,np_tot,vt,iproc,P_loss)
+   !   endif
 
      ! Push particles
      if(flag_nopart.eq.0) then

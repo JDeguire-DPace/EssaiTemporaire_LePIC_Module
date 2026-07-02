@@ -7,3 +7,5 @@ build/
 build_*/
 *.png
 slurm*
+*dump*
+Backups/*

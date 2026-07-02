@@ -75,7 +75,7 @@ contains
     ! - same electrostatic update as before
     ! - trilinear interpolation is inlined inside the particle loop
     ! - avoids one procedure call per particle
-    class(ParticleSet), intent(inout) :: part
+    type(ParticleSet), intent(inout) :: part
     integer(int32),     intent(in)    :: n(3)
     real(real64),       intent(in)    :: h(3)
     real(real64),       intent(in)    :: E(3,0:n(1)+2,0:n(2)+2,0:n(3)+2)
@@ -161,7 +161,7 @@ contains
   ! When n_B == [1,1,1] the field is uniform and Bi(1:3,1,1,1) is read directly;
   ! otherwise trilinear interpolation is performed on the B-field grid (h_B / n_B).
 	subroutine move_particles_boris(part, n, h, E, n_B, h_B, Bi, q, m, dt)
-		class(ParticleSet), intent(inout) :: part
+		type(ParticleSet), intent(inout) :: part
 		integer(int32),     intent(in)    :: n(3)
 		real(real64),       intent(in)    :: h(3)
 		real(real64),       intent(in)    :: E(3,0:n(1)+2,0:n(2)+2,0:n(3)+2)

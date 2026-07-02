@@ -21,6 +21,7 @@ module mod_state
   use mod_part_info,      only: npart
   use mod_particles,      only: ParticleSet
   use mod_particle_loader,  only: load_particles_modular
+  use mod_restart,          only: restart_particles_modular
   use mod_particle_sorting, only: sort_particles_by_cell, check_particles_are_sorted, check_cell_indexing
   use mod_particleMover,    only: move_particles_electrostatic, move_particles_boris
   use mod_particleBC,       only: apply_particle_bc, SeeParams
@@ -43,6 +44,12 @@ module mod_state
     type(Domain)         :: dom
     type(Fields)         :: fld
     type(PoissonDecomp)  :: pdec
+
+    ! Set from the .bak file's stored time on restart (cfg%flag_restart>0);
+    ! left at 0 for a fresh load. Not currently consumed by the main step
+    ! loop's own istep-based time bookkeeping - exposed here for callers
+    ! that want to resynchronize elapsed-time reporting after a restart.
+    real(real64) :: time = 0.0_real64
 
     type(ChemistryState) :: chem
     type(ReactionsDB)    :: rxn
@@ -231,7 +238,7 @@ contains
     write(*,*) "DEBUG wall phi sum = ", sum(self%fld%phi, mask=self%dom%bcnd > 0)
     !!! ENDMODIF
     call self%magField%build_from_cfg(self%cfg, self%dom, self%mpi_rank)
-    call self%magField%write_macho_planes('../Output/Output_2D', 1, self%mpi_rank)
+    call self%magField%write_macho_planes('./Output/Output_2D', 1, self%mpi_rank)
 
     call self%pdec%init(int(self%dom%n(1),int32), int(self%dom%n(2),int32), int(self%dom%n(3),int32), self%comm)
     call self%pdec%scatter_from_global(self%fld%phi, self%dom%bcnd)
@@ -288,21 +295,39 @@ contains
 
     self%np_thread = 0.0_real64
 
-    call load_particles_modular( &
-          cfg       = self%cfg, &
-          mpi_rank  = self%mpi_rank, &
-          mpi_size  = self%mpi_size, &
-          n         = int(self%dom%n, int32), &
-          h         = self%dom%h, &
-          bcnd      = self%dom%bcnd, &
-          kq        = self%fld%kq, &
-          vt0       = self%params%vt0, &
-          Nm        = self%params%Nm, &
-          ni0       = self%chem%ni0(1:self%ntype), &
-          iseed     = self%params%iseed, &
-          ntype_trk = ntype_trk, &
-          part      = self%part, &
-          np_thread = self%np_thread )
+    if (self%cfg%flag_restart > 0_int32) then
+      call restart_particles_modular( &
+            cfg       = self%cfg, &
+            mpi_rank  = self%mpi_rank, &
+            mpi_size  = self%mpi_size, &
+            n         = int(self%dom%n, int32), &
+            h         = self%dom%h, &
+            kq        = self%fld%kq, &
+            Nm        = self%params%Nm, &
+            ntype     = ntype_trk, &
+            nproc     = self%nproc, &
+            tag_neg   = int(self%chem%tag_neg, int32), &
+            iseed     = self%params%iseed, &
+            part      = self%part, &
+            np_thread = self%np_thread, &
+            time_out  = self%time )
+    else
+      call load_particles_modular( &
+            cfg       = self%cfg, &
+            mpi_rank  = self%mpi_rank, &
+            mpi_size  = self%mpi_size, &
+            n         = int(self%dom%n, int32), &
+            h         = self%dom%h, &
+            bcnd      = self%dom%bcnd, &
+            kq        = self%fld%kq, &
+            vt0       = self%params%vt0, &
+            Nm        = self%params%Nm, &
+            ni0       = self%chem%ni0(1:self%ntype), &
+            iseed     = self%params%iseed, &
+            ntype_trk = ntype_trk, &
+            part      = self%part, &
+            np_thread = self%np_thread )
+    end if
     call reduce_species_density( &
          n         = int(self%dom%n, int32), &
          bcnd      = self%dom%bcnd, &

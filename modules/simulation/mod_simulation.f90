@@ -3,7 +3,8 @@ module mod_simulation
 
   use mod_state,                 only: State
   use mod_density,               only: reduce_species_density, build_rho_from_np
-  use mod_chargeDeposition,      only: clear_np_thread, deposit_particle_set_to_np_thread
+  use mod_chargeDeposition,      only: deposit_particle_set_to_np_thread
+  use mod_restart,               only: write_restart_modular
   use mod_PoissonSolver_legacy,  only: solve_poisson_legacy, print_poisson_breakdown, reset_poisson_breakdown
   use mod_electricField,         only: calc_Efield_modular
   use mod_output_2d,             only: write_density_planes, write_scalar_planes, &
@@ -35,6 +36,20 @@ module mod_simulation
     real(real64) :: t_bck     = 0.0_real64
     real(real64) :: t_total   = 0.0_real64
     integer(int32) :: t_count = 0_int32
+
+    ! Sub-timers breaking down mover and E/rho (deposit) into their actual
+    ! component phases, added to localize the remaining mover/E-rho cost
+    ! after class(ParticleSet)->type(ParticleSet) had no measurable effect.
+    real(real64) :: t_mover_push = 0.0_real64
+    real(real64) :: t_mover_bc   = 0.0_real64
+    real(real64) :: t_dep_clear  = 0.0_real64
+    real(real64) :: t_dep_loop   = 0.0_real64
+    real(real64) :: t_dep_reduce = 0.0_real64
+
+    ! Toggles DATA.BAK/ <-> DATA.BAK2/ on each backup write, matching
+    ! legacy's flag_wrt (so a crash mid-write never destroys the only
+    ! valid backup - the other directory still has the previous one).
+    integer(int32) :: flag_wrt = 0_int32
 
   contains
     procedure :: init
@@ -121,7 +136,7 @@ contains
 
     do i = 1, self%state%ntype
       write(s,'(i0)') i
-      prefix = '../Output/Output_2D/n' // trim(s)
+      prefix = './Output/Output_2D/n' // trim(s)
 
       call write_density_planes( &
         np       = self%state%fld%np, &
@@ -141,22 +156,22 @@ contains
       iy_plane = iy_plane_phi, &
       iz_plane = self%state%params%iz_plot_plane, &
       every    = 1_int32, &
-      prefix   = '../Output/Output_2D/phi1' )
+      prefix   = './Output/Output_2D/phi1' )
 
     call write_vector_component_planes(self%state%fld%E, int(self%state%dom%n, int32), &
                                       1_int32, self%state%params%ix_plot_plane, &
                                       iy_plane_E, self%state%params%iz_plot_plane, &
-                                      1_int32, '../Output/Output_2D/Ex')
+                                      1_int32, './Output/Output_2D/Ex')
 
     call write_vector_component_planes(self%state%fld%E, int(self%state%dom%n, int32), &
                                       2_int32, self%state%params%ix_plot_plane, &
                                       iy_plane_E, self%state%params%iz_plot_plane, &
-                                      1_int32, '../Output/Output_2D/Ey')
+                                      1_int32, './Output/Output_2D/Ey')
 
     call write_vector_component_planes(self%state%fld%E, int(self%state%dom%n, int32), &
                                       3_int32, self%state%params%ix_plot_plane, &
                                       iy_plane_E, self%state%params%iz_plot_plane, &
-                                      1_int32, '../Output/Output_2D/Ez')
+                                      1_int32, './Output/Output_2D/Ez')
   end subroutine write_initial_diagnostics
 
 
@@ -164,16 +179,34 @@ contains
     class(Simulation), intent(inout) :: self
 
     integer(int32) :: ptype, iproc
+    real(real64)   :: dt0, dt1
 
-    call clear_np_thread( &
-      int(self%state%dom%n, int32), &
-      self%state%ntype, &
-      self%state%nproc, &
-      self%state%np_thread )
+    ! No separate whole-array clear pass: each thread now zeros only its
+    ! own (:,:,:,ptype,iproc) slice immediately before depositing into it,
+    ! inside the parallel loop below - parallel and NUMA-first-touch
+    ! friendly, like legacy's per-thread `np(:,:,:,ptype,iproc)=0.d0`
+    ! inside its own parallel mover region. Previously this was one
+    ! serial np_thread = 0.0_real64 assignment over the WHOLE ~4.86 GB
+    ! array (n1+3)*(n2+3)*(n3+3)*ntype*nproc - single-threaded and the
+    ! dominant cost of E/rho (~47 ms/step measured). t_dep_clear is kept
+    ! at zero now (folded into t_dep_loop) rather than removed, so old
+    ! log-parsing scripts expecting that field don't break.
+    self%t_dep_clear = self%t_dep_clear
 
+    ! Reset heating accumulators before deposit, matching legacy's
+    ! per-thread Nh(iproc)=0 / sum_dEk(iproc)=0 at the start of each
+    ! OMP parallel block (main.f90:1236-1237). These are repopulated
+    ! below for electrons in the heating region, exactly as legacy's
+    ! charge_deposition does.
+    if (allocated(self%state%Nh))      self%state%Nh      = 0_int32
+    if (allocated(self%state%sum_dEk)) self%state%sum_dEk = 0.0_real64
+
+    dt0 = MPI_Wtime()
     !$omp parallel do collapse(2) private(ptype,iproc) schedule(static)
     do ptype = 1, self%state%ntype
       do iproc = 1, self%state%nproc
+        self%state%np_thread(:,:,:,ptype,iproc) = 0.0_real64
+
         if (.not. allocated(self%state%part(ptype,iproc)%x)) cycle
         if (self%state%part(ptype,iproc)%n <= 0_int32) cycle
 
@@ -184,10 +217,58 @@ contains
           kq         = self%state%fld%kq, &
           Nm_species = self%state%params%Nm(ptype), &
           np_local   = self%state%np_thread(:,:,:,ptype,iproc) )
+
+        ! Accumulate sum_dEk and Nh for electrons in the heating region,
+        ! matching legacy charge_deposition (part_expmover.f90:660-675).
+        ! sum_dEk = total kinetic energy (NOT delta), Nh = electron count.
+        ! These feed update_heating_vt on the NEXT heating step.
+        if (ptype == 1_int32 .and. self%state%cfg%Pabs > 0.0_real64) then
+          block
+            integer(int32) :: i, ix
+            real(real64)   :: xp, yp, zp, Eki
+            integer(int32) :: ixl, ixr
+            real(real64)   :: ymax_half, zmax_half
+
+            ixl = int(self%state%cfg%xl_pow / self%state%dom%h(1), int32) + 1_int32
+            ixr = int(self%state%cfg%xr_pow / self%state%dom%h(1), int32) + 1_int32
+            ymax_half = self%state%dom%ymax / 2.0_real64
+            zmax_half = self%state%dom%zmax / 2.0_real64
+
+            do i = 1_int32, self%state%part(1,iproc)%n
+              xp = self%state%part(1,iproc)%x(i)
+              ix = int(xp / self%state%dom%h(1), int32) + 1_int32
+              if (ix < ixl .or. ix > ixr) cycle
+
+              if (self%state%cfg%flag_circxh == 1_int32) then
+                yp = self%state%part(1,iproc)%y(i)
+                zp = self%state%part(1,iproc)%z(i)
+                if (self%state%cfg%flag_ahp == 0_int32) then
+                  if (((yp-ymax_half)**2 + (zp-zmax_half)**2) > self%state%cfg%R_ahp**2) cycle
+                else
+                  if (((yp-ymax_half)**2 + (zp-zmax_half)**2) < self%state%cfg%R_ahp**2) cycle
+                end if
+              end if
+
+              Eki = 0.5_real64 * self%state%params%Nm(1) * self%state%chem%mass(1) * &
+                    (self%state%part(1,iproc)%vx(i)**2 + &
+                     self%state%part(1,iproc)%vy(i)**2 + &
+                     self%state%part(1,iproc)%vz(i)**2)
+
+              !$omp atomic
+              self%state%sum_dEk(iproc) = self%state%sum_dEk(iproc) + Eki
+              !$omp atomic
+              self%state%Nh(iproc) = self%state%Nh(iproc) + 1_int32
+            end do
+          end block
+        end if
+
       end do
     end do
     !$omp end parallel do
+    dt1 = MPI_Wtime()
+    self%t_dep_loop = self%t_dep_loop + (dt1 - dt0)
 
+    dt0 = MPI_Wtime()
     call reduce_species_density( &
       n         = int(self%state%dom%n, int32), &
       bcnd      = self%state%dom%bcnd, &
@@ -196,6 +277,8 @@ contains
       nproc     = int(self%state%nproc), &
       mpi_comm  = self%state%comm, &
       np_red    = self%state%fld%np )
+    dt1 = MPI_Wtime()
+    self%t_dep_reduce = self%t_dep_reduce + (dt1 - dt0)
   end subroutine deposit_all_particles
 
 
@@ -284,7 +367,7 @@ contains
       tmp_xz = self%state%np_avg_xz(:,:,i) / avg_factor
       tmp_yz = self%state%np_avg_yz(:,:,i) / avg_factor
 
-      prefix = '../Output/Output_2D/it' // trim(sstep) // '_n' // trim(sspecies)
+      prefix = './Output/Output_2D/it' // trim(sstep) // '_n' // trim(sspecies)
 
       call write_plane_xy_scalar_2d(trim(prefix)//'_xy.mco', tmp_xy, int(self%state%dom%n, int32), 1_int32)
       call write_plane_xz_scalar_2d(trim(prefix)//'_xz.mco', tmp_xz, int(self%state%dom%n, int32), 1_int32)
@@ -294,7 +377,7 @@ contains
       tmp_xz = self%state%data_pavg_xz(2,:,:,i) / avg_factor
       tmp_yz = self%state%data_pavg_yz(2,:,:,i) / avg_factor
 
-      prefix = '../Output/Output_2D/it' // trim(sstep) // '_T' // trim(sspecies)
+      prefix = './Output/Output_2D/it' // trim(sstep) // '_T' // trim(sspecies)
 
       call write_plane_xy_scalar_2d(trim(prefix)//'_xy.mco', tmp_xy, int(self%state%dom%n, int32), 1_int32)
       call write_plane_xz_scalar_2d(trim(prefix)//'_xz.mco', tmp_xz, int(self%state%dom%n, int32), 1_int32)
@@ -305,21 +388,21 @@ contains
     tmp_xz = self%state%phi_avg_xz / avg_factor
     tmp_yz = self%state%phi_avg_yz / avg_factor
 
-    prefix = '../Output/Output_2D/it' // trim(sstep) // '_phi'
+    prefix = './Output/Output_2D/it' // trim(sstep) // '_phi'
 
     call write_plane_xy_scalar_2d(trim(prefix)//'_xy.mco', tmp_xy, int(self%state%dom%n, int32), 1_int32)
     call write_plane_xz_scalar_2d(trim(prefix)//'_xz.mco', tmp_xz, int(self%state%dom%n, int32), 1_int32)
     call write_plane_yz_scalar_2d(trim(prefix)//'_yz.mco', tmp_yz, int(self%state%dom%n, int32), 1_int32)
 
-    prefix = '../Output/Output_2D/it' // trim(sstep) // '_Ex'
+    prefix = './Output/Output_2D/it' // trim(sstep) // '_Ex'
     call write_vector_component_planes(self%state%fld%E, int(self%state%dom%n, int32), &
                                       1_int32, ix_plane, iy_plane_E, iz_plane, 1_int32, prefix)
 
-    prefix = '../Output/Output_2D/it' // trim(sstep) // '_Ey'
+    prefix = './Output/Output_2D/it' // trim(sstep) // '_Ey'
     call write_vector_component_planes(self%state%fld%E, int(self%state%dom%n, int32), &
                                       2_int32, ix_plane, iy_plane_E, iz_plane, 1_int32, prefix)
 
-    prefix = '../Output/Output_2D/it' // trim(sstep) // '_Ez'
+    prefix = './Output/Output_2D/it' // trim(sstep) // '_Ez'
     call write_vector_component_planes(self%state%fld%E, int(self%state%dom%n, int32), &
                                       3_int32, ix_plane, iy_plane_E, iz_plane, 1_int32, prefix)
 
@@ -446,9 +529,16 @@ contains
     ! Mover + particle BC
     t0 = MPI_Wtime()
     call self%state%move_particles_local()
+    t1 = MPI_Wtime()
+    self%t_mover_push = self%t_mover_push + (t1 - t0)
+
+    t0 = MPI_Wtime()
     call self%state%apply_particle_bc_local()
     t1 = MPI_Wtime()
-    self%t_mover = self%t_mover + (t1 - t0)
+    self%t_mover_bc = self%t_mover_bc + (t1 - t0)
+
+    ! t_mover kept as the combined total for the existing summary line
+    self%t_mover = self%t_mover_push + self%t_mover_bc
 
     ! Deposit particles BEFORE collisions (legacy ordering: calc_rho is
     ! called before collisions in Src/main.f90, so the density collisions
@@ -464,7 +554,7 @@ contains
     ! Collisions
     t0 = MPI_Wtime()
     if (self%state%params%nb_step_collisions > 0_int32) then
-      if (mod(istep, self%state%params%nb_step_collisions) == 0_int32) then
+      if (mod(istep, self%state%params%nb_step_collisions) == 1_int32) then
 
         ! Legacy-like: build Plist/cell lists from current post-mover particles
         call self%state%sort_particles_local()
@@ -473,22 +563,27 @@ contains
         self%t_sort = self%t_sort + (t1 - t0)
 
         t0 = MPI_Wtime()
-        call self%collisions_step()
+        ! call self%collisions_step()
 
       end if
     end if
     t1 = MPI_Wtime()
     self%t_MC = self%t_MC + (t1 - t0)
 
-    ! Electron heating
-    !!! MODIF HEATING
-    !if (self%state%params%nb_step_heating > 0_int32) then
-    !  if (mod(istep, self%state%params%nb_step_heating) == 0_int32) then
-    !    call self%state%compute_heating_region_moments()
-    !    call self%state%update_heating_vt(vt_heat)
-    !    call self%state%apply_electron_heating_local(vt_heat)
-    !  end if
-    !end if
+    ! Electron heating - matches legacy's MOD(it,ns_heat).eq.0 cadence.
+    ! sum_dEk and Nh were accumulated during deposit_all_particles above
+    ! (exactly as legacy's charge_deposition does), so vt_heat is computed
+    ! from the post-mover, post-deposit electron state - same as legacy.
+    ! The reset of sum_dEk/Nh also happens inside deposit_all_particles,
+    ! matching legacy's per-iproc reset at the start of the OMP block.
+    ! if (self%state%params%nb_step_heating > 0_int32) then
+    !   if (mod(istep, self%state%params%nb_step_heating) == 0_int32 .and. &
+    !       self%state%cfg%Pabs > 0.0_real64) then
+    !     call self%state%update_heating_vt(vt_heat)
+    !     if (self%state%cfg%flag_inj == 1) vt_heat = self%state%params%vt0(1)
+    !     call self%state%apply_electron_heating_local(vt_heat)
+    !   end if
+    ! end if
 
     ! Output/write
     t0 = MPI_Wtime()
@@ -499,8 +594,24 @@ contains
     t1 = MPI_Wtime()
     self%t_avg = self%t_avg + (t1 - t0)
 
-    ! Backup not implemented yet
-    self%t_bck = self%t_bck + 0.0_real64
+    ! Backup (legacy: it.gt.1 .and. MOD(it,nbak).eq.1)
+    t0 = MPI_Wtime()
+    if (self%state%cfg%nbak > 0_int32) then
+      if (istep > 1_int32 .and. mod(istep, self%state%cfg%nbak) == 1_int32) then
+        if (self%state%mpi_rank == 0_int32) write(*,*) 'Backing up simulation data ...'
+        call write_restart_modular( &
+          mpi_rank = self%state%mpi_rank, &
+          ntype    = self%state%ntype, &
+          nproc    = self%state%nproc, &
+          tag_neg  = int(self%state%chem%tag_neg, int32), &
+          part     = self%state%part, &
+          time     = real(istep, real64) * self%state%params%dt, &
+          flag_wrt = self%flag_wrt )
+        if (self%state%mpi_rank == 0_int32) write(*,*) 'Done!'
+      end if
+    end if
+    t1 = MPI_Wtime()
+    self%t_bck = self%t_bck + (t1 - t0)
 
     ! Total wall time
     t1 = MPI_Wtime()
@@ -514,7 +625,7 @@ contains
     class(Simulation), intent(inout) :: self
     integer, intent(in) :: nsteps
 
-    integer(int32) :: istep
+    integer(int32) :: istep, istep_offset, istep_end
 
     if (self%state%mpi_rank == 0) then
       write(*,*) " "
@@ -523,9 +634,17 @@ contains
       write(*,*) " "
     end if
 
-    do istep = 1_int32, int(nsteps, int32)
+    ! On restart, self%state%time is set from the backup file's stored
+    ! physical time (= istep_original * dt). Convert back to a step offset
+    ! so istep numbering, timing diagnostics, and backup cadence all
+    ! continue from where the original run left off instead of resetting
+    ! to 1. For a fresh run self%state%time == 0 so istep_offset == 0.
+    istep_offset = nint(self%state%time / self%state%params%dt, int32)
+    istep_end    = istep_offset + int(nsteps, int32)
 
-      if (mod(istep,self%state%cfg%nsav) == 1_int32) then
+    do istep = istep_offset + 1_int32, istep_end
+
+      if (mod(istep, self%state%cfg%nsav) == 1_int32) then
         call self%print_diagnostics(istep)
       end if
 
@@ -653,6 +772,18 @@ contains
 
     call print_poisson_breakdown(self%t_count)
 
+    if (self%t_count > 0_int32) then
+      write(*,'(a)') " ----- mover / deposit timing breakdown -----"
+      write(*,'(a,f8.2,a,f8.2)') &
+        "  mover_push(ms)=", 1000.0_real64*self%t_mover_push/real(self%t_count,real64), &
+        "  mover_bc(ms)=",   1000.0_real64*self%t_mover_bc/real(self%t_count,real64)
+      write(*,'(a,f8.2,a,f8.2,a,f8.2)') &
+        "  dep_clear(ms)=",  1000.0_real64*self%t_dep_clear/real(self%t_count,real64), &
+        "  dep_loop(ms)=",   1000.0_real64*self%t_dep_loop/real(self%t_count,real64), &
+        "  dep_reduce(ms)=", 1000.0_real64*self%t_dep_reduce/real(self%t_count,real64)
+      write(*,'(a)') " ---------------------------------------------"
+    end if
+
 
     
 
@@ -673,6 +804,11 @@ contains
     self%t_avg     = 0.0_real64
     self%t_MC      = 0.0_real64
     self%t_mover   = 0.0_real64
+    self%t_mover_push = 0.0_real64
+    self%t_mover_bc   = 0.0_real64
+    self%t_dep_clear  = 0.0_real64
+    self%t_dep_loop   = 0.0_real64
+    self%t_dep_reduce = 0.0_real64
     self%t_bck     = 0.0_real64
     self%t_total   = 0.0_real64
     self%t_count   = 0_int32

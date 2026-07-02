@@ -129,7 +129,7 @@ contains
     ! Read potential values
     ! -------------------
     if (inp%flag_restart == 1 .and. inp%flag_convP == 1) then
-      open(41,file='../Output.BAK/Vgrd.bak',form='UNFORMATTED')
+      open(41,file='./Backups/DATA.BAK/Vgrd.bak',form='UNFORMATTED')
       read(41) V(1:ngrid)
       close(41)
     end if
@@ -434,7 +434,7 @@ contains
     ! write 2D files
     if (mpi_rank == 0 .and. inp%write_mco == 1) then
       izl = n(3)/2 + 1
-      open(12,file='../Output/Output_2D/bcnd_xy.mco')
+      open(12,file='./Output/Output_2D/bcnd_xy.mco')
       write(12,*) n(1)/outp%every, n(2)/outp%every
       do iy=n(2)+1,1,-1*outp%every
         write(12,101) (bcnd(ix,iy,izl), ix=1,n(1)+1,outp%every)
@@ -442,7 +442,7 @@ contains
       end do
       close(12)
 
-      open(12,file='../Output/Output_2D/bcnd_xz.mco')
+      open(12,file='./Output/Output_2D/bcnd_xz.mco')
       write(12,*) n(1)/outp%every, n(3)/outp%every
       do iz=n(3)+1,1,-1*outp%every
         write(12,101) (bcnd(ix,n(2)/2+1,iz), ix=1,n(1)+1,outp%every)
@@ -451,7 +451,7 @@ contains
 
       ix = n(1)/2 + 1
       if (inp%flag_grd == 1) ix = outp%ixg
-      open(12,file='../Output/Output_2D/bcnd_yz.mco')
+      open(12,file='./Output/Output_2D/bcnd_yz.mco')
       write(12,*) n(2)/outp%every, n(3)/outp%every
       do iz=n(3)+1,1,-1*outp%every
         write(12,101) (bcnd(ix,iy,iz), iy=1,n(2)+1,outp%every)
@@ -460,7 +460,7 @@ contains
 
 
       izl = n(3)/2 + 1
-      open(12,file='../Output/Output_2D/phi_xy.mco')
+      open(12,file='./Output/Output_2D/phi_xy.mco')
       write(12,*) n(1)/outp%every, n(2)/outp%every
 102   format(800(f6.2,1x))
       do iy=n(2)+1,1,-1*outp%every
@@ -469,7 +469,7 @@ contains
       end do
       close(12)
 
-      open(12,file='../Output/Output_2D/phi_xz.mco')
+      open(12,file='./Output/Output_2D/phi_xz.mco')
       write(12,*) n(1)/outp%every, n(3)/outp%every
       do iz=n(3)+1,1,-1*outp%every
         write(12,102) (u(ix,n(2)/2+1,iz), ix=1,n(1)+1,outp%every)
@@ -478,7 +478,7 @@ contains
 
       ix = n(1)/2 + 1
       if (inp%flag_grd == 1) ix = outp%ixg
-      open(12,file='../Output/Output_2D/phi_yz.mco')
+      open(12,file='./Output/Output_2D/phi_yz.mco')
       write(12,*) n(2)/outp%every, n(3)/outp%every
       do iz=n(3)+1,1,-1*outp%every
         write(12,102) (u(ix,iy,iz), iy=1,n(2)+1,outp%every)

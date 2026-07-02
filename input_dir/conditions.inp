@@ -3,19 +3,19 @@ hydrogen2.dat ! name of file storing reactions
 6 ! # of levels in MG solver
 1.d-8, 1.6d0 ! Min. precision in residual, w for SOR [1.6]
 128 96 192 ! n: nx=2**n, ny=2**n. Number of grid points [2**7,2**3]
-1000. 1001. 0. 100. 0. 100. ! Particle heating region x<, x>, y<, y>, z<, z> [cm]
+0. 16. 0. 100. 0. 100. ! Particle heating region x<, x>, y<, y>, z<, z> [cm]
 40. ! Particle loading region [cm]
 2 ! # of magnetic field files (<0 positive ions not magnetized)
 128 96 128 ! Grid for the magnetic field map
 n gauss 1. 75. By 8. 39. 0. 0. ! ext. file (y/n/s), name, scaling, B(G), direction, L/x0/y0/z0(cm)
 s pegase128 1. 100. By 1. 0.53 0. 0. ! ext. file (y/n/s), name, scaling, B(G), direction, L/x0/y0/z0(cm)
--60.d3 1.d8 ! Pabs(W) (<0 to turn off), Heating frequency (<0 == off)
+60.d3 1.d8 ! Pabs(W) (<0 to turn off), Heating frequency (<0 == off)
 -1.d0 2 ! Inject current I(A) (<0 == off), options [1=fixed, 2= equal to ion losses, 3= e-beam (+Z), 4= emmissive cath. (+Z), <0 cosine]
 1.d-3 ! t_max(s)
 0.3  ! time coeff. k ; dt= k*dx/vt
 3.5d17 ! n0 (m-3)
 5.d19 ! ng (m-3)
-10 ! np_cell: number of particles per cell (<0 for no background plasma)
+20 ! np_cell: number of particles per cell (<0 for no background plasma)
 5 ! Number of wall labels, [ngrid+1:ngrid+2] is used for dielectric BC's (<0 do not save 3D density and potential maps)
 1000 ! frequency for saving data (<0 does not reset averaging)
 1000 -100 50.d-6 100.e-6 Z ! Frequency for simulation backup (<0 no averaging), # of plots (<0 off), time window [t1,t2], saved planes

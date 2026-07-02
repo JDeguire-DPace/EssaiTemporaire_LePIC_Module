@@ -76,8 +76,8 @@ contains
     dtype = 0
 
 
-    call read_boundary_potentials('../input_dir/boundary.inp', V, cfg%ngrid)
-    call read_geometry_file('../input_dir/geometry.inp', geo, dom)
+    call read_boundary_potentials('./input_dir/boundary.inp', V, cfg%ngrid)
+    call read_geometry_file('./input_dir/geometry.inp', geo, dom)
 
     ! --- ensure dom%dtype bounds ---
     if (allocated(dom%dtype)) then

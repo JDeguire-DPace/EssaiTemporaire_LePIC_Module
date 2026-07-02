@@ -88,7 +88,7 @@ module mod_readConditions
         cfg%xr_rg = 0.0_real64
         cfg%flag_grd = 0
 
-        open(10,file='../input_dir/conditions.inp')
+        open(10,file='./input_dir/conditions.inp')
 
         read(10,*,end=999) cfg%rname
         read(10,*,end=999) cfg%Ti(1)

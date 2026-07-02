@@ -40,6 +40,7 @@ if(CMAKE_Fortran_COMPILER_ID MATCHES "IntelLLVM|Intel")
 
   set(INTEL_RELEASE_FLAGS
     -O3
+    -ipo
     -no-prec-div
     -m64
     -xHost
@@ -124,6 +125,7 @@ if(CMAKE_Fortran_COMPILER_ID MATCHES "IntelLLVM|Intel")
   else()
     target_link_options(build_config INTERFACE
       -O3
+      -ipo
       -no-prec-div
       -m64
       -xHost
@@ -145,7 +147,7 @@ endif()
 set(MODULES_DIR ${CMAKE_SOURCE_DIR}/modules)
 include_directories(${MODULES_DIR}/legacy)
 
-add_library(core_deps STATIC
+add_library(core_deps OBJECT
   ${MODULES_DIR}/core/mod_constants.f90
   ${MODULES_DIR}/core/mod_utils.f90
   ${MODULES_DIR}/core/mod_RNG.f90
@@ -156,7 +158,7 @@ target_include_directories(core_deps PUBLIC
   ${MODULES_DIR}/legacy
 )
 
-add_library(config_base STATIC
+add_library(config_base OBJECT
   ${MODULES_DIR}/config/mod_config.f90
 )
 target_link_libraries(config_base PUBLIC build_config core_deps)
@@ -164,7 +166,7 @@ target_include_directories(config_base PUBLIC
   ${CMAKE_Fortran_MODULE_DIRECTORY}
 )
 
-add_library(geometry_base STATIC
+add_library(geometry_base OBJECT
   ${MODULES_DIR}/geometry/mod_domain.f90
 )
 target_link_libraries(geometry_base PUBLIC
@@ -177,7 +179,7 @@ target_include_directories(geometry_base PUBLIC
 )
 add_dependencies(geometry_base config_base)
 
-add_library(fields_base STATIC
+add_library(fields_base OBJECT
   ${MODULES_DIR}/fields/mod_fields.f90
   ${MODULES_DIR}/fields/mod_density.f90
 )
@@ -232,6 +234,7 @@ add_library(pic_core_obj OBJECT
 
   ${MODULES_DIR}/simulation/mod_simParams.f90
   ${MODULES_DIR}/io/mod_output_2d.f90
+  ${MODULES_DIR}/io/mod_restart.f90
 
   ${MODULES_DIR}/core/mod_state.f90
   ${MODULES_DIR}/simulation/mod_simulation.f90
@@ -253,7 +256,7 @@ add_dependencies(pic_core_obj
   fields_base
 )
 
-add_library(legacy_mg STATIC
+add_library(legacy_mg OBJECT
   ${MODULES_DIR}/legacy/pdesolver.f90
   ${MODULES_DIR}/legacy/mg.f90
   ${MODULES_DIR}/legacy/sors.f90
@@ -267,16 +270,16 @@ add_dependencies(legacy_mg pic_core_obj)
 
 add_executable(run_min
   ${MODULES_DIR}/main/main.f90
+  $<TARGET_OBJECTS:core_deps>
+  $<TARGET_OBJECTS:config_base>
+  $<TARGET_OBJECTS:geometry_base>
+  $<TARGET_OBJECTS:fields_base>
   $<TARGET_OBJECTS:pic_core_obj>
+  $<TARGET_OBJECTS:legacy_mg>
 )
 
 target_link_libraries(run_min PRIVATE
   build_config
-  legacy_mg
-  fields_base
-  geometry_base
-  config_base
-  core_deps
 )
 
 target_include_directories(run_min PRIVATE

@@ -117,7 +117,7 @@ contains
     !
     ! This routine does NOT reorder the particle arrays.
     !=============================================================
-    class(ParticleSet), intent(inout) :: part
+    type(ParticleSet), intent(inout) :: part
     integer(int32),     intent(in)    :: n(3)
     real(real64),       intent(in)    :: h(3)
 
@@ -156,7 +156,7 @@ contains
     !   - cell_count(ic) is valid
     !   - cell_start(ic) is valid
     !=============================================================
-    class(ParticleSet), intent(inout) :: part
+    type(ParticleSet), intent(inout) :: part
     integer(int32),     intent(in)    :: n(3)
     real(real64),       intent(in)    :: h(3)
 
@@ -218,7 +218,7 @@ contains
     ! Return .true. if cell_id(:) is nondecreasing over active
     ! particles.
     !=============================================================
-    class(ParticleSet), intent(in) :: part
+    type(ParticleSet), intent(in) :: part
     integer(int32) :: i
 
     ok = .true.
@@ -254,7 +254,7 @@ contains
     !   3) cell_start/cell_count define valid contiguous ranges
     !   4) each particle in a cell range really belongs to that cell
     !=============================================================
-    class(ParticleSet), intent(in) :: part
+    type(ParticleSet), intent(in) :: part
     integer(int32),     intent(in) :: n(3)
 
     integer(int32) :: ncells
@@ -346,7 +346,7 @@ contains
     !   i0 = 0
     !   i1 = -1
     !=============================================================
-    class(ParticleSet), intent(in)  :: part
+    type(ParticleSet), intent(in)  :: part
     integer(int32),     intent(in)  :: icell
     integer(int32),     intent(out) :: i0, i1, count
 

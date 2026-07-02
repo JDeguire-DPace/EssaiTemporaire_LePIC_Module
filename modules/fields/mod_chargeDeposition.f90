@@ -26,7 +26,7 @@ contains
     ! Fast production version of charge deposition.
     ! Same deposition convention as the previous modular code, but the
     ! expensive debug/error guards are compile-time disabled by default.
-    class(ParticleSet), intent(in)    :: part
+    type(ParticleSet), intent(in)    :: part
     integer(int32),     intent(in)    :: n(3)
     real(real64),       intent(in)    :: h(3)
     real(real64),       intent(in)    :: kq(0:n(1)+2,0:n(2)+2,0:n(3)+2)

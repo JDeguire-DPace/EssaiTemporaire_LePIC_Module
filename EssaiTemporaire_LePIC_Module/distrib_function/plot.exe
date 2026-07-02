@@ -1,5 +1,0 @@
-#!/bin/sh
-
-rm -i *.eps
-./pdf.exe
-gnuplot plot.gnu
