@@ -1114,12 +1114,11 @@ program main
            ss2D_xz= 0.d0
            ss2D_xy= 0.d0
            ss2D_yz= 0.d0
-           !!!MODIFICATION REMOVE COLLISIONS
-         !   call collisions(it,vxp,n,h,ntype,nmax,sig,sig_Er,sig_list,sig_Eex,&
-         !        ncol_mx,npt_mx,cnt_col,P_loss,sour_xy,sour_xz,Plist,pl_max,sigv_mx,&
-         !        col_info,np_red,flag_dead,flag_cex,nproc,np_tot,iseed,nproc_mpi,mpi_rank,&
-         !        ss2D_xy,ss2D_xz,ss2D_yz,flag_diag, rxn_count)
-           !!!END MODIFICATION
+           !!!MODIFICATION
+            call collisions(it,vxp,n,h,ntype,nmax,sig,sig_Er,sig_list,sig_Eex,&
+                 ncol_mx,npt_mx,cnt_col,P_loss,sour_xy,sour_xz,Plist,pl_max,sigv_mx,&
+                 col_info,np_red,flag_dead,flag_cex,nproc,np_tot,iseed,nproc_mpi,mpi_rank,&
+                 ss2D_xy,ss2D_xz,ss2D_yz,flag_diag, rxn_count)
         endif
         
         call calc_avg(n,h,np,p_mts_xy,p_mts_xz,p_mts_yz,data_pavg_xy,&
@@ -1196,12 +1195,11 @@ program main
      if( it.gt.1 .and. ncol.gt.0 .and. MOD(it,ns_coll).eq.1 ) then
         call dens_red(n,np,np_red,bcnd,ntype,nproc,nproc_mpi)
         flag_diag=0
-        !!!MODIFICATION REMOVE COLLISIONS
-      !   call collisions(it,vxp,n,h,ntype,nmax,sig,sig_Er,sig_list,sig_Eex,&
-      !        ncol_mx,npt_mx,cnt_col,P_loss,sour_xy,sour_xz,Plist,pl_max,sigv_mx,&
-      !        col_info,np_red,flag_dead,flag_cex,nproc,np_tot,iseed,nproc_mpi,mpi_rank,&
-      !        ss2D_xy,ss2D_xz,ss2D_yz,flag_diag,rxn_count)
-         !!!END MODIFICATION
+        !!!MODIFICATION
+         call collisions(it,vxp,n,h,ntype,nmax,sig,sig_Er,sig_list,sig_Eex,&
+              ncol_mx,npt_mx,cnt_col,P_loss,sour_xy,sour_xz,Plist,pl_max,sigv_mx,&
+              col_info,np_red,flag_dead,flag_cex,nproc,np_tot,iseed,nproc_mpi,mpi_rank,&
+              ss2D_xy,ss2D_xz,ss2D_yz,flag_diag,rxn_count)
         ctime(5)= ctime(5) + MSTIMER() 
      endif
 
@@ -1229,6 +1227,9 @@ program main
         Te= (2.d0/3.d0)*( sum_dEk_tot + Pabs/nu_h )/(Nm(1)*qe*real(sum_Nh))
         ! Calculated thermal velocity
         vt=dsqrt(2.d0*qe*Te/ABS(mass(1)))
+        if(mpi_rank.eq.0) &
+             write(*,'(a,i8,a,es12.4,a,i10,a,es12.4)') &
+             ' HEAT_LEG it=',it,' vt=',vt,' Nh=',sum_Nh,' sum_dEk=',sum_dEk_tot
      endif
      
      !$OMP PARALLEL PRIVATE(iproc,ptype,iseed_OMP,sav_np)
@@ -1240,11 +1241,10 @@ program main
      sum_dEk(iproc)=0.d0
         
      ! Electron heating
-     !!!MODIFICATION
-   !   if( MOD(it,ns_heat).eq.0 .and. flag_heat.eq.1 ) then 
-   !      if(flag_inj.eq.1) vt= vt0(1) ! Constant electron temperature 
-   !      call eheating(h,vxp,nmax,ntype,nproc,iseed_OMP,np_tot,vt,iproc,P_loss)
-   !   endif
+     if( MOD(it,ns_heat).eq.0 .and. flag_heat.eq.1 ) then 
+        if(flag_inj.eq.1) vt= vt0(1) ! Constant electron temperature 
+        call eheating(h,vxp,nmax,ntype,nproc,iseed_OMP,np_tot,vt,iproc,P_loss)
+     endif
 
      ! Push particles
      if(flag_nopart.eq.0) then

@@ -688,7 +688,11 @@ contains
     if (Te > 0.0_real64) then
       vt_heat = sqrt(2.0_real64 * qe * Te / abs(self%chem%mass(1)))
     end if
-    
+
+    if (self%mpi_rank == 0) &
+      write(*,'(a,es12.4,a,i10,a,es12.4)') &
+      ' HEAT_MOD vt=', vt_heat, ' Nh=', sum_Nh_global, ' sum_dEk=', sum_dEk_global
+
   end subroutine update_heating_vt
 
 

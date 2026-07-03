@@ -9,3 +9,4 @@ build_*/
 slurm*
 *dump*
 Backups/*
+.nfs*

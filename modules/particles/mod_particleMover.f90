@@ -1,5 +1,5 @@
 module mod_particleMover
-  use iso_fortran_env, only: int32, real64
+  use iso_fortran_env, only: int32, real64, int8
   use mod_particles,   only: ParticleSet
   implicit none
   private
@@ -98,6 +98,9 @@ contains
     qmdt = dt*q/m
 
     do i = 1, part%n
+      if (allocated(part%flag_dead)) then
+        if (part%flag_dead(i) /= 0_int8) cycle
+      end if
       xp = part%x(i)
       yp = part%y(i)
       zp = part%z(i)
@@ -215,6 +218,10 @@ contains
 		end if
 
 		do i = 1_int32, part%n
+
+			if (allocated(part%flag_dead)) then
+			  if (part%flag_dead(i) /= 0_int8) cycle
+			end if
 
 			xp = part%x(i)
 			yp = part%y(i)

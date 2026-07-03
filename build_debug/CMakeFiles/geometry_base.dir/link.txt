@@ -1,2 +1,0 @@
-/cvmfs/soft.computecanada.ca/gentoo/2023/x86-64-v3/usr/bin/ar qc libgeometry_base.a CMakeFiles/geometry_base.dir/modules/geometry/mod_domain.f90.o
-/cvmfs/soft.computecanada.ca/gentoo/2023/x86-64-v3/usr/bin/ranlib libgeometry_base.a

@@ -1,5 +1,5 @@
 module mod_heating
-  use iso_fortran_env, only: int32, real64
+  use iso_fortran_env, only: int32, real64, int8
   use mod_particles,   only: ParticleSet
   use mod_rng,         only: ran2
   implicit none
@@ -39,6 +39,10 @@ contains
     vz_sav = 0.0_real64
 
     do i = 1, part%n
+
+      if (allocated(part%flag_dead)) then
+        if (part%flag_dead(i) /= 0_int8) cycle
+      end if
 
       xp_new = part%x(i)
       ix = int(xp_new / h(1), int32) + 1_int32

@@ -1,5 +1,5 @@
 module mod_simulation
-  use iso_fortran_env, only: int32, real64
+  use iso_fortran_env, only: int32, real64, int8
 
   use mod_state,                 only: State
   use mod_density,               only: reduce_species_density, build_rho_from_np
@@ -193,14 +193,6 @@ contains
     ! log-parsing scripts expecting that field don't break.
     self%t_dep_clear = self%t_dep_clear
 
-    ! Reset heating accumulators before deposit, matching legacy's
-    ! per-thread Nh(iproc)=0 / sum_dEk(iproc)=0 at the start of each
-    ! OMP parallel block (main.f90:1236-1237). These are repopulated
-    ! below for electrons in the heating region, exactly as legacy's
-    ! charge_deposition does.
-    if (allocated(self%state%Nh))      self%state%Nh      = 0_int32
-    if (allocated(self%state%sum_dEk)) self%state%sum_dEk = 0.0_real64
-
     dt0 = MPI_Wtime()
     !$omp parallel do collapse(2) private(ptype,iproc) schedule(static)
     do ptype = 1, self%state%ntype
@@ -217,50 +209,6 @@ contains
           kq         = self%state%fld%kq, &
           Nm_species = self%state%params%Nm(ptype), &
           np_local   = self%state%np_thread(:,:,:,ptype,iproc) )
-
-        ! Accumulate sum_dEk and Nh for electrons in the heating region,
-        ! matching legacy charge_deposition (part_expmover.f90:660-675).
-        ! sum_dEk = total kinetic energy (NOT delta), Nh = electron count.
-        ! These feed update_heating_vt on the NEXT heating step.
-        if (ptype == 1_int32 .and. self%state%cfg%Pabs > 0.0_real64) then
-          block
-            integer(int32) :: i, ix
-            real(real64)   :: xp, yp, zp, Eki
-            integer(int32) :: ixl, ixr
-            real(real64)   :: ymax_half, zmax_half
-
-            ixl = int(self%state%cfg%xl_pow / self%state%dom%h(1), int32) + 1_int32
-            ixr = int(self%state%cfg%xr_pow / self%state%dom%h(1), int32) + 1_int32
-            ymax_half = self%state%dom%ymax / 2.0_real64
-            zmax_half = self%state%dom%zmax / 2.0_real64
-
-            do i = 1_int32, self%state%part(1,iproc)%n
-              xp = self%state%part(1,iproc)%x(i)
-              ix = int(xp / self%state%dom%h(1), int32) + 1_int32
-              if (ix < ixl .or. ix > ixr) cycle
-
-              if (self%state%cfg%flag_circxh == 1_int32) then
-                yp = self%state%part(1,iproc)%y(i)
-                zp = self%state%part(1,iproc)%z(i)
-                if (self%state%cfg%flag_ahp == 0_int32) then
-                  if (((yp-ymax_half)**2 + (zp-zmax_half)**2) > self%state%cfg%R_ahp**2) cycle
-                else
-                  if (((yp-ymax_half)**2 + (zp-zmax_half)**2) < self%state%cfg%R_ahp**2) cycle
-                end if
-              end if
-
-              Eki = 0.5_real64 * self%state%params%Nm(1) * self%state%chem%mass(1) * &
-                    (self%state%part(1,iproc)%vx(i)**2 + &
-                     self%state%part(1,iproc)%vy(i)**2 + &
-                     self%state%part(1,iproc)%vz(i)**2)
-
-              !$omp atomic
-              self%state%sum_dEk(iproc) = self%state%sum_dEk(iproc) + Eki
-              !$omp atomic
-              self%state%Nh(iproc) = self%state%Nh(iproc) + 1_int32
-            end do
-          end block
-        end if
 
       end do
     end do
@@ -436,8 +384,10 @@ contains
     class(Simulation), intent(inout) :: self
     integer(int32), intent(in) :: istep
 
-    real(real64) :: vt_heat
-    real(real64) :: t0, t1, tstep0
+    real(real64)   :: vt_heat
+    real(real64)   :: t0, t1, tstep0
+    integer(int32) :: iproc_h, i_h, ix_h, ixl_h, ixr_h
+    real(real64)   :: xp_h, yp_h, zp_h, Eki_h, yhalf_h, zhalf_h
 
     tstep0 = MPI_Wtime()
 
@@ -540,6 +490,72 @@ contains
     ! t_mover kept as the combined total for the existing summary line
     self%t_mover = self%t_mover_push + self%t_mover_bc
 
+    ! Accumulate Nh and sum_dEk for electrons in the heating region.
+    ! Sequence matches legacy exactly:
+    !   - Every step: reset then accumulate (legacy resets at OMP block start
+    !     every step, then charge_deposition accumulates at OMP block end)
+    !   - Heating step N: BEFORE reset, read previous step N-1 values to
+    !     compute vt (legacy reads outside the OMP block before the reset)
+    if (self%state%cfg%Pabs > 0.0_real64) then
+
+      ! On a heating step, read previous values first, then reset
+      if (self%state%params%nb_step_heating > 0_int32) then
+        if (mod(istep, self%state%params%nb_step_heating) == 0_int32) then
+          call self%state%update_heating_vt(vt_heat)
+          if (self%state%cfg%flag_inj == 1) vt_heat = self%state%params%vt0(1)
+        end if
+      end if
+
+      ! Reset every step (before accumulation, after any vt read above)
+      if (allocated(self%state%Nh))      self%state%Nh      = 0_int32
+      if (allocated(self%state%sum_dEk)) self%state%sum_dEk = 0.0_real64
+
+      !$omp parallel do private(iproc_h,i_h,ix_h,ixl_h,ixr_h,xp_h,yp_h,zp_h,Eki_h,yhalf_h,zhalf_h) schedule(static)
+      do iproc_h = 1, self%state%nproc
+        if (.not. allocated(self%state%part(1,iproc_h)%x)) cycle
+        if (self%state%part(1,iproc_h)%n <= 0_int32) cycle
+
+        ixl_h  = int(self%state%cfg%xl_pow / self%state%dom%h(1), int32) + 1_int32
+        ixr_h  = int(self%state%cfg%xr_pow / self%state%dom%h(1), int32) + 1_int32
+        yhalf_h = self%state%dom%ymax / 2.0_real64
+        zhalf_h = self%state%dom%zmax / 2.0_real64
+
+        do i_h = 1_int32, self%state%part(1,iproc_h)%n
+          if (self%state%part(1,iproc_h)%flag_dead(i_h) /= 0_int8) cycle
+          xp_h = self%state%part(1,iproc_h)%x(i_h)
+          ix_h = int(xp_h / self%state%dom%h(1), int32) + 1_int32
+          if (ix_h < ixl_h .or. ix_h > ixr_h) cycle
+
+          if (self%state%cfg%flag_circxh == 1_int32) then
+            yp_h = self%state%part(1,iproc_h)%y(i_h)
+            zp_h = self%state%part(1,iproc_h)%z(i_h)
+            if (self%state%cfg%flag_ahp == 0_int32) then
+              if (((yp_h-yhalf_h)**2 + (zp_h-zhalf_h)**2) > self%state%cfg%R_ahp**2) cycle
+            else
+              if (((yp_h-yhalf_h)**2 + (zp_h-zhalf_h)**2) < self%state%cfg%R_ahp**2) cycle
+            end if
+          end if
+
+          Eki_h = 0.5_real64 * self%state%params%Nm(1) * self%state%chem%mass(1) * &
+                (self%state%part(1,iproc_h)%vx(i_h)**2 + &
+                 self%state%part(1,iproc_h)%vy(i_h)**2 + &
+                 self%state%part(1,iproc_h)%vz(i_h)**2)
+
+          self%state%sum_dEk(iproc_h) = self%state%sum_dEk(iproc_h) + Eki_h
+          self%state%Nh(iproc_h)      = self%state%Nh(iproc_h) + 1_int32
+        end do
+      end do
+      !$omp end parallel do
+
+      ! Apply heating after accumulation (electrons heated for next step's push)
+      if (self%state%params%nb_step_heating > 0_int32) then
+        if (mod(istep, self%state%params%nb_step_heating) == 0_int32) then
+          call self%state%apply_electron_heating_local(vt_heat)
+        end if
+      end if
+
+    end if
+
     ! Deposit particles BEFORE collisions (legacy ordering: calc_rho is
     ! called before collisions in Src/main.f90, so the density collisions
     ! read - np_red/np_mx - is always synchronized with the SAME particle
@@ -563,27 +579,12 @@ contains
         self%t_sort = self%t_sort + (t1 - t0)
 
         t0 = MPI_Wtime()
-        ! call self%collisions_step()
+        call self%collisions_step()
 
       end if
     end if
     t1 = MPI_Wtime()
     self%t_MC = self%t_MC + (t1 - t0)
-
-    ! Electron heating - matches legacy's MOD(it,ns_heat).eq.0 cadence.
-    ! sum_dEk and Nh were accumulated during deposit_all_particles above
-    ! (exactly as legacy's charge_deposition does), so vt_heat is computed
-    ! from the post-mover, post-deposit electron state - same as legacy.
-    ! The reset of sum_dEk/Nh also happens inside deposit_all_particles,
-    ! matching legacy's per-iproc reset at the start of the OMP block.
-    ! if (self%state%params%nb_step_heating > 0_int32) then
-    !   if (mod(istep, self%state%params%nb_step_heating) == 0_int32 .and. &
-    !       self%state%cfg%Pabs > 0.0_real64) then
-    !     call self%state%update_heating_vt(vt_heat)
-    !     if (self%state%cfg%flag_inj == 1) vt_heat = self%state%params%vt0(1)
-    !     call self%state%apply_electron_heating_local(vt_heat)
-    !   end if
-    ! end if
 
     ! Output/write
     t0 = MPI_Wtime()
