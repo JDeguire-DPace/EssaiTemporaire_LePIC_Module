@@ -69,7 +69,7 @@ program main
   parameter (nmax_tmp=6*10**8)
   ! Physical scales
   real(kind=8):: lbd_d,wp,kt,xl_pow,xr_pow,yl_pow,yr_pow,zl_pow,zr_pow,&
-       wc,ni0(npart),Te,vt,sum_dEk_tmp,sum_dEk_tot,I_inj
+       wc,ni0(npart),Te,vt,sum_dEk_tmp,sum_dEk_tot,I_inj,P_loss_heat_sav
   ! Arrays
   integer, allocatable:: bcnd(:,:,:),iseed(:), &
        bcnd_dom(:,:,:),shift(:),length(:),N_inj(:,:),N_flx(:,:)
@@ -278,6 +278,7 @@ program main
   cnt_avg=0
   p_mac=0.d0
   P_loss=0.d0
+  P_loss_heat_sav=0.d0
   data_pavg_xy=0.d0
   data_pavg_xz=0.d0
   data_pavg_yz=0.d0
@@ -1114,11 +1115,11 @@ program main
            ss2D_xz= 0.d0
            ss2D_xy= 0.d0
            ss2D_yz= 0.d0
-           !!!MODIFICATION
-            call collisions(it,vxp,n,h,ntype,nmax,sig,sig_Er,sig_list,sig_Eex,&
-                 ncol_mx,npt_mx,cnt_col,P_loss,sour_xy,sour_xz,Plist,pl_max,sigv_mx,&
-                 col_info,np_red,flag_dead,flag_cex,nproc,np_tot,iseed,nproc_mpi,mpi_rank,&
-                 ss2D_xy,ss2D_xz,ss2D_yz,flag_diag, rxn_count)
+
+           call collisions(it,vxp,n,h,ntype,nmax,sig,sig_Er,sig_list,sig_Eex,&
+                ncol_mx,npt_mx,cnt_col,P_loss,sour_xy,sour_xz,Plist,pl_max,sigv_mx,&
+                col_info,np_red,flag_dead,flag_cex,nproc,np_tot,iseed,nproc_mpi,mpi_rank,&
+                ss2D_xy,ss2D_xz,ss2D_yz,flag_diag, rxn_count)
         endif
         
         call calc_avg(n,h,np,p_mts_xy,p_mts_xz,p_mts_yz,data_pavg_xy,&
@@ -1195,11 +1196,10 @@ program main
      if( it.gt.1 .and. ncol.gt.0 .and. MOD(it,ns_coll).eq.1 ) then
         call dens_red(n,np,np_red,bcnd,ntype,nproc,nproc_mpi)
         flag_diag=0
-        !!!MODIFICATION
-         call collisions(it,vxp,n,h,ntype,nmax,sig,sig_Er,sig_list,sig_Eex,&
-              ncol_mx,npt_mx,cnt_col,P_loss,sour_xy,sour_xz,Plist,pl_max,sigv_mx,&
-              col_info,np_red,flag_dead,flag_cex,nproc,np_tot,iseed,nproc_mpi,mpi_rank,&
-              ss2D_xy,ss2D_xz,ss2D_yz,flag_diag,rxn_count)
+        call collisions(it,vxp,n,h,ntype,nmax,sig,sig_Er,sig_list,sig_Eex,&
+             ncol_mx,npt_mx,cnt_col,P_loss,sour_xy,sour_xz,Plist,pl_max,sigv_mx,&
+             col_info,np_red,flag_dead,flag_cex,nproc,np_tot,iseed,nproc_mpi,mpi_rank,&
+             ss2D_xy,ss2D_xz,ss2D_yz,flag_diag,rxn_count)
         ctime(5)= ctime(5) + MSTIMER() 
      endif
 
@@ -1285,6 +1285,10 @@ program main
      iseed(iproc)= iseed_OMP
      !$OMP END PARALLEL
      ctime(6)= ctime(6) + MSTIMER()
+
+     if( MOD(it,ns_heat).eq.0 .and. flag_heat.eq.1 .and. mpi_rank.eq.0 ) &
+       write(*,'(a,es12.4)') ' HEAT_LEG_dEk=', SUM(P_loss(2,1,:)) - P_loss_heat_sav
+     P_loss_heat_sav = SUM(P_loss(2,1,:))
 
      ! Inject a flux of particles at a specific location
      if( (jne.gt.0.d0 .or. flag_thr.eq.1) .and. MOD(it,ns_flx).eq.0 ) then

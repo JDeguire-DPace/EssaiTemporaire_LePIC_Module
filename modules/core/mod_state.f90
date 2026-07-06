@@ -74,6 +74,18 @@ module mod_state
     real(real64), allocatable :: P_loss(:,:,:)
     real(real64), allocatable :: p_mac(:,:,:,:)
 
+    ! Injection source diagnostic arrays — same shape as legacy:
+    !   sour_xy/xz/yz: volume injection (part_injection)
+    !   sour_fx_yz:    flux injection off extraction electrode (part_flux_injection)
+    !   N_inj: per-(ptype,iproc) injected particle counter (opt_inj==2 mode)
+    !   N_flx: per-(ptype,iproc) flux counter (H- wall-loss driven injection)
+    integer(int32), allocatable :: sour_xy(:,:,:,:)
+    integer(int32), allocatable :: sour_xz(:,:,:,:)
+    integer(int32), allocatable :: sour_yz(:,:,:,:)
+    integer(int32), allocatable :: sour_fx_yz(:,:,:,:)
+    integer(int32), allocatable :: N_inj(:,:)
+    integer(int32), allocatable :: N_flx(:,:)
+
     real(real64), allocatable :: data_pavg_xy(:,:,:,:)
     real(real64), allocatable :: data_pavg_xz(:,:,:,:)
     real(real64), allocatable :: data_pavg_yz(:,:,:,:)
@@ -169,6 +181,17 @@ contains
     allocate(self%p_mac(self%ntype, 2, 0:self%cfg%ngrid, self%nproc))
     self%p_mac = 0.0_real64
 
+    ! Injection source arrays and counters
+    associate(nx => self%dom%n(1), ny => self%dom%n(2), nz => self%dom%n(3), &
+              nt => self%ntype, np => self%nproc)
+      allocate(self%sour_xy(0:nx+2, 0:ny+2, nt, np));   self%sour_xy    = 0_int32
+      allocate(self%sour_xz(0:nx+2, 0:nz+2, nt, np));   self%sour_xz    = 0_int32
+      allocate(self%sour_yz(0:ny+2, 0:nz+2, nt, np));   self%sour_yz    = 0_int32
+      allocate(self%sour_fx_yz(0:ny+2, 0:nz+2, nt, np)); self%sour_fx_yz = 0_int32
+      allocate(self%N_inj(nt, np));  self%N_inj = 0_int32
+      allocate(self%N_flx(nt, np));  self%N_flx = 0_int32
+    end associate
+
     allocate(self%Nh(self%nproc))
     allocate(self%sum_dEk(self%nproc))
     self%Nh      = 0_int32
@@ -238,7 +261,7 @@ contains
     write(*,*) "DEBUG wall phi sum = ", sum(self%fld%phi, mask=self%dom%bcnd > 0)
     !!! ENDMODIF
     call self%magField%build_from_cfg(self%cfg, self%dom, self%mpi_rank)
-    call self%magField%write_macho_planes('./Output/Output_2D', 1, self%mpi_rank)
+    call self%magField%write_macho_planes('../Output/Output_2D', 1, self%mpi_rank)
 
     call self%pdec%init(int(self%dom%n(1),int32), int(self%dom%n(2),int32), int(self%dom%n(3),int32), self%comm)
     call self%pdec%scatter_from_global(self%fld%phi, self%dom%bcnd)
@@ -392,11 +415,14 @@ contains
     class(State), intent(inout) :: self
     real(real64), intent(in)    :: vt
     integer(int32) :: iproc
+    real(real64)   :: Ploss_before
 
     if (.not. allocated(self%part)) return
     if (self%ntype < 1) return
     if (.not. allocated(self%P_loss)) return
     if (self%cfg%flag_circxh == 1) self%cfg%R_ahp = self%cfg%yr_pow - self%dom%ymax/2.0_real64
+
+    Ploss_before = sum(self%P_loss(2,1,:))
 
     !$omp parallel do private(iproc) schedule(static)
     do iproc = 1, self%nproc
@@ -421,6 +447,10 @@ contains
           p_loss_heating = self%P_loss(2,1,iproc) )
     end do
     !$omp end parallel do
+
+    if (self%mpi_rank == 0) &
+      write(*,'(a,es12.4)') ' HEAT_MOD_dEk=', sum(self%P_loss(2,1,:)) - Ploss_before
+
   end subroutine apply_electron_heating_local
 
 
@@ -784,6 +814,12 @@ contains
     if (allocated(self%sum_q_yz))     deallocate(self%sum_q_yz)
     if (allocated(self%P_loss))       deallocate(self%P_loss)
     if (allocated(self%p_mac))        deallocate(self%p_mac)
+    if (allocated(self%sour_xy))      deallocate(self%sour_xy)
+    if (allocated(self%sour_xz))      deallocate(self%sour_xz)
+    if (allocated(self%sour_yz))      deallocate(self%sour_yz)
+    if (allocated(self%sour_fx_yz))   deallocate(self%sour_fx_yz)
+    if (allocated(self%N_inj))        deallocate(self%N_inj)
+    if (allocated(self%N_flx))        deallocate(self%N_flx)
     if (allocated(self%Nh))           deallocate(self%Nh)
     if (allocated(self%sum_dEk))      deallocate(self%sum_dEk)
     if (allocated(self%np_avg_xy))    deallocate(self%np_avg_xy)
