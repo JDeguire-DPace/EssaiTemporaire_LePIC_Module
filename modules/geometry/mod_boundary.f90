@@ -126,6 +126,8 @@ contains
     dom%flag_die  = outp%flag_die
 
     dom%zg_sec    = outp%zg_sec
+    dom%n_cath    = outp%n_cath
+    dom%dir_sec   = outp%dir_sec
 
     ! dtype -> dom
     dom%dtype = dtype

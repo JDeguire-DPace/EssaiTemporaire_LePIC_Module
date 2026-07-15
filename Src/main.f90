@@ -1195,6 +1195,11 @@ program main
      !
      if( it.gt.1 .and. ncol.gt.0 .and. MOD(it,ns_coll).eq.1 ) then
         call dens_red(n,np,np_red,bcnd,ntype,nproc,nproc_mpi)
+        if( mpi_rank.eq.0 .and. MOD(it,nsav).eq.1 ) then
+           do ptype=1,ntype
+              write(*,'(a,i2,a,es12.4)') ' LEG_NPMX ttype=', ptype, ' np_mx=', np_mx(ptype)
+           end do
+        endif
         flag_diag=0
         call collisions(it,vxp,n,h,ntype,nmax,sig,sig_Er,sig_list,sig_Eex,&
              ncol_mx,npt_mx,cnt_col,P_loss,sour_xy,sour_xz,Plist,pl_max,sigv_mx,&

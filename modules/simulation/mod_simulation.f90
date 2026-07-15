@@ -5,6 +5,7 @@ module mod_simulation
   use mod_density,               only: reduce_species_density, build_rho_from_np
   use mod_chargeDeposition,      only: deposit_particle_set_to_np_thread
   use mod_restart,               only: write_restart_modular
+  use mod_injection,             only: inject_particles_volume, inject_flux_particles
   use mod_PoissonSolver_legacy,  only: solve_poisson_legacy, print_poisson_breakdown, reset_poisson_breakdown
   use mod_electricField,         only: calc_Efield_modular
   use mod_output_2d,             only: write_density_planes, write_scalar_planes, &
@@ -240,6 +241,7 @@ contains
       ntype_tracked = self%state%ntype, &
       ntype_all     = self%state%rxn%ntype, &
       mass          = self%state%chem%mass(1:self%state%rxn%ntype), &
+      charge        = self%state%chem%charge(1:self%state%rxn%ntype), &
       Ti            = self%state%chem%Ti(1:self%state%rxn%ntype), &
       Nm            = self%state%params%Nm(1:self%state%rxn%ntype), &
       p_ncol        = self%state%chem%p_ncol(1:self%state%rxn%ntype), &
@@ -259,7 +261,10 @@ contains
       dom_volume    = self%state%dom%h(1) * self%state%dom%h(2) * self%state%dom%h(3) * &
                       real(self%state%dom%n(1)*self%state%dom%n(2)*self%state%dom%n(3), real64), &
       np_red        = self%state%fld%np, &
-      bcnd          = self%state%dom%bcnd)
+      bcnd          = self%state%dom%bcnd, &
+      flag_coulomb  = self%state%cfg%flag_coulomb, &
+      n_e           = sum(self%state%fld%np(:,:,:,1)) / &
+                      real(product(self%state%dom%n), real64) )
 
   end subroutine collisions_step
 
@@ -476,6 +481,23 @@ contains
     if (allocated(self%state%sum_q_xz)) self%state%sum_q_xz = 0.0_real64
     if (allocated(self%state%sum_q_yz)) self%state%sum_q_yz = 0.0_real64
 
+    ! Electron heating — fires BEFORE the push, matching legacy's sequence:
+    !   [outside OMP] read Nh/sum_dEk from previous deposit → compute vt
+    !   [OMP]         reset Nh/sum_dEk; call eheating(vt); push; deposit
+    ! In modular the deposit/accumulation stays after BC (below), but the
+    ! vt computation and heating application happen here, before the push.
+    if (self%state%cfg%Pabs > 0.0_real64 .and. self%state%cfg%flag_heat == 1) then
+      if (self%state%params%nb_step_heating > 0_int32) then
+        if (mod(istep, self%state%params%nb_step_heating) == 0_int32) then
+          call self%state%update_heating_vt(vt_heat)
+          if (self%state%cfg%flag_inj == 1) vt_heat = self%state%params%vt0(1)
+          if (allocated(self%state%Nh))      self%state%Nh      = 0_int32
+          if (allocated(self%state%sum_dEk)) self%state%sum_dEk = 0.0_real64
+          call self%state%apply_electron_heating_local(vt_heat)
+        end if
+      end if
+    end if
+
     ! Mover + particle BC
     t0 = MPI_Wtime()
     call self%state%move_particles_local()
@@ -490,25 +512,16 @@ contains
     ! t_mover kept as the combined total for the existing summary line
     self%t_mover = self%t_mover_push + self%t_mover_bc
 
-    ! Accumulate Nh and sum_dEk for electrons in the heating region.
-    ! Sequence matches legacy exactly:
-    !   - Every step: reset then accumulate (legacy resets at OMP block start
-    !     every step, then charge_deposition accumulates at OMP block end)
-    !   - Heating step N: BEFORE reset, read previous step N-1 values to
-    !     compute vt (legacy reads outside the OMP block before the reset)
-    if (self%state%cfg%Pabs > 0.0_real64) then
-
-      ! On a heating step, read previous values first, then reset
-      if (self%state%params%nb_step_heating > 0_int32) then
-        if (mod(istep, self%state%params%nb_step_heating) == 0_int32) then
-          call self%state%update_heating_vt(vt_heat)
-          if (self%state%cfg%flag_inj == 1) vt_heat = self%state%params%vt0(1)
-        end if
+    ! Accumulate Nh and sum_dEk from post-push post-BC electrons, matching
+    ! legacy's charge_deposition timing. On non-heating steps, also reset
+    ! here (legacy resets at OMP block start every step). On heating steps
+    ! the reset already happened above before apply_electron_heating_local.
+    if (self%state%cfg%Pabs > 0.0_real64 .and. self%state%cfg%flag_heat == 1) then
+      if (self%state%params%nb_step_heating <= 0_int32 .or. &
+          mod(istep, self%state%params%nb_step_heating) /= 0_int32) then
+        if (allocated(self%state%Nh))      self%state%Nh      = 0_int32
+        if (allocated(self%state%sum_dEk)) self%state%sum_dEk = 0.0_real64
       end if
-
-      ! Reset every step (before accumulation, after any vt read above)
-      if (allocated(self%state%Nh))      self%state%Nh      = 0_int32
-      if (allocated(self%state%sum_dEk)) self%state%sum_dEk = 0.0_real64
 
       !$omp parallel do private(iproc_h,i_h,ix_h,ixl_h,ixr_h,xp_h,yp_h,zp_h,Eki_h,yhalf_h,zhalf_h) schedule(static)
       do iproc_h = 1, self%state%nproc
@@ -546,14 +559,6 @@ contains
         end do
       end do
       !$omp end parallel do
-
-      ! Apply heating after accumulation (electrons heated for next step's push)
-      if (self%state%params%nb_step_heating > 0_int32) then
-        if (mod(istep, self%state%params%nb_step_heating) == 0_int32) then
-          call self%state%apply_electron_heating_local(vt_heat)
-        end if
-      end if
-
     end if
 
     ! Deposit particles BEFORE collisions (legacy ordering: calc_rho is
@@ -585,6 +590,84 @@ contains
     end if
     t1 = MPI_Wtime()
     self%t_MC = self%t_MC + (t1 - t0)
+
+    ! Volume particle injection (legacy: part_injection, inside OMP per iproc)
+    ! Fires every step when flag_inj==1 (ns_inj=1 hardcoded, same as legacy).
+    if (self%state%cfg%flag_inj == 1_int32) then
+      !$omp parallel do private(iproc_h) schedule(static)
+      do iproc_h = 1, self%state%nproc
+        call inject_particles_volume( &
+          part         = self%state%part, &
+          iproc        = iproc_h, &
+          cfg          = self%state%cfg, &
+          n            = int(self%state%dom%n, int32), &
+          h            = self%state%dom%h, &
+          bcnd         = self%state%dom%bcnd, &
+          phi          = self%state%fld%phi, &
+          vt0          = self%state%params%vt0, &
+          Nm           = self%state%params%Nm, &
+          mass         = self%state%chem%mass, &
+          ni0          = self%state%chem%ni0, &
+          charge       = self%state%chem%charge, &
+          ntype        = self%state%ntype, &
+          nproc        = self%state%nproc, &
+          dt           = self%state%params%dt, &
+          zg_sec       = self%state%dom%zg_sec, &
+          n_cath       = self%state%dom%n_cath, &
+          dir_sec_inout = self%state%dom%dir_sec, &
+          tag_neg      = int(self%state%chem%tag_neg,  int32), &
+          tag_beam     = int(self%state%chem%tag_beam, int32), &
+          flag_pbc     = int(self%state%dom%flag_pbc,  int32), &
+          flag_pbcz    = int(self%state%dom%flag_pbcz, int32), &
+          iseed        = self%state%params%iseed(iproc_h), &
+          N_inj        = self%state%N_inj, &
+          sour_xy      = self%state%sour_xy, &
+          sour_xz      = self%state%sour_xz, &
+          sour_yz      = self%state%sour_yz, &
+          iz_pl        = self%state%params%iz_plot_plane, &
+          ix_pl        = self%state%params%ix_plot_plane, &
+          P_loss       = self%state%P_loss )
+      end do
+      !$omp end parallel do
+      self%state%N_inj = 0_int32
+    end if
+
+    ! Flux injection of negative ions off extraction electrode
+    ! (legacy: part_flux_injection, every step when jne>0)
+    if (self%state%cfg%jne > 0.0_real64) then
+      call inject_flux_particles( &
+        part         = self%state%part, &
+        cfg          = self%state%cfg, &
+        n            = int(self%state%dom%n, int32), &
+        h            = self%state%dom%h, &
+        bcnd         = self%state%dom%bcnd, &
+        Nm           = self%state%params%Nm, &
+        mass         = self%state%chem%mass, &
+        ntype        = self%state%ntype, &
+        nproc        = self%state%nproc, &
+        mpi_rank     = self%state%mpi_rank, &
+        mpi_size     = self%state%mpi_size, &
+        dt           = self%state%params%dt, &
+        istep        = istep, &
+        nsav         = self%state%cfg%nsav, &
+        xg1          = self%state%dom%xg1, &
+        Lgy          = self%state%dom%Lgy, &
+        Lgz          = self%state%dom%Lgz, &
+        ymax         = self%state%dom%ymax, &
+        zmax         = self%state%dom%zmax, &
+        Sg           = self%state%dom%Sg, &
+        tag_neg      = int(self%state%chem%tag_neg, int32), &
+        tag_neu      = int(self%state%chem%tag_neu, int32), &
+        iseed        = self%state%params%iseed, &
+        sour_xy      = self%state%sour_xy, &
+        sour_xz      = self%state%sour_xz, &
+        sour_fx_yz   = self%state%sour_fx_yz, &
+        iz_pl        = self%state%params%iz_plot_plane, &
+        ix_pl        = self%state%params%ix_plot_plane, &
+        P_loss       = self%state%P_loss, &
+        N_flx        = self%state%N_flx )
+      self%state%N_flx = 0_int32
+    end if
 
     ! Output/write
     t0 = MPI_Wtime()

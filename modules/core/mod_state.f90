@@ -261,7 +261,7 @@ contains
     write(*,*) "DEBUG wall phi sum = ", sum(self%fld%phi, mask=self%dom%bcnd > 0)
     !!! ENDMODIF
     call self%magField%build_from_cfg(self%cfg, self%dom, self%mpi_rank)
-    call self%magField%write_macho_planes('../Output/Output_2D', 1, self%mpi_rank)
+    call self%magField%write_macho_planes('./Output/Output_2D', 1, self%mpi_rank)
 
     call self%pdec%init(int(self%dom%n(1),int32), int(self%dom%n(2),int32), int(self%dom%n(3),int32), self%comm)
     call self%pdec%scatter_from_global(self%fld%phi, self%dom%bcnd)

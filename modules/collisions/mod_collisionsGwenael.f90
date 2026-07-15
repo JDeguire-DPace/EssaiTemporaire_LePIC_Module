@@ -86,6 +86,11 @@ module mod_collisionsGwenael
   private
   public :: perform_collisions_gwenael
 
+  ! Print np_mx every nsav_npmx collision calls (ns_coll=10 calls per step,
+  ! so nsav_npmx=100 → prints every 1000 steps, matching nsav=1000 in legacy)
+  integer(int32), save :: call_count_npmx = 0_int32
+  integer(int32), parameter :: nsav_npmx = 100_int32
+
   real(real64), parameter :: QE_ABS = 1.602176634e-19_real64
   real(real64), parameter :: PI_R8  = 3.14159265358979323846_real64
 
@@ -166,6 +171,14 @@ contains
         np_mx(s) = ni0(s)
       end if
     end do
+
+    ! --- print np_mx every nsav steps for direct comparison with legacy ---
+    if (mpi_rank == 0 .and. mod(call_count_npmx, nsav_npmx) == 0) then
+      do s = 1_int32, ntype_all
+        write(*,'(a,i2,a,es12.4)') ' MOD_NPMX ttype=', s, ' np_mx=', np_mx(s)
+      end do
+    end if
+    call_count_npmx = call_count_npmx + 1_int32
 
     !-------------------------------------------------------------------
     ! Outer loop over projectile species (serial: Nc_tmp must be the

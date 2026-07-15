@@ -61,7 +61,8 @@ module mod_config
     real(real64)      :: nu_h      = 0.0_real64
     integer           :: opt_inj   = 0
     integer           :: flag_heat = 0
-    integer           :: flag_inj  = 0
+    integer           :: flag_inj     = 0
+    integer           :: flag_coulomb = 0  ! 1 = enable Coulomb collisions (Nanbu 2000)
 
     real(real64)      :: n0        = 0.0_real64
     real(real64)      :: ngas      = 0.0_real64

@@ -20,6 +20,9 @@ module mod_domain
 
     integer :: flag_pbc  = 0
     integer :: flag_pbcz = 0
+
+    integer :: n_cath  = 0  ! number of emissive cathodes (opt_inj=4)
+    integer :: dir_sec = 1  ! direction of current emissive cathode (+1 or -1)
     integer :: flag_nmn  = 0
     integer :: flag_die  = 0
 

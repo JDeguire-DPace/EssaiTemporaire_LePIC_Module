@@ -222,6 +222,7 @@ add_library(pic_core_obj OBJECT
   ${MODULES_DIR}/collisions/mod_DSMCcollisions.f90
   ${MODULES_DIR}/collisions/mod_collisionsGwenael.f90
   ${MODULES_DIR}/collisions/mod_collisions.f90
+  ${MODULES_DIR}/collisions/mod_CoulombCollisions.f90
 
   ${MODULES_DIR}/particles/mod_particle_sorting.f90
   ${MODULES_DIR}/particles/mod_particleMover.f90
@@ -230,6 +231,7 @@ add_library(pic_core_obj OBJECT
   ${MODULES_DIR}/particles/mod_reactions.f90
   ${MODULES_DIR}/particles/mod_reactionsDB.f90
   ${MODULES_DIR}/particles/mod_heating.f90
+  ${MODULES_DIR}/particles/mod_injection.f90
   ${MODULES_DIR}/particles/mod_planeMoments.f90
 
   ${MODULES_DIR}/simulation/mod_simParams.f90

@@ -209,6 +209,10 @@ module mod_readConditions
             call stop_calculation
         end if
 
+        read(10,*,err=999) ans
+        cfg%flag_coulomb = 0
+        if (ans=='y' .or. ans=='Y') cfg%flag_coulomb = 1
+
         flag_read = 0
         do while (flag_read == 0)
             read(10,*,err=999) end_file
