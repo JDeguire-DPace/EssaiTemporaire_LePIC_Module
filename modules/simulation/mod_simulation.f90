@@ -3,7 +3,6 @@ module mod_simulation
 
   use mod_state,                 only: State
   use mod_density,               only: reduce_species_density, build_rho_from_np
-  use mod_chargeDeposition,      only: deposit_particle_set_to_np_thread
   use mod_restart,               only: write_restart_modular
   use mod_injection,             only: inject_particles_volume, inject_flux_particles
   use mod_PoissonSolver_legacy,  only: solve_poisson_legacy, print_poisson_breakdown, reset_poisson_breakdown
@@ -179,43 +178,17 @@ contains
   subroutine deposit_all_particles(self)
     class(Simulation), intent(inout) :: self
 
-    integer(int32) :: ptype, iproc
     real(real64)   :: dt0, dt1
 
-    ! No separate whole-array clear pass: each thread now zeros only its
-    ! own (:,:,:,ptype,iproc) slice immediately before depositing into it,
-    ! inside the parallel loop below - parallel and NUMA-first-touch
-    ! friendly, like legacy's per-thread `np(:,:,:,ptype,iproc)=0.d0`
-    ! inside its own parallel mover region. Previously this was one
-    ! serial np_thread = 0.0_real64 assignment over the WHOLE ~4.86 GB
-    ! array (n1+3)*(n2+3)*(n3+3)*ntype*nproc - single-threaded and the
-    ! dominant cost of E/rho (~47 ms/step measured). t_dep_clear is kept
-    ! at zero now (folded into t_dep_loop) rather than removed, so old
-    ! log-parsing scripts expecting that field don't break.
+    ! The per-thread clear+deposit loop that used to live here now runs
+    ! inside state%advance_particles_local(), fused into the same OMP
+    ! region as the push and BC/SEE pass (see mod_state.f90) instead of
+    ! its own separate fork - one less parallel region per step. t_dep_clear
+    ! and t_dep_loop are kept at zero (folded into t_mover_push, where that
+    ! fused region is now timed) rather than removed, so old log-parsing
+    ! scripts expecting those fields don't break.
     self%t_dep_clear = self%t_dep_clear
-
-    dt0 = MPI_Wtime()
-    !$omp parallel do collapse(2) private(ptype,iproc) schedule(static)
-    do ptype = 1, self%state%ntype
-      do iproc = 1, self%state%nproc
-        self%state%np_thread(:,:,:,ptype,iproc) = 0.0_real64
-
-        if (.not. allocated(self%state%part(ptype,iproc)%x)) cycle
-        if (self%state%part(ptype,iproc)%n <= 0_int32) cycle
-
-        call deposit_particle_set_to_np_thread( &
-          part       = self%state%part(ptype,iproc), &
-          n          = int(self%state%dom%n, int32), &
-          h          = self%state%dom%h, &
-          kq         = self%state%fld%kq, &
-          Nm_species = self%state%params%Nm(ptype), &
-          np_local   = self%state%np_thread(:,:,:,ptype,iproc) )
-
-      end do
-    end do
-    !$omp end parallel do
-    dt1 = MPI_Wtime()
-    self%t_dep_loop = self%t_dep_loop + (dt1 - dt0)
+    self%t_dep_loop  = self%t_dep_loop
 
     dt0 = MPI_Wtime()
     call reduce_species_density( &
@@ -498,16 +471,17 @@ contains
       end if
     end if
 
-    ! Mover + particle BC
+    ! Mover + particle BC/SEE + charge deposition, fused into a single OMP
+    ! region (see state%advance_particles_local in mod_state.f90) instead
+    ! of three separate parallel regions. t_mover_bc is kept at zero
+    ! contribution (folded into t_mover_push, which now times the whole
+    ! fused pass) rather than removed, so old log-parsing scripts expecting
+    ! both fields still find them.
     t0 = MPI_Wtime()
-    call self%state%move_particles_local()
+    call self%state%advance_particles_local()
     t1 = MPI_Wtime()
     self%t_mover_push = self%t_mover_push + (t1 - t0)
-
-    t0 = MPI_Wtime()
-    call self%state%apply_particle_bc_local()
-    t1 = MPI_Wtime()
-    self%t_mover_bc = self%t_mover_bc + (t1 - t0)
+    self%t_mover_bc   = self%t_mover_bc
 
     ! t_mover kept as the combined total for the existing summary line
     self%t_mover = self%t_mover_push + self%t_mover_bc
@@ -561,12 +535,14 @@ contains
       !$omp end parallel do
     end if
 
-    ! Deposit particles BEFORE collisions (legacy ordering: calc_rho is
-    ! called before collisions in Src/main.f90, so the density collisions
-    ! read - np_red/np_mx - is always synchronized with the SAME particle
-    ! positions collisions are about to act on, never a step stale. This
-    ! single deposit still also feeds next iteration's E/rho/Poisson, same
-    ! as before - nothing else deposits again before then.)
+    ! Reduce this step's per-thread deposit (already computed inside
+    ! advance_particles_local, above) into np_red BEFORE collisions (legacy
+    ! ordering: calc_rho is called before collisions in Src/main.f90, so
+    ! the density collisions read - np_red/np_mx - is always synchronized
+    ! with the SAME particle positions collisions are about to act on,
+    ! never a step stale. This single reduction still also feeds next
+    ! iteration's E/rho/Poisson, same as before - nothing else deposits
+    ! again before then.)
     t0 = MPI_Wtime()
     call self%deposit_all_particles()
     t1 = MPI_Wtime()

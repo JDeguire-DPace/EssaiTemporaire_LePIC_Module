@@ -25,6 +25,7 @@ module mod_state
   use mod_particle_sorting, only: sort_particles_by_cell, check_particles_are_sorted, check_cell_indexing
   use mod_particleMover,    only: move_particles_electrostatic, move_particles_boris
   use mod_particleBC,       only: apply_particle_bc, SeeParams
+  use mod_chargeDeposition, only: deposit_particle_set_to_np_thread
   use mod_magneticField,    only: MagneticField
   use mod_simParams,        only: SimParams
   use mod_heating,          only: apply_electron_heating
@@ -107,8 +108,7 @@ module mod_state
     procedure :: init_particles
 
     procedure :: sort_particles_local
-    procedure :: move_particles_local
-    procedure :: apply_particle_bc_local
+    procedure :: advance_particles_local
     procedure :: apply_electron_heating_local
     procedure :: compute_heating_region_moments
     procedure :: update_heating_vt
@@ -509,69 +509,36 @@ contains
   end subroutine apply_dielectric_bc_to_phi
 
 
-  subroutine move_particles_local(self)
+  subroutine advance_particles_local(self)
+    ! Fused push + boundary-condition/SEE + charge-deposition pass.
+    !
+    ! Parallelizes over iproc only (no collapse with ptype), one thread
+    ! owning every species of its own iproc for the whole pass - matching
+    ! legacy's single fused OMP region in Src/main.f90 instead of three
+    ! separate parallel regions (mover, BC, deposit), each paying its own
+    ! fork/join and re-walking the particle arrays cold. This also removes
+    ! a latent cross-thread race the old collapse(2) loops had: SEE writes
+    ! into part(1,iproc) and draws from iseed(iproc) (intent(inout)) keyed
+    ! only by iproc, so two threads processing different ptypes of the
+    ! SAME iproc under collapse(2) static chunking could hit those
+    ! concurrently once ntype>1.
+    !
+    ! Deposition runs in a second ptype loop, after every species has been
+    ! pushed and BC'd for this iproc - not folded into the same ptype pass
+    ! - because a secondary electron created while processing another
+    ! species' BC this step must still land in this step's electron
+    ! deposit (mirrors legacy's separate push-then-deposit loop order).
     class(State), intent(inout) :: self
-    integer(int32) :: ptype, iproc
-    real(real64)   :: q_species, m_species, dt_local
-    logical        :: use_boris
+
+    integer(int32)  :: ptype, iproc
+    integer(int32)  :: tag_neg_local, ispec
+    real(real64)    :: q_species, m_species, dt_local, qmacro
+    logical         :: use_boris
+    type(SeeParams) :: see
 
     if (.not. allocated(self%part)) return
 
     dt_local = self%params%dt
-
-    !$omp parallel do collapse(2) private(ptype,iproc,q_species,m_species,use_boris) schedule(static)
-    do ptype = 1, self%ntype
-      do iproc = 1, self%nproc
-        q_species = self%chem%charge(ptype)
-        m_species = self%chem%mass(ptype)
-
-        if (m_species <= 0.0_real64) cycle
-        if (.not. allocated(self%part(ptype,iproc)%x)) cycle
-        if (self%part(ptype,iproc)%n <= 0_int32) cycle
-
-        ! Magnetize when flag_B is on, unless flag_B_pos skips positive ions
-        use_boris = (self%cfg%flag_B == 1) .and. &
-                    .not. (self%cfg%flag_B_pos == 1 .and. q_species > 0.0_real64)
-
-        if (use_boris) then
-          call move_particles_boris( &
-              part = self%part(ptype,iproc), &
-              n    = int(self%dom%n, int32), &
-              h    = self%dom%h, &
-              E    = self%fld%E, &
-              n_B  = self%magField%n_B, &
-              h_B  = self%magField%h_B, &
-              Bi   = self%magField%Bi, &
-              q    = q_species, &
-              m    = m_species, &
-              dt   = dt_local )
-        else
-          call move_particles_electrostatic( &
-              part = self%part(ptype,iproc), &
-              n    = int(self%dom%n, int32), &
-              h    = self%dom%h, &
-              E    = self%fld%E, &
-              q    = q_species, &
-              m    = m_species, &
-              dt   = dt_local )
-        end if
-      end do
-    end do
-    !$omp end parallel do
-  end subroutine move_particles_local
-
-
-  subroutine apply_particle_bc_local(self)
-    use iso_fortran_env, only: int32, real64
-    class(State), intent(inout) :: self
-
-    integer(int32)  :: ptype, iproc
-    integer(int32)  :: tag_neg_local
-    integer(int32)  :: ispec
-    real(real64)    :: qmacro
-    type(SeeParams) :: see
-
-    if (.not. allocated(self%part)) return
 
     tag_neg_local = -1_int32
     do ispec = 1_int32, self%ntype
@@ -590,14 +557,47 @@ contains
       see%vt_sec = sqrt(2.0_real64 * qe * abs(self%cfg%THm) / abs(self%chem%mass(1)))
     end if
 
-    !$omp parallel do collapse(2) private(ptype,iproc,qmacro) schedule(static)
-    do ptype = 1, self%ntype
-      do iproc = 1, self%nproc
+    !$omp parallel do private(iproc,ptype,q_species,m_species,use_boris,qmacro) schedule(static)
+    do iproc = 1, self%nproc
 
+      do ptype = 1, self%ntype
         if (.not. allocated(self%part(ptype,iproc)%x)) cycle
         if (self%part(ptype,iproc)%n <= 0_int32) cycle
 
-        qmacro = self%params%Nm(ptype) * self%chem%charge(ptype)
+        q_species = self%chem%charge(ptype)
+        m_species = self%chem%mass(ptype)
+
+        ! Push (skipped for m_species<=0, same as legacy's charge-only
+        ! guard around part_mover); BC/SEE still applies unconditionally.
+        if (m_species > 0.0_real64) then
+          use_boris = (self%cfg%flag_B == 1) .and. &
+                      .not. (self%cfg%flag_B_pos == 1 .and. q_species > 0.0_real64)
+
+          if (use_boris) then
+            call move_particles_boris( &
+                part = self%part(ptype,iproc), &
+                n    = int(self%dom%n, int32), &
+                h    = self%dom%h, &
+                E    = self%fld%E, &
+                n_B  = self%magField%n_B, &
+                h_B  = self%magField%h_B, &
+                Bi   = self%magField%Bi, &
+                q    = q_species, &
+                m    = m_species, &
+                dt   = dt_local )
+          else
+            call move_particles_electrostatic( &
+                part = self%part(ptype,iproc), &
+                n    = int(self%dom%n, int32), &
+                h    = self%dom%h, &
+                E    = self%fld%E, &
+                q    = q_species, &
+                m    = m_species, &
+                dt   = dt_local )
+          end if
+        end if
+
+        qmacro = self%params%Nm(ptype) * q_species
 
         call apply_particle_bc( &
             part           = self%part(ptype,iproc), &
@@ -617,18 +617,33 @@ contains
             sum_q_xz_local = self%sum_q_xz(:,:,ptype,iproc), &
             sum_q_yz_local = self%sum_q_yz(:,:,:,ptype,iproc), &
             p_mac_boundary = self%p_mac(ptype,:,:,iproc), &
-            mass_species   = self%chem%mass(ptype), &
+            mass_species   = m_species, &
             P_loss_wall    = self%P_loss(1,ptype,iproc), &
             Nm_species     = self%params%Nm(ptype), &
-            charge_species = self%chem%charge(ptype), &
+            charge_species = q_species, &
             see            = see, &
             part_electrons = self%part(1,iproc), &
             iseed          = self%params%iseed(iproc), &
             P_loss_see     = self%P_loss(4,1,iproc) )
       end do
+
+      do ptype = 1, self%ntype
+        self%np_thread(:,:,:,ptype,iproc) = 0.0_real64
+
+        if (.not. allocated(self%part(ptype,iproc)%x)) cycle
+        if (self%part(ptype,iproc)%n <= 0_int32) cycle
+
+        call deposit_particle_set_to_np_thread( &
+          part       = self%part(ptype,iproc), &
+          n          = int(self%dom%n, int32), &
+          h          = self%dom%h, &
+          kq         = self%fld%kq, &
+          Nm_species = self%params%Nm(ptype), &
+          np_local   = self%np_thread(:,:,:,ptype,iproc) )
+      end do
     end do
     !$omp end parallel do
-  end subroutine apply_particle_bc_local
+  end subroutine advance_particles_local
 
 
   subroutine compute_heating_region_moments(self)
