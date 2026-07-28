@@ -1,9 +1,9 @@
-DATA.BAK/
+DATA.BAK/*
 *.bak
-Output/
-DATA/
-DATA.BAK2/
-build/
+Output/*
+DATA/*
+DATA.BAK2/*
+build/*
 build_*/
 *.png
 slurm*
