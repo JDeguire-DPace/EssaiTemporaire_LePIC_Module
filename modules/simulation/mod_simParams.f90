@@ -24,6 +24,7 @@ module mod_simParams
     real(real64)   :: dt    = 0.0_real64
     integer(int32) :: nb_step_sort           = 10
     integer(int32) :: nb_step_collisions     = 2
+    integer(int32) :: nb_step_coulomb        = 1
     integer(int32) :: nb_step_heating        = 4
     integer(int32) :: nb_step_averaging      = 0
     integer(int32) :: nb_step_Neg_PE         = 1
@@ -131,6 +132,7 @@ contains
 
     self%nb_step_sort       = 10
     self%nb_step_collisions = 1 * self%nb_step_sort
+    self%nb_step_coulomb    = 1
 
     self%nb_step_heating = 4
     if (cfg%kt >= 0.05_real64 .and. cfg%kt < 0.1_real64) self%nb_step_heating = 20
@@ -209,7 +211,8 @@ contains
 
     if (mpi_rank /= 0) return
 
-    write(*,'(a,i0)') "Frequency of calls to collision subroutine = ", self%nb_step_collisions
+    write(*,'(a,i0)') "Frequency of calls to MC collision subroutine = ", self%nb_step_collisions
+    write(*,'(a,i0)') "Frequency of calls to Coulomb collision subroutine = ", self%nb_step_coulomb
     write(*,'(a,i0)') "Frequency of calls to electron (Maxwellian) heating subroutine= ", self%nb_step_heating
     write(*,'(a,i0)') "Frequency of calls to sort subroutine= ", self%nb_step_sort
     write(*,'(a,i0)') "Frequency of averaging= ", self%nb_step_averaging

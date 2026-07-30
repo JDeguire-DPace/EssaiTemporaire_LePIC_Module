@@ -7,14 +7,14 @@ module mod_collisions
 
   implicit none
   private
-  public :: perform_collisions_step
+  public :: perform_collisions_step, perform_coulomb_step
 
 contains
 
   subroutine perform_collisions_step( &
       part, n, h, ntype_tracked, ntype_all, mass, charge, Ti, Nm, p_ncol, sig_list, col_info, &
       sigv_mx, sig, sig_Er, sig_Eex, ni0, ns_coll, dt, nu_uplim, iseed, &
-      mpi_rank, Pcoll, dom_volume, np_red, bcnd, flag_coulomb, n_e)
+      mpi_rank, Pcoll, dom_volume, np_red, bcnd)
 
     type(ParticleSet), intent(inout) :: part(:,:)
     integer(int32), intent(in) :: n(3)
@@ -33,10 +33,6 @@ contains
     real(real64), intent(in) :: dom_volume
     real(real64), intent(in) :: np_red(0:,0:,0:,:)
     integer(int32), intent(in) :: bcnd(0:,0:,0:)
-    integer(int32), intent(in) :: flag_coulomb
-    real(real64),   intent(in) :: n_e   ! [m^-3] global average electron density
-
-    integer(int32) :: nproc
 
     call init_rxn_counts(int(size(sigv_mx,2), int32))
 
@@ -67,22 +63,31 @@ contains
         np_red        = np_red, &
         bcnd          = bcnd)
 
-    ! Coulomb small-angle scattering (Nanbu 2000), same cadence as MC collisions.
-    ! Enabled via flag_coulomb == 1 in the Config / input file.
-    if (flag_coulomb == 1_int32) then
-      nproc = size(part, 2)
-      call perform_coulomb_collisions( &
-          part   = part, &
-          ntype  = ntype_tracked, &
-          nproc  = nproc, &
-          mass   = mass(1:ntype_tracked), &
-          charge = charge(1:ntype_tracked), &
-          Nm     = Nm(1:ntype_tracked), &
-          n_e    = n_e, &
-          dt     = dt * real(ns_coll, real64), &
-          iseed  = iseed)
-    end if
-
   end subroutine perform_collisions_step
+
+
+  ! Coulomb small-angle scattering (Nanbu 2000), with its own cadence
+  ! independent of MC collisions. dt must already be scaled by ns_coulomb
+  ! (i.e. pass dt * nb_step_coulomb from the caller).
+  subroutine perform_coulomb_step(part, ntype, nproc, mass, charge, Nm, n_e, dt, iseed)
+    type(ParticleSet), intent(inout) :: part(:,:)
+    integer(int32),    intent(in)    :: ntype, nproc
+    real(real64),      intent(in)    :: mass(:), charge(:), Nm(:)
+    real(real64),      intent(in)    :: n_e    ! [m^-3] global average electron density
+    real(real64),      intent(in)    :: dt     ! effective dt = base_dt * nb_step_coulomb
+    integer(int32),    intent(inout) :: iseed(:)
+
+    call perform_coulomb_collisions( &
+        part   = part, &
+        ntype  = ntype, &
+        nproc  = nproc, &
+        mass   = mass(1:ntype), &
+        charge = charge(1:ntype), &
+        Nm     = Nm(1:ntype), &
+        n_e    = n_e, &
+        dt     = dt, &
+        iseed  = iseed)
+
+  end subroutine perform_coulomb_step
 
 end module mod_collisions

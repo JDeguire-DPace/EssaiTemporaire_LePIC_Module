@@ -14,7 +14,7 @@ module mod_simulation
   use mod_constants,             only: eps0
   use mod_collisionDiagnostics, only: print_rxn_counts, reset_rxn_counts, &
                                        print_debug_diagnostics, reset_debug_diagnostics
-  use mod_collisions, only: perform_collisions_step
+  use mod_collisions, only: perform_collisions_step, perform_coulomb_step
   use mpi
 
   implicit none
@@ -57,6 +57,7 @@ module mod_simulation
     procedure :: write_initial_diagnostics
     procedure :: deposit_all_particles
     procedure :: collisions_step
+    procedure :: coulomb_step
     procedure :: output_step
     procedure :: reset_2d_averages
     procedure :: advance_one_step
@@ -207,41 +208,56 @@ contains
   subroutine collisions_step(self)
     class(Simulation), intent(inout) :: self
 
-  call perform_collisions_step( &
-      part          = self%state%part, &
-      n             = self%state%dom%n, &
-      h             = self%state%dom%h, &
-      ntype_tracked = self%state%ntype, &
-      ntype_all     = self%state%rxn%ntype, &
-      mass          = self%state%chem%mass(1:self%state%rxn%ntype), &
-      charge        = self%state%chem%charge(1:self%state%rxn%ntype), &
-      Ti            = self%state%chem%Ti(1:self%state%rxn%ntype), &
-      Nm            = self%state%params%Nm(1:self%state%rxn%ntype), &
-      p_ncol        = self%state%chem%p_ncol(1:self%state%rxn%ntype), &
-      sig_list      = self%state%rxn%sig_list, &
-      col_info      = self%state%rxn%col_info, &
-      sigv_mx       = self%state%rxn%sigv_mx, &
-      sig           = self%state%rxn%sig, &
-      sig_Er        = self%state%rxn%sig_Er, &
-      sig_Eex       = self%state%rxn%sig_Eex, &
-      ni0           = self%state%chem%ni0(1:self%state%rxn%ntype), &
-      ns_coll       = self%state%params%nb_step_collisions, &
-      dt            = self%state%params%dt, &
-      nu_uplim      = self%state%params%nu_uplim(1:self%state%rxn%ntype), &
-      iseed         = self%state%params%iseed, &
-      mpi_rank      = int(self%state%mpi_rank, int32), &
-      Pcoll         = self%state%P_loss(3,:,:), &
-      dom_volume    = self%state%dom%h(1) * self%state%dom%h(2) * self%state%dom%h(3) * &
-                      real(self%state%dom%n(1)*self%state%dom%n(2)*self%state%dom%n(3), real64), &
-      np_red        = self%state%fld%np, &
-      bcnd          = self%state%dom%bcnd, &
-      flag_coulomb  = self%state%cfg%flag_coulomb, &
-      n_e           = average_species_density( &
-                        int(self%state%dom%n, int32), self%state%fld%np, &
-                        int(self%state%ntype, int32), 1_int32, &
-                        int(self%state%dom%flag_pbc, int32), int(self%state%dom%flag_pbcz, int32)) )
+    call perform_collisions_step( &
+        part          = self%state%part, &
+        n             = self%state%dom%n, &
+        h             = self%state%dom%h, &
+        ntype_tracked = self%state%ntype, &
+        ntype_all     = self%state%rxn%ntype, &
+        mass          = self%state%chem%mass(1:self%state%rxn%ntype), &
+        charge        = self%state%chem%charge(1:self%state%rxn%ntype), &
+        Ti            = self%state%chem%Ti(1:self%state%rxn%ntype), &
+        Nm            = self%state%params%Nm(1:self%state%rxn%ntype), &
+        p_ncol        = self%state%chem%p_ncol(1:self%state%rxn%ntype), &
+        sig_list      = self%state%rxn%sig_list, &
+        col_info      = self%state%rxn%col_info, &
+        sigv_mx       = self%state%rxn%sigv_mx, &
+        sig           = self%state%rxn%sig, &
+        sig_Er        = self%state%rxn%sig_Er, &
+        sig_Eex       = self%state%rxn%sig_Eex, &
+        ni0           = self%state%chem%ni0(1:self%state%rxn%ntype), &
+        ns_coll       = self%state%params%nb_step_collisions, &
+        dt            = self%state%params%dt, &
+        nu_uplim      = self%state%params%nu_uplim(1:self%state%rxn%ntype), &
+        iseed         = self%state%params%iseed, &
+        mpi_rank      = int(self%state%mpi_rank, int32), &
+        Pcoll         = self%state%P_loss(3,:,:), &
+        dom_volume    = self%state%dom%h(1) * self%state%dom%h(2) * self%state%dom%h(3) * &
+                        real(self%state%dom%n(1)*self%state%dom%n(2)*self%state%dom%n(3), real64), &
+        np_red        = self%state%fld%np, &
+        bcnd          = self%state%dom%bcnd)
 
   end subroutine collisions_step
+
+
+  subroutine coulomb_step(self)
+    class(Simulation), intent(inout) :: self
+
+    call perform_coulomb_step( &
+        part   = self%state%part, &
+        ntype  = self%state%ntype, &
+        nproc  = self%state%nproc, &
+        mass   = self%state%chem%mass(1:self%state%ntype), &
+        charge = self%state%chem%charge(1:self%state%ntype), &
+        Nm     = self%state%params%Nm(1:self%state%ntype), &
+        n_e    = average_species_density( &
+                   int(self%state%dom%n, int32), self%state%fld%np, &
+                   int(self%state%ntype, int32), 1_int32, &
+                   int(self%state%dom%flag_pbc, int32), int(self%state%dom%flag_pbcz, int32)), &
+        dt     = self%state%params%dt * real(self%state%params%nb_step_coulomb, real64), &
+        iseed  = self%state%params%iseed)
+
+  end subroutine coulomb_step
 
 
   subroutine reset_2d_averages(self)
@@ -557,7 +573,7 @@ contains
     t1 = MPI_Wtime()
     self%t_Erho = self%t_Erho + (t1 - t0)
 
-    ! Collisions
+    ! MC collisions (every nb_step_collisions steps)
     t0 = MPI_Wtime()
     if (self%state%params%nb_step_collisions > 0_int32) then
       if (mod(istep, self%state%params%nb_step_collisions) == 1_int32) then
@@ -575,6 +591,15 @@ contains
     end if
     t1 = MPI_Wtime()
     self%t_MC = self%t_MC + (t1 - t0)
+
+    ! Coulomb collisions (every nb_step_coulomb steps, independent of MC)
+    if (self%state%cfg%flag_coulomb == 1_int32) then
+      if (self%state%params%nb_step_coulomb > 0_int32) then
+        if (mod(istep, self%state%params%nb_step_coulomb) == 1_int32) then
+          call self%coulomb_step()
+        end if
+      end if
+    end if
 
     ! Volume particle injection (legacy: part_injection, inside OMP per iproc)
     ! Fires every step when flag_inj==1 (ns_inj=1 hardcoded, same as legacy).
