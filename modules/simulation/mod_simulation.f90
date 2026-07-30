@@ -2,7 +2,7 @@ module mod_simulation
   use iso_fortran_env, only: int32, real64, int8
 
   use mod_state,                 only: State
-  use mod_density,               only: reduce_species_density, build_rho_from_np
+  use mod_density,               only: reduce_species_density, build_rho_from_np, average_species_density
   use mod_restart,               only: write_restart_modular
   use mod_injection,             only: inject_particles_volume, inject_flux_particles
   use mod_PoissonSolver_legacy,  only: solve_poisson_legacy, print_poisson_breakdown, reset_poisson_breakdown
@@ -236,8 +236,10 @@ contains
       np_red        = self%state%fld%np, &
       bcnd          = self%state%dom%bcnd, &
       flag_coulomb  = self%state%cfg%flag_coulomb, &
-      n_e           = sum(self%state%fld%np(:,:,:,1)) / &
-                      real(product(self%state%dom%n), real64) )
+      n_e           = average_species_density( &
+                        int(self%state%dom%n, int32), self%state%fld%np, &
+                        int(self%state%ntype, int32), 1_int32, &
+                        int(self%state%dom%flag_pbc, int32), int(self%state%dom%flag_pbcz, int32)) )
 
   end subroutine collisions_step
 
@@ -364,6 +366,7 @@ contains
 
     real(real64)   :: vt_heat
     real(real64)   :: t0, t1, tstep0
+    real(real64)   :: t_move_dbg, t_bc_dbg, t_deposit_dbg
     integer(int32) :: iproc_h, i_h, ix_h, ixl_h, ixr_h
     real(real64)   :: xp_h, yp_h, zp_h, Eki_h, yhalf_h, zhalf_h
 
@@ -473,18 +476,24 @@ contains
 
     ! Mover + particle BC/SEE + charge deposition, fused into a single OMP
     ! region (see state%advance_particles_local in mod_state.f90) instead
-    ! of three separate parallel regions. t_mover_bc is kept at zero
-    ! contribution (folded into t_mover_push, which now times the whole
-    ! fused pass) rather than removed, so old log-parsing scripts expecting
-    ! both fields still find them.
+    ! of three separate parallel regions. advance_particles_local returns
+    ! its own internal (per-thread, max-across-iproc) split of that region
+    ! into push/BC/deposit time, since the outer MPI_Wtime() bracket here
+    ! can no longer separate them now that they share one fork. t_mover_bc
+    ! and t_dep_loop - previously kept at zero after the fusion - now carry
+    ! that real BC time and deposit-loop time respectively, restoring the
+    ! "mover / deposit timing breakdown" print block below to real numbers.
     t0 = MPI_Wtime()
-    call self%state%advance_particles_local()
+    call self%state%advance_particles_local(t_move_dbg, t_bc_dbg, t_deposit_dbg)
     t1 = MPI_Wtime()
-    self%t_mover_push = self%t_mover_push + (t1 - t0)
-    self%t_mover_bc   = self%t_mover_bc
+    self%t_mover_push = self%t_mover_push + t_move_dbg
+    self%t_mover_bc   = self%t_mover_bc   + t_bc_dbg
+    self%t_dep_loop   = self%t_dep_loop   + t_deposit_dbg
 
-    ! t_mover kept as the combined total for the existing summary line
-    self%t_mover = self%t_mover_push + self%t_mover_bc
+    ! t_mover kept as the combined push+BC+deposit total for the existing
+    ! top-level summary line (comparable to legacy's fused mover timer,
+    ! which also spans push+BC/SEE+deposit - see Src/main.f90 ctime(6)).
+    self%t_mover = self%t_mover_push + self%t_mover_bc + self%t_dep_loop
 
     ! Accumulate Nh and sum_dEk from post-push post-BC electrons, matching
     ! legacy's charge_deposition timing. On non-heating steps, also reset

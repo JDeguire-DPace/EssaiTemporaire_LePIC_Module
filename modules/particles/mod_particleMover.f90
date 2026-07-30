@@ -1,11 +1,17 @@
 module mod_particleMover
-  use iso_fortran_env, only: int32, real64, int8
+  use iso_fortran_env, only: int32, int64, real64, int8
   use mod_particles,   only: ParticleSet
+  use mod_constants,   only: qe
+  use mod_rng,         only: ran2, load_gauss
+  use mod_particleBC,  only: particle_is_lost, SeeParams, &
+                              dbg_loss_xright_s1, dbg_loss_xright_s2, &
+                              dbg_loss_zlow_s1,   dbg_loss_zlow_s2,   &
+                              dbg_loss_zhigh_s1,  dbg_loss_zhigh_s2
   implicit none
   private
 
-  public :: move_particles_electrostatic
-  public :: move_particles_boris
+  public :: move_and_bc_electrostatic
+  public :: move_and_bc_boris
   public :: interpolate_E_trilinear
 
 contains
@@ -70,37 +76,80 @@ contains
   end subroutine interpolate_E_trilinear
 
 
-  subroutine move_particles_electrostatic(part, n, h, E, q, m, dt)
-    ! Fast version:
-    ! - same electrostatic update as before
-    ! - trilinear interpolation is inlined inside the particle loop
-    ! - avoids one procedure call per particle
-    type(ParticleSet), intent(inout) :: part
+  subroutine move_and_bc_electrostatic( part, n, h, E, q, m, dt, &
+                                         bcnd, xmax, ymax, zmax, flag_pbc, flag_nmn, &
+                                         ptype, tag_neg, flag_die, dtype, qmacro, &
+                                         sum_q_xz_local, sum_q_yz_local, p_mac_boundary, &
+                                         P_loss_wall, Nm_species, see, part_electrons, &
+                                         iseed, P_loss_see )
+    ! Fused electrostatic push + boundary-condition/SEE pass: one read and
+    ! one write of each live particle's position/velocity instead of two
+    ! (push writing back into part%x/vx/..., then a separate BC pass
+    ! re-reading that same data fresh from memory). Ported line-for-line
+    ! from move_particles_electrostatic + apply_particle_bc (mod_particleBC.f90);
+    ! any change here should be mirrored there and vice versa if the two
+    ! non-fused routines are still needed elsewhere.
+    class(ParticleSet), intent(inout) :: part
     integer(int32),     intent(in)    :: n(3)
     real(real64),       intent(in)    :: h(3)
     real(real64),       intent(in)    :: E(3,0:n(1)+2,0:n(2)+2,0:n(3)+2)
-    real(real64),       intent(in)    :: q
-    real(real64),       intent(in)    :: m
-    real(real64),       intent(in)    :: dt
+    real(real64),       intent(in)    :: q, m, dt
 
-    integer(int32) :: i
+    integer(int32),     intent(in)    :: bcnd(0:n(1)+2,0:n(2)+2,0:n(3)+2)
+    real(real64),       intent(in)    :: xmax, ymax, zmax
+    integer(int32),     intent(in)    :: flag_pbc, flag_nmn, ptype, tag_neg
+    integer(int32),     intent(in)    :: flag_die
+    integer(int32),     intent(in)    :: dtype(:)
+    real(real64),       intent(in)    :: qmacro
+    real(real64),       intent(inout) :: sum_q_xz_local(0:n(1)+2,0:n(3)+2)
+    real(real64),       intent(inout) :: sum_q_yz_local(2,0:n(2)+2,0:n(3)+2)
+    real(real64),       intent(inout) :: p_mac_boundary(:,:)
+    real(real64),       intent(inout) :: P_loss_wall
+    real(real64),       intent(in)    :: Nm_species
+    type(SeeParams),    intent(in)    :: see
+    class(ParticleSet), intent(inout) :: part_electrons
+    integer(int32),     intent(inout) :: iseed
+    real(real64),       intent(inout) :: P_loss_see
+
+    integer(int32) :: i, i_shift, i_see, ip_sec, n_sec
     integer(int32) :: ix, iy, iz
-    real(real64)   :: qmdt
-    real(real64)   :: xp, yp, zp
-    real(real64)   :: px, py, pz
-    real(real64)   :: wx2, wy2, wz2
-    real(real64)   :: w1, w2, w3, w4, w5, w6, w7, w8
-    real(real64)   :: Exp, Eyp, Ezp
+    integer(int32) :: flag_lost, np_lost
+    integer(int32) :: igrid, d_ind
+
+    real(real64) :: qmdt
+    real(real64) :: xp, yp, zp
+    real(real64) :: px, py, pz
+    real(real64) :: wx2, wy2, wz2
+    real(real64) :: w1, w2, w3, w4, w5, w6, w7, w8
+    real(real64) :: Exp, Eyp, Ezp
+
+    real(real64) :: xp_new, yp_new, zp_new
+    real(real64) :: vpx_new, vpy_new, vpz_new
+    real(real64) :: ki4(4)
+    real(real64) :: Ek_eV, Ek_J
+    real(real64) :: rnd(2)
+    real(real64) :: vx_sec, vy_sec, vz_sec
+
+    logical :: do_see
 
     if (.not. allocated(part%x)) return
     if (part%n <= 0_int32) return
 
-    qmdt = dt*q/m
+    qmdt   = dt*q/m
+    do_see = (see%gam_sec > 0.0_real64) .and. (q > 0.0_real64)
+
+    np_lost = 0_int32
 
     do i = 1, part%n
+
       if (allocated(part%flag_dead)) then
-        if (part%flag_dead(i) /= 0_int8) cycle
+        if (part%flag_dead(i) /= 0_int8) then
+          np_lost = np_lost + 1_int32
+          cycle
+        end if
       end if
+
+      ! ---- push ----
       xp = part%x(i)
       yp = part%y(i)
       zp = part%z(i)
@@ -145,243 +194,644 @@ contains
             w5*E(3,ix  ,iy  ,iz+1) + w6*E(3,ix+1,iy  ,iz+1) + &
             w7*E(3,ix+1,iy+1,iz+1) + w8*E(3,ix  ,iy+1,iz+1)
 
-      part%vx(i) = part%vx(i) + qmdt*Exp
-      part%vy(i) = part%vy(i) + qmdt*Eyp
-      part%vz(i) = part%vz(i) + qmdt*Ezp
+      vpx_new = part%vx(i) + qmdt*Exp
+      vpy_new = part%vy(i) + qmdt*Eyp
+      vpz_new = part%vz(i) + qmdt*Ezp
 
-      part%x(i)  = xp + dt*part%vx(i)
-      part%y(i)  = yp + dt*part%vy(i)
-      part%z(i)  = zp + dt*part%vz(i)
+      xp_new = xp + dt*vpx_new
+      yp_new = yp + dt*vpy_new
+      zp_new = zp + dt*vpz_new
+
+      ! ---- boundary conditions / SEE, operating on the just-pushed state ----
+      ix = floor(xp_new / h(1)) + 1_int32
+      iy = floor(yp_new / h(2)) + 1_int32
+      iz = floor(zp_new / h(3)) + 1_int32
+
+      if (ix < 0_int32)      ix = 0_int32
+      if (ix > n(1)+1_int32) ix = n(1)+1_int32
+      if (iy < 0_int32)      iy = 0_int32
+      if (iy > n(2)+1_int32) iy = n(2)+1_int32
+      if (iz < 0_int32)      iz = 0_int32
+      if (iz > n(3)+1_int32) iz = n(3)+1_int32
+
+      flag_lost = 0_int32
+
+      if (particle_is_lost(bcnd, ix, iy, iz, n)) flag_lost = 1_int32
+
+      if (ptype == tag_neg) then
+        if (xp_new < 0.0_real64 .and. flag_nmn == 1_int32) flag_lost = 2_int32
+      end if
+
+      if (flag_lost >= 1_int32) then
+
+        if (ptype == 1_int32) then
+          if (xp_new > xmax - h(1)) dbg_loss_xright_s1 = dbg_loss_xright_s1 + 1_int64
+          if (zp_new < h(3))        dbg_loss_zlow_s1   = dbg_loss_zlow_s1   + 1_int64
+          if (zp_new > zmax-h(3))   dbg_loss_zhigh_s1  = dbg_loss_zhigh_s1  + 1_int64
+        else if (ptype == 2_int32) then
+          if (xp_new > xmax - h(1)) dbg_loss_xright_s2 = dbg_loss_xright_s2 + 1_int64
+          if (zp_new < h(3))        dbg_loss_zlow_s2   = dbg_loss_zlow_s2   + 1_int64
+          if (zp_new > zmax-h(3))   dbg_loss_zhigh_s2  = dbg_loss_zhigh_s2  + 1_int64
+        end if
+
+        igrid = bcnd(ix,iy,iz)
+
+        if (flag_lost == 2_int32 .and. ptype == tag_neg) igrid = 0_int32
+
+        if (flag_die == 1_int32 .and. igrid > 0_int32) then
+          if (dtype(igrid) > 1_int32) then
+
+            if (flag_pbc == 1_int32) then
+              if (zp_new >= zmax) then
+                zp_new = zp_new - zmax
+                iz = floor(zp_new / h(3), int32) + 1_int32
+              end if
+              if (zp_new <= 0.0_real64) then
+                zp_new = zmax + zp_new
+                iz = floor(zp_new / h(3), int32) + 1_int32
+              end if
+            end if
+
+            if (ix < 0_int32)      ix = 0_int32
+            if (ix > n(1)+1_int32) ix = n(1)+1_int32
+            if (iy < 0_int32)      iy = 0_int32
+            if (iy > n(2)+1_int32) iy = n(2)+1_int32
+            if (iz < 0_int32)      iz = 0_int32
+            if (iz > n(3)+1_int32) iz = n(3)+1_int32
+
+            pz = (real(iz,real64)*h(3) - zp_new) / h(3)
+
+            if (dtype(igrid) == 2_int32) then
+              px = (real(ix,real64)*h(1) - xp_new) / h(1)
+
+              ki4(1) = qmacro * px               * pz
+              ki4(2) = qmacro * (1.0_real64-px) * pz
+              ki4(3) = qmacro * (1.0_real64-px) * (1.0_real64-pz)
+              ki4(4) = qmacro * px               * (1.0_real64-pz)
+
+              sum_q_xz_local(ix  ,iz  ) = sum_q_xz_local(ix  ,iz  ) + ki4(1)
+              sum_q_xz_local(ix+1,iz  ) = sum_q_xz_local(ix+1,iz  ) + ki4(2)
+              sum_q_xz_local(ix+1,iz+1) = sum_q_xz_local(ix+1,iz+1) + ki4(3)
+              sum_q_xz_local(ix  ,iz+1) = sum_q_xz_local(ix  ,iz+1) + ki4(4)
+            end if
+
+            if (dtype(igrid) == 3_int32 .or. dtype(igrid) == 4_int32) then
+              py = (real(iy,real64)*h(2) - yp_new) / h(2)
+
+              ki4(1) = qmacro * py               * pz
+              ki4(2) = qmacro * (1.0_real64-py) * pz
+              ki4(3) = qmacro * (1.0_real64-py) * (1.0_real64-pz)
+              ki4(4) = qmacro * py               * (1.0_real64-pz)
+
+              d_ind = dtype(igrid)
+
+              sum_q_yz_local(d_ind-2,iy  ,iz  ) = sum_q_yz_local(d_ind-2,iy  ,iz  ) + ki4(1)
+              sum_q_yz_local(d_ind-2,iy+1,iz  ) = sum_q_yz_local(d_ind-2,iy+1,iz  ) + ki4(2)
+              sum_q_yz_local(d_ind-2,iy+1,iz+1) = sum_q_yz_local(d_ind-2,iy+1,iz+1) + ki4(3)
+              sum_q_yz_local(d_ind-2,iy  ,iz+1) = sum_q_yz_local(d_ind-2,iy  ,iz+1) + ki4(4)
+            end if
+
+          end if
+        end if
+
+        ! Wall diagnostics
+        if (igrid < 0_int32) igrid = 0_int32
+
+        Ek_eV = 0.5_real64 * m * &
+          (vpx_new*vpx_new + vpy_new*vpy_new + vpz_new*vpz_new) / qe
+
+        p_mac_boundary(1,igrid) = p_mac_boundary(1,igrid) + qmacro
+        p_mac_boundary(2,igrid) = p_mac_boundary(2,igrid) + abs(qmacro) * Ek_eV
+
+        Ek_J = 0.5_real64 * m * &
+            (vpx_new*vpx_new + vpy_new*vpy_new + vpz_new*vpz_new)
+        P_loss_wall = P_loss_wall + Nm_species * Ek_J
+
+        ! Secondary electron emission (positive ions hitting igrid_sec)
+        if (do_see .and. igrid == see%igrid_sec) then
+          rnd(1) = ran2(iseed)
+          n_sec  = int(see%gam_sec, int32)
+          if (rnd(1) <= (see%gam_sec - real(n_sec, real64))) n_sec = n_sec + 1_int32
+
+          if (n_sec > 0_int32) then
+            ! No lock needed: this routine's only caller (state%advance_particles_local,
+            ! mod_state.f90) parallelizes over iproc alone, one thread owning
+            ! this iproc's part_electrons = part(1,iproc) for the whole call.
+            call part_electrons%ensure_capacity(part_electrons%n + n_sec)
+            do ip_sec = 1, n_sec
+              rnd(1) = ran2(iseed)
+              vz_sec = -sign(1.0_real64, vpz_new) * see%vt_sec * sqrt(-log(1.0_real64 - rnd(1)))
+              rnd(1) = ran2(iseed)
+              rnd(2) = ran2(iseed)
+              call load_gauss(vx_sec, vy_sec, see%vt_sec, rnd)
+
+              part_electrons%n    = part_electrons%n + 1_int32
+              i_see               = part_electrons%n
+              part_electrons%x(i_see)  = xp_new
+              part_electrons%y(i_see)  = yp_new
+              part_electrons%z(i_see)  = merge(see%zg_sec(1), see%zg_sec(2), vpz_new < 0.0_real64)
+              part_electrons%vx(i_see) = vx_sec
+              part_electrons%vy(i_see) = vy_sec
+              part_electrons%vz(i_see) = vz_sec
+              if (allocated(part_electrons%flag_dead)) part_electrons%flag_dead(i_see) = 0_int8
+              if (allocated(part_electrons%flag_cex))  part_electrons%flag_cex(i_see)  = 0_int32
+
+              P_loss_see = P_loss_see + 0.5_real64 * see%Nm_e * &
+                  (vx_sec*vx_sec + vy_sec*vy_sec + vz_sec*vz_sec)
+            end do
+          end if
+        end if
+
+        np_lost = np_lost + 1_int32
+        cycle
+      end if
+
+      ! Survivors: Neumann reflection on LHS only
+      if (flag_nmn == 1_int32) then
+        if (xp_new <= 0.0_real64) then
+          xp_new  = -xp_new
+          vpx_new = -vpx_new
+        end if
+      end if
+
+      if (flag_pbc == 1_int32) then
+        if (yp_new >= ymax) yp_new = yp_new - ymax
+        if (yp_new <= 0.0_real64) yp_new = ymax + yp_new
+        if (zp_new >= zmax) zp_new = zp_new - zmax
+        if (zp_new <= 0.0_real64) zp_new = zmax + zp_new
+      end if
+
+      i_shift = i - np_lost
+
+      part%x(i_shift)  = xp_new
+      part%y(i_shift)  = yp_new
+      part%z(i_shift)  = zp_new
+      part%vx(i_shift) = vpx_new
+      part%vy(i_shift) = vpy_new
+      part%vz(i_shift) = vpz_new
+
+      if (allocated(part%w))         part%w(i_shift)         = part%w(i)
+      if (allocated(part%sp))        part%sp(i_shift)        = part%sp(i)
+      if (allocated(part%flag_dead)) part%flag_dead(i_shift) = 0_int8
+      if (allocated(part%flag_cex))  part%flag_cex(i_shift)  = part%flag_cex(i)
+
     end do
 
-    if (allocated(part%cell_id))    part%cell_id(1:part%n) = 0_int32
+    part%n = part%n - np_lost
+    if (part%n < 0_int32) part%n = 0_int32
+
+    if (allocated(part%flag_dead)) then
+      if (part%n < part%nmax) part%flag_dead(part%n+1:part%nmax) = 0_int8
+    end if
+    if (allocated(part%flag_cex)) then
+      if (part%n < part%nmax) part%flag_cex(part%n+1:part%nmax) = 0_int32
+    end if
+
+    if (allocated(part%cell_id))    part%cell_id    = 0_int32
     if (allocated(part%cell_count)) part%cell_count = 0_int32
     if (allocated(part%cell_start)) part%cell_start = 0_int32
-  end subroutine move_particles_electrostatic
+
+  end subroutine move_and_bc_electrostatic
 
 
-  ! Boris push: half E-kick -> magnetic rotation -> half E-kick -> position advance.
-  ! When n_B == [1,1,1] the field is uniform and Bi(1:3,1,1,1) is read directly;
-  ! otherwise trilinear interpolation is performed on the B-field grid (h_B / n_B).
-	subroutine move_particles_boris(part, n, h, E, n_B, h_B, Bi, q, m, dt)
-		type(ParticleSet), intent(inout) :: part
-		integer(int32),     intent(in)    :: n(3)
-		real(real64),       intent(in)    :: h(3)
-		real(real64),       intent(in)    :: E(3,0:n(1)+2,0:n(2)+2,0:n(3)+2)
-		integer(int32),     intent(in)    :: n_B(3)
-		real(real64),       intent(in)    :: h_B(3)
-		real(real64),       intent(in)    :: Bi(4,0:n_B(1)+2,0:n_B(2)+2,0:n_B(3)+2)
-		real(real64),       intent(in)    :: q
-		real(real64),       intent(in)    :: m
-		real(real64),       intent(in)    :: dt
+  subroutine move_and_bc_boris( part, n, h, E, n_B, h_B, Bi, q, m, dt, &
+                                 bcnd, xmax, ymax, zmax, flag_pbc, flag_nmn, &
+                                 ptype, tag_neg, flag_die, dtype, qmacro, &
+                                 sum_q_xz_local, sum_q_yz_local, p_mac_boundary, &
+                                 P_loss_wall, Nm_species, see, part_electrons, &
+                                 iseed, P_loss_see )
+    ! Same fusion as move_and_bc_electrostatic, but with the Boris push
+    ! (move_particles_boris) in place of the electrostatic one. See that
+    ! routine's header comment for the rationale; the BC/SEE block below
+    ! is identical to it (and to apply_particle_bc in mod_particleBC.f90).
+    class(ParticleSet), intent(inout) :: part
+    integer(int32),     intent(in)    :: n(3)
+    real(real64),       intent(in)    :: h(3)
+    real(real64),       intent(in)    :: E(3,0:n(1)+2,0:n(2)+2,0:n(3)+2)
+    integer(int32),     intent(in)    :: n_B(3)
+    real(real64),       intent(in)    :: h_B(3)
+    real(real64),       intent(in)    :: Bi(4,0:n_B(1)+2,0:n_B(2)+2,0:n_B(3)+2)
+    real(real64),       intent(in)    :: q, m, dt
 
-		integer(int32) :: i
-		integer(int32) :: ix, iy, iz
-		integer(int32) :: ixB, iyB, izB
+    integer(int32),     intent(in)    :: bcnd(0:n(1)+2,0:n(2)+2,0:n(3)+2)
+    real(real64),       intent(in)    :: xmax, ymax, zmax
+    integer(int32),     intent(in)    :: flag_pbc, flag_nmn, ptype, tag_neg
+    integer(int32),     intent(in)    :: flag_die
+    integer(int32),     intent(in)    :: dtype(:)
+    real(real64),       intent(in)    :: qmacro
+    real(real64),       intent(inout) :: sum_q_xz_local(0:n(1)+2,0:n(3)+2)
+    real(real64),       intent(inout) :: sum_q_yz_local(2,0:n(2)+2,0:n(3)+2)
+    real(real64),       intent(inout) :: p_mac_boundary(:,:)
+    real(real64),       intent(inout) :: P_loss_wall
+    real(real64),       intent(in)    :: Nm_species
+    type(SeeParams),    intent(in)    :: see
+    class(ParticleSet), intent(inout) :: part_electrons
+    integer(int32),     intent(inout) :: iseed
+    real(real64),       intent(inout) :: P_loss_see
 
-		real(real64) :: qm2dt
-		real(real64) :: xp, yp, zp
-		real(real64) :: px, py, pz
-		real(real64) :: wx2, wy2, wz2
-		real(real64) :: w1, w2, w3, w4, w5, w6, w7, w8
+    integer(int32) :: i, i_shift, i_see, ip_sec, n_sec
+    integer(int32) :: ix, iy, iz
+    integer(int32) :: ixB, iyB, izB
+    integer(int32) :: flag_lost, np_lost
+    integer(int32) :: igrid, d_ind
 
-		real(real64) :: pxB, pyB, pzB
-		real(real64) :: wx2B, wy2B, wz2B
-		real(real64) :: b1, b2, b3, b4, b5, b6, b7, b8
+    real(real64) :: qm2dt
+    real(real64) :: xp, yp, zp
+    real(real64) :: px, py, pz
+    real(real64) :: wx2, wy2, wz2
+    real(real64) :: w1, w2, w3, w4, w5, w6, w7, w8
 
-		real(real64) :: Exp, Eyp, Ezp
-		real(real64) :: Bpx, Bpy, Bpz
+    real(real64) :: pxB, pyB, pzB
+    real(real64) :: wx2B, wy2B, wz2B
+    real(real64) :: b1, b2, b3, b4, b5, b6, b7, b8
 
-		real(real64) :: vminus_x, vminus_y, vminus_z
-		real(real64) :: vprime_x, vprime_y, vprime_z
-		real(real64) :: vplus_x, vplus_y, vplus_z
+    real(real64) :: Exp, Eyp, Ezp
+    real(real64) :: Bpx, Bpy, Bpz
 
-		real(real64) :: tx, ty, tz
-		real(real64) :: sx, sy, sz
-		real(real64) :: t2, inv_denom
+    real(real64) :: vminus_x, vminus_y, vminus_z
+    real(real64) :: vprime_x, vprime_y, vprime_z
+    real(real64) :: vplus_x, vplus_y, vplus_z
 
-		logical :: uniform_B, same_grid_B
+    real(real64) :: tx, ty, tz
+    real(real64) :: sx, sy, sz
+    real(real64) :: t2, inv_denom
 
-		if (.not. allocated(part%x)) return
-		if (part%n <= 0_int32) return
+    logical :: uniform_B, same_grid_B
 
-		qm2dt = 0.5_real64 * dt * q / m
+    real(real64) :: xp_new, yp_new, zp_new
+    real(real64) :: vpx_new, vpy_new, vpz_new
+    real(real64) :: ki4(4)
+    real(real64) :: Ek_eV, Ek_J
+    real(real64) :: rnd(2)
+    real(real64) :: vx_sec, vy_sec, vz_sec
 
-		uniform_B = (n_B(1) == 1_int32 .and. n_B(2) == 1_int32 .and. n_B(3) == 1_int32)
+    logical :: do_see
 
-		same_grid_B = .false.
-		if (.not. uniform_B) then
-			same_grid_B = all(n_B == n) .and. &
-										abs(h_B(1)-h(1)) < 1.0e-14_real64 .and. &
-										abs(h_B(2)-h(2)) < 1.0e-14_real64 .and. &
-										abs(h_B(3)-h(3)) < 1.0e-14_real64
-		end if
+    if (.not. allocated(part%x)) return
+    if (part%n <= 0_int32) return
 
-		do i = 1_int32, part%n
+    qm2dt  = 0.5_real64 * dt * q / m
+    do_see = (see%gam_sec > 0.0_real64) .and. (q > 0.0_real64)
 
-			if (allocated(part%flag_dead)) then
-			  if (part%flag_dead(i) /= 0_int8) cycle
-			end if
+    uniform_B = (n_B(1) == 1_int32 .and. n_B(2) == 1_int32 .and. n_B(3) == 1_int32)
 
-			xp = part%x(i)
-			yp = part%y(i)
-			zp = part%z(i)
+    same_grid_B = .false.
+    if (.not. uniform_B) then
+      same_grid_B = all(n_B == n) .and. &
+                    abs(h_B(1)-h(1)) < 1.0e-14_real64 .and. &
+                    abs(h_B(2)-h(2)) < 1.0e-14_real64 .and. &
+                    abs(h_B(3)-h(3)) < 1.0e-14_real64
+    end if
 
-			! ------------------------------------------------------------
-			! E-field interpolation
-			! ------------------------------------------------------------
-			ix = int(xp / h(1), int32) + 1_int32
-			iy = int(yp / h(2), int32) + 1_int32
-			iz = int(zp / h(3), int32) + 1_int32
+    np_lost = 0_int32
 
-			ix = max(0_int32, min(n(1)+1_int32, ix))
-			iy = max(0_int32, min(n(2)+1_int32, iy))
-			iz = max(0_int32, min(n(3)+1_int32, iz))
+    do i = 1_int32, part%n
 
-			px = (real(ix, real64)*h(1) - xp) / h(1)
-			py = (real(iy, real64)*h(2) - yp) / h(2)
-			pz = (real(iz, real64)*h(3) - zp) / h(3)
+      if (allocated(part%flag_dead)) then
+        if (part%flag_dead(i) /= 0_int8) then
+          np_lost = np_lost + 1_int32
+          cycle
+        end if
+      end if
 
-			wx2 = 1.0_real64 - px
-			wy2 = 1.0_real64 - py
-			wz2 = 1.0_real64 - pz
+      ! ---- push ----
+      xp = part%x(i)
+      yp = part%y(i)
+      zp = part%z(i)
 
-			w1 = px  * py  * pz
-			w2 = wx2 * py  * pz
-			w3 = wx2 * wy2 * pz
-			w4 = px  * wy2 * pz
-			w5 = px  * py  * wz2
-			w6 = wx2 * py  * wz2
-			w7 = wx2 * wy2 * wz2
-			w8 = px  * wy2 * wz2
+      ix = int(xp / h(1), int32) + 1_int32
+      iy = int(yp / h(2), int32) + 1_int32
+      iz = int(zp / h(3), int32) + 1_int32
 
-			Exp = w1*E(1,ix  ,iy  ,iz  ) + w2*E(1,ix+1,iy  ,iz  ) + &
-						w3*E(1,ix+1,iy+1,iz  ) + w4*E(1,ix  ,iy+1,iz  ) + &
-						w5*E(1,ix  ,iy  ,iz+1) + w6*E(1,ix+1,iy  ,iz+1) + &
-						w7*E(1,ix+1,iy+1,iz+1) + w8*E(1,ix  ,iy+1,iz+1)
+      ix = max(0_int32, min(n(1)+1_int32, ix))
+      iy = max(0_int32, min(n(2)+1_int32, iy))
+      iz = max(0_int32, min(n(3)+1_int32, iz))
 
-			Eyp = w1*E(2,ix  ,iy  ,iz  ) + w2*E(2,ix+1,iy  ,iz  ) + &
-						w3*E(2,ix+1,iy+1,iz  ) + w4*E(2,ix  ,iy+1,iz  ) + &
-						w5*E(2,ix  ,iy  ,iz+1) + w6*E(2,ix+1,iy  ,iz+1) + &
-						w7*E(2,ix+1,iy+1,iz+1) + w8*E(2,ix  ,iy+1,iz+1)
+      px = (real(ix, real64)*h(1) - xp) / h(1)
+      py = (real(iy, real64)*h(2) - yp) / h(2)
+      pz = (real(iz, real64)*h(3) - zp) / h(3)
 
-			Ezp = w1*E(3,ix  ,iy  ,iz  ) + w2*E(3,ix+1,iy  ,iz  ) + &
-						w3*E(3,ix+1,iy+1,iz  ) + w4*E(3,ix  ,iy+1,iz  ) + &
-						w5*E(3,ix  ,iy  ,iz+1) + w6*E(3,ix+1,iy  ,iz+1) + &
-						w7*E(3,ix+1,iy+1,iz+1) + w8*E(3,ix  ,iy+1,iz+1)
+      wx2 = 1.0_real64 - px
+      wy2 = 1.0_real64 - py
+      wz2 = 1.0_real64 - pz
 
-			! ------------------------------------------------------------
-			! B-field interpolation
-			! ------------------------------------------------------------
-			if (uniform_B) then
+      w1 = px  * py  * pz
+      w2 = wx2 * py  * pz
+      w3 = wx2 * wy2 * pz
+      w4 = px  * wy2 * pz
+      w5 = px  * py  * wz2
+      w6 = wx2 * py  * wz2
+      w7 = wx2 * wy2 * wz2
+      w8 = px  * wy2 * wz2
 
-				Bpx = Bi(1,1,1,1)
-				Bpy = Bi(2,1,1,1)
-				Bpz = Bi(3,1,1,1)
+      Exp = w1*E(1,ix  ,iy  ,iz  ) + w2*E(1,ix+1,iy  ,iz  ) + &
+            w3*E(1,ix+1,iy+1,iz  ) + w4*E(1,ix  ,iy+1,iz  ) + &
+            w5*E(1,ix  ,iy  ,iz+1) + w6*E(1,ix+1,iy  ,iz+1) + &
+            w7*E(1,ix+1,iy+1,iz+1) + w8*E(1,ix  ,iy+1,iz+1)
 
-			else if (same_grid_B) then
+      Eyp = w1*E(2,ix  ,iy  ,iz  ) + w2*E(2,ix+1,iy  ,iz  ) + &
+            w3*E(2,ix+1,iy+1,iz  ) + w4*E(2,ix  ,iy+1,iz  ) + &
+            w5*E(2,ix  ,iy  ,iz+1) + w6*E(2,ix+1,iy  ,iz+1) + &
+            w7*E(2,ix+1,iy+1,iz+1) + w8*E(2,ix  ,iy+1,iz+1)
 
-				! Reuse E-grid indices and weights.
-				Bpx = w1*Bi(1,ix  ,iy  ,iz  ) + w2*Bi(1,ix+1,iy  ,iz  ) + &
-							w3*Bi(1,ix+1,iy+1,iz  ) + w4*Bi(1,ix  ,iy+1,iz  ) + &
-							w5*Bi(1,ix  ,iy  ,iz+1) + w6*Bi(1,ix+1,iy  ,iz+1) + &
-							w7*Bi(1,ix+1,iy+1,iz+1) + w8*Bi(1,ix  ,iy+1,iz+1)
+      Ezp = w1*E(3,ix  ,iy  ,iz  ) + w2*E(3,ix+1,iy  ,iz  ) + &
+            w3*E(3,ix+1,iy+1,iz  ) + w4*E(3,ix  ,iy+1,iz  ) + &
+            w5*E(3,ix  ,iy  ,iz+1) + w6*E(3,ix+1,iy  ,iz+1) + &
+            w7*E(3,ix+1,iy+1,iz+1) + w8*E(3,ix  ,iy+1,iz+1)
 
-				Bpy = w1*Bi(2,ix  ,iy  ,iz  ) + w2*Bi(2,ix+1,iy  ,iz  ) + &
-							w3*Bi(2,ix+1,iy+1,iz  ) + w4*Bi(2,ix  ,iy+1,iz  ) + &
-							w5*Bi(2,ix  ,iy  ,iz+1) + w6*Bi(2,ix+1,iy  ,iz+1) + &
-							w7*Bi(2,ix+1,iy+1,iz+1) + w8*Bi(2,ix  ,iy+1,iz+1)
+      ! ------------------------------------------------------------
+      ! B-field interpolation
+      ! ------------------------------------------------------------
+      if (uniform_B) then
 
-				Bpz = w1*Bi(3,ix  ,iy  ,iz  ) + w2*Bi(3,ix+1,iy  ,iz  ) + &
-							w3*Bi(3,ix+1,iy+1,iz  ) + w4*Bi(3,ix  ,iy+1,iz  ) + &
-							w5*Bi(3,ix  ,iy  ,iz+1) + w6*Bi(3,ix+1,iy  ,iz+1) + &
-							w7*Bi(3,ix+1,iy+1,iz+1) + w8*Bi(3,ix  ,iy+1,iz+1)
+        Bpx = Bi(1,1,1,1)
+        Bpy = Bi(2,1,1,1)
+        Bpz = Bi(3,1,1,1)
 
-			else
+      else if (same_grid_B) then
 
-				ixB = int(xp / h_B(1), int32) + 1_int32
-				iyB = int(yp / h_B(2), int32) + 1_int32
-				izB = int(zp / h_B(3), int32) + 1_int32
+        Bpx = w1*Bi(1,ix  ,iy  ,iz  ) + w2*Bi(1,ix+1,iy  ,iz  ) + &
+              w3*Bi(1,ix+1,iy+1,iz  ) + w4*Bi(1,ix  ,iy+1,iz  ) + &
+              w5*Bi(1,ix  ,iy  ,iz+1) + w6*Bi(1,ix+1,iy  ,iz+1) + &
+              w7*Bi(1,ix+1,iy+1,iz+1) + w8*Bi(1,ix  ,iy+1,iz+1)
 
-				ixB = max(0_int32, min(n_B(1)+1_int32, ixB))
-				iyB = max(0_int32, min(n_B(2)+1_int32, iyB))
-				izB = max(0_int32, min(n_B(3)+1_int32, izB))
+        Bpy = w1*Bi(2,ix  ,iy  ,iz  ) + w2*Bi(2,ix+1,iy  ,iz  ) + &
+              w3*Bi(2,ix+1,iy+1,iz  ) + w4*Bi(2,ix  ,iy+1,iz  ) + &
+              w5*Bi(2,ix  ,iy  ,iz+1) + w6*Bi(2,ix+1,iy  ,iz+1) + &
+              w7*Bi(2,ix+1,iy+1,iz+1) + w8*Bi(2,ix  ,iy+1,iz+1)
 
-				pxB = (real(ixB, real64)*h_B(1) - xp) / h_B(1)
-				pyB = (real(iyB, real64)*h_B(2) - yp) / h_B(2)
-				pzB = (real(izB, real64)*h_B(3) - zp) / h_B(3)
+        Bpz = w1*Bi(3,ix  ,iy  ,iz  ) + w2*Bi(3,ix+1,iy  ,iz  ) + &
+              w3*Bi(3,ix+1,iy+1,iz  ) + w4*Bi(3,ix  ,iy+1,iz  ) + &
+              w5*Bi(3,ix  ,iy  ,iz+1) + w6*Bi(3,ix+1,iy  ,iz+1) + &
+              w7*Bi(3,ix+1,iy+1,iz+1) + w8*Bi(3,ix  ,iy+1,iz+1)
 
-				wx2B = 1.0_real64 - pxB
-				wy2B = 1.0_real64 - pyB
-				wz2B = 1.0_real64 - pzB
+      else
 
-				b1 = pxB  * pyB  * pzB
-				b2 = wx2B * pyB  * pzB
-				b3 = wx2B * wy2B * pzB
-				b4 = pxB  * wy2B * pzB
-				b5 = pxB  * pyB  * wz2B
-				b6 = wx2B * pyB  * wz2B
-				b7 = wx2B * wy2B * wz2B
-				b8 = pxB  * wy2B * wz2B
+        ixB = int(xp / h_B(1), int32) + 1_int32
+        iyB = int(yp / h_B(2), int32) + 1_int32
+        izB = int(zp / h_B(3), int32) + 1_int32
 
-				Bpx = b1*Bi(1,ixB  ,iyB  ,izB  ) + b2*Bi(1,ixB+1,iyB  ,izB  ) + &
-							b3*Bi(1,ixB+1,iyB+1,izB  ) + b4*Bi(1,ixB  ,iyB+1,izB  ) + &
-							b5*Bi(1,ixB  ,iyB  ,izB+1) + b6*Bi(1,ixB+1,iyB  ,izB+1) + &
-							b7*Bi(1,ixB+1,iyB+1,izB+1) + b8*Bi(1,ixB  ,iyB+1,izB+1)
+        ixB = max(0_int32, min(n_B(1)+1_int32, ixB))
+        iyB = max(0_int32, min(n_B(2)+1_int32, iyB))
+        izB = max(0_int32, min(n_B(3)+1_int32, izB))
 
-				Bpy = b1*Bi(2,ixB  ,iyB  ,izB  ) + b2*Bi(2,ixB+1,iyB  ,izB  ) + &
-							b3*Bi(2,ixB+1,iyB+1,izB  ) + b4*Bi(2,ixB  ,iyB+1,izB  ) + &
-							b5*Bi(2,ixB  ,iyB  ,izB+1) + b6*Bi(2,ixB+1,iyB  ,izB+1) + &
-							b7*Bi(2,ixB+1,iyB+1,izB+1) + b8*Bi(2,ixB  ,iyB+1,izB+1)
+        pxB = (real(ixB, real64)*h_B(1) - xp) / h_B(1)
+        pyB = (real(iyB, real64)*h_B(2) - yp) / h_B(2)
+        pzB = (real(izB, real64)*h_B(3) - zp) / h_B(3)
 
-				Bpz = b1*Bi(3,ixB  ,iyB  ,izB  ) + b2*Bi(3,ixB+1,iyB  ,izB  ) + &
-							b3*Bi(3,ixB+1,iyB+1,izB  ) + b4*Bi(3,ixB  ,iyB+1,izB  ) + &
-							b5*Bi(3,ixB  ,iyB  ,izB+1) + b6*Bi(3,ixB+1,iyB  ,izB+1) + &
-							b7*Bi(3,ixB+1,iyB+1,izB+1) + b8*Bi(3,ixB  ,iyB+1,izB+1)
+        wx2B = 1.0_real64 - pxB
+        wy2B = 1.0_real64 - pyB
+        wz2B = 1.0_real64 - pzB
 
-			end if
+        b1 = pxB  * pyB  * pzB
+        b2 = wx2B * pyB  * pzB
+        b3 = wx2B * wy2B * pzB
+        b4 = pxB  * wy2B * pzB
+        b5 = pxB  * pyB  * wz2B
+        b6 = wx2B * pyB  * wz2B
+        b7 = wx2B * wy2B * wz2B
+        b8 = pxB  * wy2B * wz2B
 
-			! ------------------------------------------------------------
-			! Boris push without sqrt(|B|^2)
-			! ------------------------------------------------------------
+        Bpx = b1*Bi(1,ixB  ,iyB  ,izB  ) + b2*Bi(1,ixB+1,iyB  ,izB  ) + &
+              b3*Bi(1,ixB+1,iyB+1,izB  ) + b4*Bi(1,ixB  ,iyB+1,izB  ) + &
+              b5*Bi(1,ixB  ,iyB  ,izB+1) + b6*Bi(1,ixB+1,iyB  ,izB+1) + &
+              b7*Bi(1,ixB+1,iyB+1,izB+1) + b8*Bi(1,ixB  ,iyB+1,izB+1)
 
-			vminus_x = part%vx(i) + qm2dt*Exp
-			vminus_y = part%vy(i) + qm2dt*Eyp
-			vminus_z = part%vz(i) + qm2dt*Ezp
+        Bpy = b1*Bi(2,ixB  ,iyB  ,izB  ) + b2*Bi(2,ixB+1,iyB  ,izB  ) + &
+              b3*Bi(2,ixB+1,iyB+1,izB  ) + b4*Bi(2,ixB  ,iyB+1,izB  ) + &
+              b5*Bi(2,ixB  ,iyB  ,izB+1) + b6*Bi(2,ixB+1,iyB  ,izB+1) + &
+              b7*Bi(2,ixB+1,iyB+1,izB+1) + b8*Bi(2,ixB  ,iyB+1,izB+1)
 
-			tx = qm2dt * Bpx
-			ty = qm2dt * Bpy
-			tz = qm2dt * Bpz
+        Bpz = b1*Bi(3,ixB  ,iyB  ,izB  ) + b2*Bi(3,ixB+1,iyB  ,izB  ) + &
+              b3*Bi(3,ixB+1,iyB+1,izB  ) + b4*Bi(3,ixB  ,iyB+1,izB  ) + &
+              b5*Bi(3,ixB  ,iyB  ,izB+1) + b6*Bi(3,ixB+1,iyB  ,izB+1) + &
+              b7*Bi(3,ixB+1,iyB+1,izB+1) + b8*Bi(3,ixB  ,iyB+1,izB+1)
 
-			t2 = tx*tx + ty*ty + tz*tz
-			inv_denom = 1.0_real64 / (1.0_real64 + t2)
+      end if
 
-			sx = 2.0_real64 * tx * inv_denom
-			sy = 2.0_real64 * ty * inv_denom
-			sz = 2.0_real64 * tz * inv_denom
+      ! ------------------------------------------------------------
+      ! Boris push without sqrt(|B|^2)
+      ! ------------------------------------------------------------
+      vminus_x = part%vx(i) + qm2dt*Exp
+      vminus_y = part%vy(i) + qm2dt*Eyp
+      vminus_z = part%vz(i) + qm2dt*Ezp
 
-			vprime_x = vminus_x + (vminus_y*tz - vminus_z*ty)
-			vprime_y = vminus_y + (vminus_z*tx - vminus_x*tz)
-			vprime_z = vminus_z + (vminus_x*ty - vminus_y*tx)
+      tx = qm2dt * Bpx
+      ty = qm2dt * Bpy
+      tz = qm2dt * Bpz
 
-			vplus_x = vminus_x + (vprime_y*sz - vprime_z*sy)
-			vplus_y = vminus_y + (vprime_z*sx - vprime_x*sz)
-			vplus_z = vminus_z + (vprime_x*sy - vprime_y*sx)
+      t2        = tx*tx + ty*ty + tz*tz
+      inv_denom = 1.0_real64 / (1.0_real64 + t2)
 
-			part%vx(i) = vplus_x + qm2dt*Exp
-			part%vy(i) = vplus_y + qm2dt*Eyp
-			part%vz(i) = vplus_z + qm2dt*Ezp
+      sx = 2.0_real64 * tx * inv_denom
+      sy = 2.0_real64 * ty * inv_denom
+      sz = 2.0_real64 * tz * inv_denom
 
-			part%x(i) = xp + dt*part%vx(i)
-			part%y(i) = yp + dt*part%vy(i)
-			part%z(i) = zp + dt*part%vz(i)
+      vprime_x = vminus_x + (vminus_y*tz - vminus_z*ty)
+      vprime_y = vminus_y + (vminus_z*tx - vminus_x*tz)
+      vprime_z = vminus_z + (vminus_x*ty - vminus_y*tx)
 
-		end do
+      vplus_x = vminus_x + (vprime_y*sz - vprime_z*sy)
+      vplus_y = vminus_y + (vprime_z*sx - vprime_x*sz)
+      vplus_z = vminus_z + (vprime_x*sy - vprime_y*sx)
 
-		if (allocated(part%cell_id))    part%cell_id(1:part%n) = 0_int32
-		if (allocated(part%cell_count)) part%cell_count = 0_int32
-		if (allocated(part%cell_start)) part%cell_start = 0_int32
+      vpx_new = vplus_x + qm2dt*Exp
+      vpy_new = vplus_y + qm2dt*Eyp
+      vpz_new = vplus_z + qm2dt*Ezp
 
-	end subroutine move_particles_boris
+      xp_new = xp + dt*vpx_new
+      yp_new = yp + dt*vpy_new
+      zp_new = zp + dt*vpz_new
+
+      ! ---- boundary conditions / SEE, operating on the just-pushed state ----
+      ix = floor(xp_new / h(1)) + 1_int32
+      iy = floor(yp_new / h(2)) + 1_int32
+      iz = floor(zp_new / h(3)) + 1_int32
+
+      if (ix < 0_int32)      ix = 0_int32
+      if (ix > n(1)+1_int32) ix = n(1)+1_int32
+      if (iy < 0_int32)      iy = 0_int32
+      if (iy > n(2)+1_int32) iy = n(2)+1_int32
+      if (iz < 0_int32)      iz = 0_int32
+      if (iz > n(3)+1_int32) iz = n(3)+1_int32
+
+      flag_lost = 0_int32
+
+      if (particle_is_lost(bcnd, ix, iy, iz, n)) flag_lost = 1_int32
+
+      if (ptype == tag_neg) then
+        if (xp_new < 0.0_real64 .and. flag_nmn == 1_int32) flag_lost = 2_int32
+      end if
+
+      if (flag_lost >= 1_int32) then
+
+        if (ptype == 1_int32) then
+          if (xp_new > xmax - h(1)) dbg_loss_xright_s1 = dbg_loss_xright_s1 + 1_int64
+          if (zp_new < h(3))        dbg_loss_zlow_s1   = dbg_loss_zlow_s1   + 1_int64
+          if (zp_new > zmax-h(3))   dbg_loss_zhigh_s1  = dbg_loss_zhigh_s1  + 1_int64
+        else if (ptype == 2_int32) then
+          if (xp_new > xmax - h(1)) dbg_loss_xright_s2 = dbg_loss_xright_s2 + 1_int64
+          if (zp_new < h(3))        dbg_loss_zlow_s2   = dbg_loss_zlow_s2   + 1_int64
+          if (zp_new > zmax-h(3))   dbg_loss_zhigh_s2  = dbg_loss_zhigh_s2  + 1_int64
+        end if
+
+        igrid = bcnd(ix,iy,iz)
+
+        if (flag_lost == 2_int32 .and. ptype == tag_neg) igrid = 0_int32
+
+        if (flag_die == 1_int32 .and. igrid > 0_int32) then
+          if (dtype(igrid) > 1_int32) then
+
+            if (flag_pbc == 1_int32) then
+              if (zp_new >= zmax) then
+                zp_new = zp_new - zmax
+                iz = floor(zp_new / h(3), int32) + 1_int32
+              end if
+              if (zp_new <= 0.0_real64) then
+                zp_new = zmax + zp_new
+                iz = floor(zp_new / h(3), int32) + 1_int32
+              end if
+            end if
+
+            if (ix < 0_int32)      ix = 0_int32
+            if (ix > n(1)+1_int32) ix = n(1)+1_int32
+            if (iy < 0_int32)      iy = 0_int32
+            if (iy > n(2)+1_int32) iy = n(2)+1_int32
+            if (iz < 0_int32)      iz = 0_int32
+            if (iz > n(3)+1_int32) iz = n(3)+1_int32
+
+            pz = (real(iz,real64)*h(3) - zp_new) / h(3)
+
+            if (dtype(igrid) == 2_int32) then
+              px = (real(ix,real64)*h(1) - xp_new) / h(1)
+
+              ki4(1) = qmacro * px               * pz
+              ki4(2) = qmacro * (1.0_real64-px) * pz
+              ki4(3) = qmacro * (1.0_real64-px) * (1.0_real64-pz)
+              ki4(4) = qmacro * px               * (1.0_real64-pz)
+
+              sum_q_xz_local(ix  ,iz  ) = sum_q_xz_local(ix  ,iz  ) + ki4(1)
+              sum_q_xz_local(ix+1,iz  ) = sum_q_xz_local(ix+1,iz  ) + ki4(2)
+              sum_q_xz_local(ix+1,iz+1) = sum_q_xz_local(ix+1,iz+1) + ki4(3)
+              sum_q_xz_local(ix  ,iz+1) = sum_q_xz_local(ix  ,iz+1) + ki4(4)
+            end if
+
+            if (dtype(igrid) == 3_int32 .or. dtype(igrid) == 4_int32) then
+              py = (real(iy,real64)*h(2) - yp_new) / h(2)
+
+              ki4(1) = qmacro * py               * pz
+              ki4(2) = qmacro * (1.0_real64-py) * pz
+              ki4(3) = qmacro * (1.0_real64-py) * (1.0_real64-pz)
+              ki4(4) = qmacro * py               * (1.0_real64-pz)
+
+              d_ind = dtype(igrid)
+
+              sum_q_yz_local(d_ind-2,iy  ,iz  ) = sum_q_yz_local(d_ind-2,iy  ,iz  ) + ki4(1)
+              sum_q_yz_local(d_ind-2,iy+1,iz  ) = sum_q_yz_local(d_ind-2,iy+1,iz  ) + ki4(2)
+              sum_q_yz_local(d_ind-2,iy+1,iz+1) = sum_q_yz_local(d_ind-2,iy+1,iz+1) + ki4(3)
+              sum_q_yz_local(d_ind-2,iy  ,iz+1) = sum_q_yz_local(d_ind-2,iy  ,iz+1) + ki4(4)
+            end if
+
+          end if
+        end if
+
+        ! Wall diagnostics
+        if (igrid < 0_int32) igrid = 0_int32
+
+        Ek_eV = 0.5_real64 * m * &
+          (vpx_new*vpx_new + vpy_new*vpy_new + vpz_new*vpz_new) / qe
+
+        p_mac_boundary(1,igrid) = p_mac_boundary(1,igrid) + qmacro
+        p_mac_boundary(2,igrid) = p_mac_boundary(2,igrid) + abs(qmacro) * Ek_eV
+
+        Ek_J = 0.5_real64 * m * &
+            (vpx_new*vpx_new + vpy_new*vpy_new + vpz_new*vpz_new)
+        P_loss_wall = P_loss_wall + Nm_species * Ek_J
+
+        ! Secondary electron emission (positive ions hitting igrid_sec)
+        if (do_see .and. igrid == see%igrid_sec) then
+          rnd(1) = ran2(iseed)
+          n_sec  = int(see%gam_sec, int32)
+          if (rnd(1) <= (see%gam_sec - real(n_sec, real64))) n_sec = n_sec + 1_int32
+
+          if (n_sec > 0_int32) then
+            ! No lock needed: this routine's only caller (state%advance_particles_local,
+            ! mod_state.f90) parallelizes over iproc alone, one thread owning
+            ! this iproc's part_electrons = part(1,iproc) for the whole call.
+            call part_electrons%ensure_capacity(part_electrons%n + n_sec)
+            do ip_sec = 1, n_sec
+              rnd(1) = ran2(iseed)
+              vz_sec = -sign(1.0_real64, vpz_new) * see%vt_sec * sqrt(-log(1.0_real64 - rnd(1)))
+              rnd(1) = ran2(iseed)
+              rnd(2) = ran2(iseed)
+              call load_gauss(vx_sec, vy_sec, see%vt_sec, rnd)
+
+              part_electrons%n    = part_electrons%n + 1_int32
+              i_see               = part_electrons%n
+              part_electrons%x(i_see)  = xp_new
+              part_electrons%y(i_see)  = yp_new
+              part_electrons%z(i_see)  = merge(see%zg_sec(1), see%zg_sec(2), vpz_new < 0.0_real64)
+              part_electrons%vx(i_see) = vx_sec
+              part_electrons%vy(i_see) = vy_sec
+              part_electrons%vz(i_see) = vz_sec
+              if (allocated(part_electrons%flag_dead)) part_electrons%flag_dead(i_see) = 0_int8
+              if (allocated(part_electrons%flag_cex))  part_electrons%flag_cex(i_see)  = 0_int32
+
+              P_loss_see = P_loss_see + 0.5_real64 * see%Nm_e * &
+                  (vx_sec*vx_sec + vy_sec*vy_sec + vz_sec*vz_sec)
+            end do
+          end if
+        end if
+
+        np_lost = np_lost + 1_int32
+        cycle
+      end if
+
+      ! Survivors: Neumann reflection on LHS only
+      if (flag_nmn == 1_int32) then
+        if (xp_new <= 0.0_real64) then
+          xp_new  = -xp_new
+          vpx_new = -vpx_new
+        end if
+      end if
+
+      if (flag_pbc == 1_int32) then
+        if (yp_new >= ymax) yp_new = yp_new - ymax
+        if (yp_new <= 0.0_real64) yp_new = ymax + yp_new
+        if (zp_new >= zmax) zp_new = zp_new - zmax
+        if (zp_new <= 0.0_real64) zp_new = zmax + zp_new
+      end if
+
+      i_shift = i - np_lost
+
+      part%x(i_shift)  = xp_new
+      part%y(i_shift)  = yp_new
+      part%z(i_shift)  = zp_new
+      part%vx(i_shift) = vpx_new
+      part%vy(i_shift) = vpy_new
+      part%vz(i_shift) = vpz_new
+
+      if (allocated(part%w))         part%w(i_shift)         = part%w(i)
+      if (allocated(part%sp))        part%sp(i_shift)        = part%sp(i)
+      if (allocated(part%flag_dead)) part%flag_dead(i_shift) = 0_int8
+      if (allocated(part%flag_cex))  part%flag_cex(i_shift)  = part%flag_cex(i)
+
+    end do
+
+    part%n = part%n - np_lost
+    if (part%n < 0_int32) part%n = 0_int32
+
+    if (allocated(part%flag_dead)) then
+      if (part%n < part%nmax) part%flag_dead(part%n+1:part%nmax) = 0_int8
+    end if
+    if (allocated(part%flag_cex)) then
+      if (part%n < part%nmax) part%flag_cex(part%n+1:part%nmax) = 0_int32
+    end if
+
+    if (allocated(part%cell_id))    part%cell_id    = 0_int32
+    if (allocated(part%cell_count)) part%cell_count = 0_int32
+    if (allocated(part%cell_start)) part%cell_start = 0_int32
+
+  end subroutine move_and_bc_boris
 
 end module mod_particleMover

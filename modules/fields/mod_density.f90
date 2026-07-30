@@ -25,6 +25,7 @@ module mod_density
   public :: build_rho_from_np
   public :: build_rho_from_np_thread
   public :: density_max_per_species
+  public :: average_species_density
 
 contains
 
@@ -175,6 +176,27 @@ contains
     end do
 
   end subroutine density_max_per_species
+
+
+  ! Spatial average of np_red(:,:,:,ptype) over the physical node grid.
+  ! np_red is populated on nodes 1..n(dim)+1 in each dimension; when a
+  ! dimension is periodic, apply_periodic_density_bc makes node n(dim)+1
+  ! a duplicate of node 1, so that node is excluded here to avoid double
+  ! counting the seam plane.
+  real(real64) function average_species_density(n, np_red, ntype, ptype, flag_pbc, flag_pbcz)
+    integer(int32), intent(in) :: n(3)
+    integer,        intent(in) :: ntype, ptype
+    real(real64),   intent(in) :: np_red(0:n(1)+2,0:n(2)+2,0:n(3)+2,ntype)
+    integer(int32), intent(in) :: flag_pbc, flag_pbcz
+
+    integer :: ny_uniq, nz_uniq
+
+    ny_uniq = merge(n(2), n(2)+1, flag_pbc  == 1_int32)
+    nz_uniq = merge(n(3), n(3)+1, flag_pbcz == 1_int32)
+
+    average_species_density = sum(np_red(1:n(1)+1, 1:ny_uniq, 1:nz_uniq, ptype)) / &
+        real((n(1)+1) * ny_uniq * nz_uniq, real64)
+  end function average_species_density
 
 
   subroutine apply_periodic_density_bc(n, bcnd, np_thread, ntype, nproc)

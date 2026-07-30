@@ -1,6 +1,6 @@
 module mod_state
   use iso_fortran_env, only: int32, real64
-  use omp_lib, only: omp_get_max_threads, omp_get_num_procs
+  use omp_lib, only: omp_get_max_threads, omp_get_num_procs, omp_get_wtime
   use mpi
 
   use mod_config,         only: Config
@@ -23,7 +23,7 @@ module mod_state
   use mod_particle_loader,  only: load_particles_modular
   use mod_restart,          only: restart_particles_modular
   use mod_particle_sorting, only: sort_particles_by_cell, check_particles_are_sorted, check_cell_indexing
-  use mod_particleMover,    only: move_particles_electrostatic, move_particles_boris
+  use mod_particleMover,    only: move_and_bc_electrostatic, move_and_bc_boris
   use mod_particleBC,       only: apply_particle_bc, SeeParams
   use mod_chargeDeposition, only: deposit_particle_set_to_np_thread
   use mod_magneticField,    only: MagneticField
@@ -509,7 +509,7 @@ contains
   end subroutine apply_dielectric_bc_to_phi
 
 
-  subroutine advance_particles_local(self)
+  subroutine advance_particles_local(self, t_move_out, t_bc_out, t_deposit_out)
     ! Fused push + boundary-condition/SEE + charge-deposition pass.
     !
     ! Parallelizes over iproc only (no collapse with ptype), one thread
@@ -528,15 +528,42 @@ contains
     ! - because a secondary electron created while processing another
     ! species' BC this step must still land in this step's electron
     ! deposit (mirrors legacy's separate push-then-deposit loop order).
+    !
+    ! t_move_out/t_bc_out/t_deposit_out: diagnostic wall-clock split of the
+    ! fused region, since the outer MPI_Wtime() bracket around the whole
+    ! call (mod_simulation.f90) can no longer tell push apart from deposit
+    ! now that they share one parallel region. Each thread times its own
+    ! move_and_bc_*/apply_particle_bc call (summed per iproc) and its own
+    ! deposit loop with omp_get_wtime(), into per-iproc slots it alone
+    ! writes to; the max across iproc (the slowest thread sets the region's
+    ! wall time) is returned. Purely diagnostic - does not change the
+    ! computation. t_bc_out is always 0: push and BC used to be two
+    ! separate calls timed separately, but move_and_bc_electrostatic/boris
+    ! (mod_particleMover.f90) now fuse them into one per-particle loop, so
+    ! there is nothing left to time apart from t_move_out - kept as a
+    ! separate output (rather than removed) so mod_simulation.f90's
+    ! t_mover_bc field and print line don't need touching again.
     class(State), intent(inout) :: self
+    real(real64), intent(out) :: t_move_out, t_bc_out, t_deposit_out
 
     integer(int32)  :: ptype, iproc
     integer(int32)  :: tag_neg_local, ispec
     real(real64)    :: q_species, m_species, dt_local, qmacro
+    real(real64)    :: tw0, tw1
     logical         :: use_boris
     type(SeeParams) :: see
+    real(real64), allocatable :: t_move_thread(:), t_bc_thread(:), t_deposit_thread(:)
+
+    t_move_out    = 0.0_real64
+    t_bc_out      = 0.0_real64
+    t_deposit_out = 0.0_real64
 
     if (.not. allocated(self%part)) return
+
+    allocate(t_move_thread(self%nproc), t_bc_thread(self%nproc), t_deposit_thread(self%nproc))
+    t_move_thread    = 0.0_real64
+    t_bc_thread      = 0.0_real64
+    t_deposit_thread = 0.0_real64
 
     dt_local = self%params%dt
 
@@ -557,7 +584,7 @@ contains
       see%vt_sec = sqrt(2.0_real64 * qe * abs(self%cfg%THm) / abs(self%chem%mass(1)))
     end if
 
-    !$omp parallel do private(iproc,ptype,q_species,m_species,use_boris,qmacro) schedule(static)
+    !$omp parallel do private(iproc,ptype,q_species,m_species,use_boris,qmacro,tw0,tw1) schedule(static)
     do iproc = 1, self%nproc
 
       do ptype = 1, self%ntype
@@ -566,67 +593,115 @@ contains
 
         q_species = self%chem%charge(ptype)
         m_species = self%chem%mass(ptype)
+        qmacro    = self%params%Nm(ptype) * q_species
 
-        ! Push (skipped for m_species<=0, same as legacy's charge-only
-        ! guard around part_mover); BC/SEE still applies unconditionally.
+        tw0 = omp_get_wtime()
         if (m_species > 0.0_real64) then
+          ! Push+BC/SEE fused into one per-particle loop (move_and_bc_*,
+          ! mod_particleMover.f90) instead of two full passes over the
+          ! same position/velocity arrays - see that module for why
+          ! (measured ~76ms push + ~56ms BC as separate passes).
           use_boris = (self%cfg%flag_B == 1) .and. &
                       .not. (self%cfg%flag_B_pos == 1 .and. q_species > 0.0_real64)
 
           if (use_boris) then
-            call move_particles_boris( &
-                part = self%part(ptype,iproc), &
-                n    = int(self%dom%n, int32), &
-                h    = self%dom%h, &
-                E    = self%fld%E, &
-                n_B  = self%magField%n_B, &
-                h_B  = self%magField%h_B, &
-                Bi   = self%magField%Bi, &
-                q    = q_species, &
-                m    = m_species, &
-                dt   = dt_local )
+            call move_and_bc_boris( &
+                part           = self%part(ptype,iproc), &
+                n              = int(self%dom%n, int32), &
+                h              = self%dom%h, &
+                E              = self%fld%E, &
+                n_B            = self%magField%n_B, &
+                h_B            = self%magField%h_B, &
+                Bi             = self%magField%Bi, &
+                q              = q_species, &
+                m              = m_species, &
+                dt             = dt_local, &
+                bcnd           = self%dom%bcnd, &
+                xmax           = self%dom%xmax, &
+                ymax           = self%dom%ymax, &
+                zmax           = self%dom%zmax, &
+                flag_pbc       = int(self%dom%flag_pbc, int32), &
+                flag_nmn       = int(self%dom%flag_nmn, int32), &
+                ptype          = ptype, &
+                tag_neg        = tag_neg_local, &
+                flag_die       = int(self%dom%flag_die, int32), &
+                dtype          = self%dom%dtype, &
+                qmacro         = qmacro, &
+                sum_q_xz_local = self%sum_q_xz(:,:,ptype,iproc), &
+                sum_q_yz_local = self%sum_q_yz(:,:,:,ptype,iproc), &
+                p_mac_boundary = self%p_mac(ptype,:,:,iproc), &
+                P_loss_wall    = self%P_loss(1,ptype,iproc), &
+                Nm_species     = self%params%Nm(ptype), &
+                see            = see, &
+                part_electrons = self%part(1,iproc), &
+                iseed          = self%params%iseed(iproc), &
+                P_loss_see     = self%P_loss(4,1,iproc) )
           else
-            call move_particles_electrostatic( &
-                part = self%part(ptype,iproc), &
-                n    = int(self%dom%n, int32), &
-                h    = self%dom%h, &
-                E    = self%fld%E, &
-                q    = q_species, &
-                m    = m_species, &
-                dt   = dt_local )
+            call move_and_bc_electrostatic( &
+                part           = self%part(ptype,iproc), &
+                n              = int(self%dom%n, int32), &
+                h              = self%dom%h, &
+                E              = self%fld%E, &
+                q              = q_species, &
+                m              = m_species, &
+                dt             = dt_local, &
+                bcnd           = self%dom%bcnd, &
+                xmax           = self%dom%xmax, &
+                ymax           = self%dom%ymax, &
+                zmax           = self%dom%zmax, &
+                flag_pbc       = int(self%dom%flag_pbc, int32), &
+                flag_nmn       = int(self%dom%flag_nmn, int32), &
+                ptype          = ptype, &
+                tag_neg        = tag_neg_local, &
+                flag_die       = int(self%dom%flag_die, int32), &
+                dtype          = self%dom%dtype, &
+                qmacro         = qmacro, &
+                sum_q_xz_local = self%sum_q_xz(:,:,ptype,iproc), &
+                sum_q_yz_local = self%sum_q_yz(:,:,:,ptype,iproc), &
+                p_mac_boundary = self%p_mac(ptype,:,:,iproc), &
+                P_loss_wall    = self%P_loss(1,ptype,iproc), &
+                Nm_species     = self%params%Nm(ptype), &
+                see            = see, &
+                part_electrons = self%part(1,iproc), &
+                iseed          = self%params%iseed(iproc), &
+                P_loss_see     = self%P_loss(4,1,iproc) )
           end if
+        else
+          ! m_species<=0: no push (same guard as before this fusion),
+          ! BC/SEE still applies - fall back to the standalone routine
+          ! since move_and_bc_* always includes the push.
+          call apply_particle_bc( &
+              part           = self%part(ptype,iproc), &
+              n              = int(self%dom%n, int32), &
+              h              = self%dom%h, &
+              bcnd           = self%dom%bcnd, &
+              xmax           = self%dom%xmax, &
+              ymax           = self%dom%ymax, &
+              zmax           = self%dom%zmax, &
+              flag_pbc       = int(self%dom%flag_pbc, int32), &
+              flag_nmn       = int(self%dom%flag_nmn, int32), &
+              ptype          = ptype, &
+              tag_neg        = tag_neg_local, &
+              flag_die       = int(self%dom%flag_die, int32), &
+              dtype          = self%dom%dtype, &
+              qmacro         = qmacro, &
+              sum_q_xz_local = self%sum_q_xz(:,:,ptype,iproc), &
+              sum_q_yz_local = self%sum_q_yz(:,:,:,ptype,iproc), &
+              p_mac_boundary = self%p_mac(ptype,:,:,iproc), &
+              mass_species   = m_species, &
+              P_loss_wall    = self%P_loss(1,ptype,iproc), &
+              Nm_species     = self%params%Nm(ptype), &
+              charge_species = q_species, &
+              see            = see, &
+              part_electrons = self%part(1,iproc), &
+              iseed          = self%params%iseed(iproc), &
+              P_loss_see     = self%P_loss(4,1,iproc) )
         end if
-
-        qmacro = self%params%Nm(ptype) * q_species
-
-        call apply_particle_bc( &
-            part           = self%part(ptype,iproc), &
-            n              = int(self%dom%n, int32), &
-            h              = self%dom%h, &
-            bcnd           = self%dom%bcnd, &
-            xmax           = self%dom%xmax, &
-            ymax           = self%dom%ymax, &
-            zmax           = self%dom%zmax, &
-            flag_pbc       = int(self%dom%flag_pbc, int32), &
-            flag_nmn       = int(self%dom%flag_nmn, int32), &
-            ptype          = ptype, &
-            tag_neg        = tag_neg_local, &
-            flag_die       = int(self%dom%flag_die, int32), &
-            dtype          = self%dom%dtype, &
-            qmacro         = qmacro, &
-            sum_q_xz_local = self%sum_q_xz(:,:,ptype,iproc), &
-            sum_q_yz_local = self%sum_q_yz(:,:,:,ptype,iproc), &
-            p_mac_boundary = self%p_mac(ptype,:,:,iproc), &
-            mass_species   = m_species, &
-            P_loss_wall    = self%P_loss(1,ptype,iproc), &
-            Nm_species     = self%params%Nm(ptype), &
-            charge_species = q_species, &
-            see            = see, &
-            part_electrons = self%part(1,iproc), &
-            iseed          = self%params%iseed(iproc), &
-            P_loss_see     = self%P_loss(4,1,iproc) )
+        tw1 = omp_get_wtime()
+        t_move_thread(iproc) = t_move_thread(iproc) + (tw1 - tw0)
       end do
 
+      tw0 = omp_get_wtime()
       do ptype = 1, self%ntype
         self%np_thread(:,:,:,ptype,iproc) = 0.0_real64
 
@@ -641,8 +716,15 @@ contains
           Nm_species = self%params%Nm(ptype), &
           np_local   = self%np_thread(:,:,:,ptype,iproc) )
       end do
+      tw1 = omp_get_wtime()
+      t_deposit_thread(iproc) = tw1 - tw0
     end do
     !$omp end parallel do
+
+    t_move_out    = maxval(t_move_thread)
+    t_bc_out      = maxval(t_bc_thread)
+    t_deposit_out = maxval(t_deposit_thread)
+    deallocate(t_move_thread, t_bc_thread, t_deposit_thread)
   end subroutine advance_particles_local
 
 

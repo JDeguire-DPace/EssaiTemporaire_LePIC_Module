@@ -8,6 +8,7 @@ module mod_particleBC
   private
 
   public :: apply_particle_bc
+  public :: particle_is_lost
   public :: SeeParams
 
   public :: dbg_loss_xright_s1, dbg_loss_xright_s2
@@ -230,7 +231,14 @@ contains
           if (rnd(1) <= (see%gam_sec - real(n_sec, real64))) n_sec = n_sec + 1_int32
 
           if (n_sec > 0_int32) then
-            !$omp critical (see_emit)
+            ! No lock needed: apply_particle_bc's only caller
+            ! (state%advance_particles_local, mod_state.f90) parallelizes
+            ! over iproc alone, one thread owning this iproc's
+            ! part_electrons = part(1,iproc) for the whole call - so no
+            ! other thread can ever touch it concurrently. A prior version
+            ! of that caller parallelized over (ptype,iproc) collapsed
+            ! together, which really could race here across ptypes of the
+            ! same iproc; this critical section is a leftover from that.
             call part_electrons%ensure_capacity(part_electrons%n + n_sec)
             do ip_sec = 1, n_sec
               rnd(1) = ran2(iseed)
@@ -253,7 +261,6 @@ contains
               P_loss_see = P_loss_see + 0.5_real64 * see%Nm_e * &
                   (vx_sec*vx_sec + vy_sec*vy_sec + vz_sec*vz_sec)
             end do
-            !$omp end critical (see_emit)
           end if
         end if
 
