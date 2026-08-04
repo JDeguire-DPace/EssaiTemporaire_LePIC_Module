@@ -767,7 +767,7 @@ program main
   !
   ! Start iteration 
   !
-  do it=1, 35005!ntmax
+  do it=1, 45005!ntmax
 
      time= time + dt
      if(time.ge.tmax) exit ! Stop calculation

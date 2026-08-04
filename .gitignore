@@ -3,3 +3,4 @@
 slurm*
 *dump*
 .nfs*
+*.dat
