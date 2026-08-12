@@ -213,6 +213,15 @@ module mod_readConditions
         cfg%flag_coulomb = 0
         if (ans=='y' .or. ans=='Y') cfg%flag_coulomb = 1
 
+        ! Modular-only line - legacy's Src/read_input.f90 has no matching
+        ! read, but tolerates it fine: its own END-search loop just skips
+        ! any line that isn't END, same as it already does for the
+        ! Coulomb-collisions line above. 'momentum' (default, unchanged
+        ! behavior) or 'energy' (Powis & Kaganovich EC-PIC scheme) - see
+        ! cfg%push_scheme's declaration comment (mod_config.f90) and the
+        ! push_scheme guard in mod_simulation.f90's init().
+        read(10,*,err=999) cfg%push_scheme
+
         flag_read = 0
         do while (flag_read == 0)
             read(10,*,err=999) end_file

@@ -13,6 +13,7 @@ module mod_particleMover
   public :: move_and_bc_electrostatic
   public :: move_and_bc_boris
   public :: interpolate_E_trilinear
+  public :: gather_E_energy_conserving
 
 contains
 
@@ -76,7 +77,64 @@ contains
   end subroutine interpolate_E_trilinear
 
 
+  pure subroutine gather_E_energy_conserving(xp, yp, zp, n, h, E, Exp, Eyp, Ezp)
+    ! Energy-conserving gather (Powis & Kaganovich, Phys. Plasmas 31, 023901
+    ! (2024), Eq. 10): each E component uses the nearest-grid-point (S0,
+    ! piecewise-constant) weight in its own normal direction, and ordinary
+    ! linear weight in the other two (tangential) directions. This is the
+    ! exact coordinate-by-coordinate derivative of the same trilinear
+    ! potential-energy shape function used for charge deposition - the
+    ! property that makes the scheme energy-conserving.
+    !
+    ! "Nearest face" in a direction turns out to be exactly the cell the
+    ! particle is already in: cell ix spans [(ix-1)*h(1), ix*h(1)), and its
+    ! own center (ix-0.5)*h(1) - which is where calc_Efield_energy_conserving
+    ! (mod_electricField.f90) stores E(1,ix,...) - is strictly nearer to
+    ! every point in that span than either neighboring cell's center. So the
+    ! normal direction just reuses the same cell index ix/iy/iz as the
+    ! tangential (bilinear) directions do, with no separate rounding.
+    real(real64),   intent(in)  :: xp, yp, zp
+    integer(int32), intent(in)  :: n(3)
+    real(real64),   intent(in)  :: h(3)
+    real(real64),   intent(in)  :: E(3,0:n(1)+2,0:n(2)+2,0:n(3)+2)
+    real(real64),   intent(out) :: Exp, Eyp, Ezp
+
+    integer(int32) :: ix, iy, iz
+    real(real64)   :: px, py, pz
+    real(real64)   :: wx2, wy2, wz2
+
+    ix = int(xp / h(1), int32) + 1_int32
+    iy = int(yp / h(2), int32) + 1_int32
+    iz = int(zp / h(3), int32) + 1_int32
+
+    ix = clamp_index(ix, 0_int32, n(1)+1_int32)
+    iy = clamp_index(iy, 0_int32, n(2)+1_int32)
+    iz = clamp_index(iz, 0_int32, n(3)+1_int32)
+
+    px = (real(ix, real64)*h(1) - xp) / h(1)
+    py = (real(iy, real64)*h(2) - yp) / h(2)
+    pz = (real(iz, real64)*h(3) - zp) / h(3)
+
+    wx2 = 1.0_real64 - px
+    wy2 = 1.0_real64 - py
+    wz2 = 1.0_real64 - pz
+
+    ! E_x: nearest (fixed ix), bilinear in y,z
+    Exp = py*pz*E(1,ix,iy,iz) + py*wz2*E(1,ix,iy,iz+1) + &
+          wy2*pz*E(1,ix,iy+1,iz) + wy2*wz2*E(1,ix,iy+1,iz+1)
+
+    ! E_y: nearest (fixed iy), bilinear in x,z
+    Eyp = px*pz*E(2,ix,iy,iz) + px*wz2*E(2,ix,iy,iz+1) + &
+          wx2*pz*E(2,ix+1,iy,iz) + wx2*wz2*E(2,ix+1,iy,iz+1)
+
+    ! E_z: nearest (fixed iz), bilinear in x,y
+    Ezp = px*py*E(3,ix,iy,iz) + px*wy2*E(3,ix,iy+1,iz) + &
+          wx2*py*E(3,ix+1,iy,iz) + wx2*wy2*E(3,ix+1,iy+1,iz)
+  end subroutine gather_E_energy_conserving
+
+
   subroutine move_and_bc_electrostatic( part, n, h, E, q, m, dt, &
+                                         use_energy_conserving, &
                                          bcnd, xmax, ymax, zmax, flag_pbc, flag_nmn, &
                                          ptype, tag_neg, flag_die, dtype, qmacro, &
                                          sum_q_xz_local, sum_q_yz_local, p_mac_boundary, &
@@ -89,11 +147,17 @@ contains
     ! from move_particles_electrostatic + apply_particle_bc (mod_particleBC.f90);
     ! any change here should be mirrored there and vice versa if the two
     ! non-fused routines are still needed elsewhere.
-    class(ParticleSet), intent(inout) :: part
+    !
+    ! use_energy_conserving selects gather_E_energy_conserving (above)
+    ! instead of the inlined trilinear gather below, matching whichever of
+    ! calc_Efield_modular/calc_Efield_energy_conserving (mod_electricField.f90)
+    ! populated E this step - see cfg%push_scheme (mod_config.f90).
+    type(ParticleSet),  intent(inout) :: part
     integer(int32),     intent(in)    :: n(3)
     real(real64),       intent(in)    :: h(3)
     real(real64),       intent(in)    :: E(3,0:n(1)+2,0:n(2)+2,0:n(3)+2)
     real(real64),       intent(in)    :: q, m, dt
+    logical,            intent(in)    :: use_energy_conserving
 
     integer(int32),     intent(in)    :: bcnd(0:n(1)+2,0:n(2)+2,0:n(3)+2)
     real(real64),       intent(in)    :: xmax, ymax, zmax
@@ -107,7 +171,7 @@ contains
     real(real64),       intent(inout) :: P_loss_wall
     real(real64),       intent(in)    :: Nm_species
     type(SeeParams),    intent(in)    :: see
-    class(ParticleSet), intent(inout) :: part_electrons
+    type(ParticleSet),  intent(inout) :: part_electrons
     integer(int32),     intent(inout) :: iseed
     real(real64),       intent(inout) :: P_loss_see
 
@@ -179,20 +243,24 @@ contains
       w7 = wx2 * wy2 * wz2
       w8 = px  * wy2 * wz2
 
-      Exp = w1*E(1,ix  ,iy  ,iz  ) + w2*E(1,ix+1,iy  ,iz  ) + &
-            w3*E(1,ix+1,iy+1,iz  ) + w4*E(1,ix  ,iy+1,iz  ) + &
-            w5*E(1,ix  ,iy  ,iz+1) + w6*E(1,ix+1,iy  ,iz+1) + &
-            w7*E(1,ix+1,iy+1,iz+1) + w8*E(1,ix  ,iy+1,iz+1)
+      if (use_energy_conserving) then
+        call gather_E_energy_conserving(xp, yp, zp, n, h, E, Exp, Eyp, Ezp)
+      else
+        Exp = w1*E(1,ix  ,iy  ,iz  ) + w2*E(1,ix+1,iy  ,iz  ) + &
+              w3*E(1,ix+1,iy+1,iz  ) + w4*E(1,ix  ,iy+1,iz  ) + &
+              w5*E(1,ix  ,iy  ,iz+1) + w6*E(1,ix+1,iy  ,iz+1) + &
+              w7*E(1,ix+1,iy+1,iz+1) + w8*E(1,ix  ,iy+1,iz+1)
 
-      Eyp = w1*E(2,ix  ,iy  ,iz  ) + w2*E(2,ix+1,iy  ,iz  ) + &
-            w3*E(2,ix+1,iy+1,iz  ) + w4*E(2,ix  ,iy+1,iz  ) + &
-            w5*E(2,ix  ,iy  ,iz+1) + w6*E(2,ix+1,iy  ,iz+1) + &
-            w7*E(2,ix+1,iy+1,iz+1) + w8*E(2,ix  ,iy+1,iz+1)
+        Eyp = w1*E(2,ix  ,iy  ,iz  ) + w2*E(2,ix+1,iy  ,iz  ) + &
+              w3*E(2,ix+1,iy+1,iz  ) + w4*E(2,ix  ,iy+1,iz  ) + &
+              w5*E(2,ix  ,iy  ,iz+1) + w6*E(2,ix+1,iy  ,iz+1) + &
+              w7*E(2,ix+1,iy+1,iz+1) + w8*E(2,ix  ,iy+1,iz+1)
 
-      Ezp = w1*E(3,ix  ,iy  ,iz  ) + w2*E(3,ix+1,iy  ,iz  ) + &
-            w3*E(3,ix+1,iy+1,iz  ) + w4*E(3,ix  ,iy+1,iz  ) + &
-            w5*E(3,ix  ,iy  ,iz+1) + w6*E(3,ix+1,iy  ,iz+1) + &
-            w7*E(3,ix+1,iy+1,iz+1) + w8*E(3,ix  ,iy+1,iz+1)
+        Ezp = w1*E(3,ix  ,iy  ,iz  ) + w2*E(3,ix+1,iy  ,iz  ) + &
+              w3*E(3,ix+1,iy+1,iz  ) + w4*E(3,ix  ,iy+1,iz  ) + &
+              w5*E(3,ix  ,iy  ,iz+1) + w6*E(3,ix+1,iy  ,iz+1) + &
+              w7*E(3,ix+1,iy+1,iz+1) + w8*E(3,ix  ,iy+1,iz+1)
+      end if
 
       vpx_new = part%vx(i) + qmdt*Exp
       vpy_new = part%vy(i) + qmdt*Eyp
@@ -395,6 +463,7 @@ contains
 
 
   subroutine move_and_bc_boris( part, n, h, E, n_B, h_B, Bi, q, m, dt, &
+                                 use_energy_conserving, &
                                  bcnd, xmax, ymax, zmax, flag_pbc, flag_nmn, &
                                  ptype, tag_neg, flag_die, dtype, qmacro, &
                                  sum_q_xz_local, sum_q_yz_local, p_mac_boundary, &
@@ -404,7 +473,9 @@ contains
     ! (move_particles_boris) in place of the electrostatic one. See that
     ! routine's header comment for the rationale; the BC/SEE block below
     ! is identical to it (and to apply_particle_bc in mod_particleBC.f90).
-    class(ParticleSet), intent(inout) :: part
+    ! use_energy_conserving: see move_and_bc_electrostatic - only affects
+    ! how E is gathered, the magnetic (Boris rotation) part is unchanged.
+    type(ParticleSet),  intent(inout) :: part
     integer(int32),     intent(in)    :: n(3)
     real(real64),       intent(in)    :: h(3)
     real(real64),       intent(in)    :: E(3,0:n(1)+2,0:n(2)+2,0:n(3)+2)
@@ -412,6 +483,7 @@ contains
     real(real64),       intent(in)    :: h_B(3)
     real(real64),       intent(in)    :: Bi(4,0:n_B(1)+2,0:n_B(2)+2,0:n_B(3)+2)
     real(real64),       intent(in)    :: q, m, dt
+    logical,            intent(in)    :: use_energy_conserving
 
     integer(int32),     intent(in)    :: bcnd(0:n(1)+2,0:n(2)+2,0:n(3)+2)
     real(real64),       intent(in)    :: xmax, ymax, zmax
@@ -425,7 +497,7 @@ contains
     real(real64),       intent(inout) :: P_loss_wall
     real(real64),       intent(in)    :: Nm_species
     type(SeeParams),    intent(in)    :: see
-    class(ParticleSet), intent(inout) :: part_electrons
+    type(ParticleSet),  intent(inout) :: part_electrons
     integer(int32),     intent(inout) :: iseed
     real(real64),       intent(inout) :: P_loss_see
 
@@ -524,20 +596,24 @@ contains
       w7 = wx2 * wy2 * wz2
       w8 = px  * wy2 * wz2
 
-      Exp = w1*E(1,ix  ,iy  ,iz  ) + w2*E(1,ix+1,iy  ,iz  ) + &
-            w3*E(1,ix+1,iy+1,iz  ) + w4*E(1,ix  ,iy+1,iz  ) + &
-            w5*E(1,ix  ,iy  ,iz+1) + w6*E(1,ix+1,iy  ,iz+1) + &
-            w7*E(1,ix+1,iy+1,iz+1) + w8*E(1,ix  ,iy+1,iz+1)
+      if (use_energy_conserving) then
+        call gather_E_energy_conserving(xp, yp, zp, n, h, E, Exp, Eyp, Ezp)
+      else
+        Exp = w1*E(1,ix  ,iy  ,iz  ) + w2*E(1,ix+1,iy  ,iz  ) + &
+              w3*E(1,ix+1,iy+1,iz  ) + w4*E(1,ix  ,iy+1,iz  ) + &
+              w5*E(1,ix  ,iy  ,iz+1) + w6*E(1,ix+1,iy  ,iz+1) + &
+              w7*E(1,ix+1,iy+1,iz+1) + w8*E(1,ix  ,iy+1,iz+1)
 
-      Eyp = w1*E(2,ix  ,iy  ,iz  ) + w2*E(2,ix+1,iy  ,iz  ) + &
-            w3*E(2,ix+1,iy+1,iz  ) + w4*E(2,ix  ,iy+1,iz  ) + &
-            w5*E(2,ix  ,iy  ,iz+1) + w6*E(2,ix+1,iy  ,iz+1) + &
-            w7*E(2,ix+1,iy+1,iz+1) + w8*E(2,ix  ,iy+1,iz+1)
+        Eyp = w1*E(2,ix  ,iy  ,iz  ) + w2*E(2,ix+1,iy  ,iz  ) + &
+              w3*E(2,ix+1,iy+1,iz  ) + w4*E(2,ix  ,iy+1,iz  ) + &
+              w5*E(2,ix  ,iy  ,iz+1) + w6*E(2,ix+1,iy  ,iz+1) + &
+              w7*E(2,ix+1,iy+1,iz+1) + w8*E(2,ix  ,iy+1,iz+1)
 
-      Ezp = w1*E(3,ix  ,iy  ,iz  ) + w2*E(3,ix+1,iy  ,iz  ) + &
-            w3*E(3,ix+1,iy+1,iz  ) + w4*E(3,ix  ,iy+1,iz  ) + &
-            w5*E(3,ix  ,iy  ,iz+1) + w6*E(3,ix+1,iy  ,iz+1) + &
-            w7*E(3,ix+1,iy+1,iz+1) + w8*E(3,ix  ,iy+1,iz+1)
+        Ezp = w1*E(3,ix  ,iy  ,iz  ) + w2*E(3,ix+1,iy  ,iz  ) + &
+              w3*E(3,ix+1,iy+1,iz  ) + w4*E(3,ix  ,iy+1,iz  ) + &
+              w5*E(3,ix  ,iy  ,iz+1) + w6*E(3,ix+1,iy  ,iz+1) + &
+              w7*E(3,ix+1,iy+1,iz+1) + w8*E(3,ix  ,iy+1,iz+1)
+      end if
 
       ! ------------------------------------------------------------
       ! B-field interpolation

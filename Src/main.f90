@@ -79,6 +79,10 @@ program main
        P_loss(:,:,:),kq(:,:,:),Bi(:,:,:,:),&
        np_red(:,:,:,:),phi_dom(:,:,:),rhs_dom(:,:,:),cnt_dead(:),beam_div(:,:),&
        avg3D(:,:,:,:)
+  ! Per-iproc push/deposit timing (diagnostic only), to check whether the
+  ! mover's fused OMP region (below) is OMP-load-balanced across iproc -
+  ! same check already added to the modular side's advance_particles_local.
+  real(kind=8), allocatable:: t_push_accum(:),t_dep_accum(:)
   ! Sorting
   integer:: pl_max,nsort,sum_cex(3)
   integer, allocatable:: Plist(:,:,:),flag_cex(:,:),cnt_cex(:,:)
@@ -106,6 +110,9 @@ program main
   real(kind=8):: res,eps,ksor,time,tmax,sum_time,a1,a2,a3,xl_rg(nm_rg),xr_rg(nm_rg),&
        yl_rg,yr_rg,zl_rg,zr_rg,dtime,omega,cnt_dead_tmp,sum_beam_div(4),Ca,x,np_dup,&
        phi0_RF,f0_RF,phi1_RF,f1_RF
+  ! Per-iproc push/deposit OMP wall-clock timers (diagnostic, see
+  ! t_push_accum/t_dep_accum above)
+  real(kind=8):: t0_push_omp,t0_dep_omp
   character:: rname*20,name*20,pnum*1,pnum_bck*3,plnum*3,corrnum*3
   integer(kind=8) :: rxn_count(ncol_mx)
 
@@ -217,6 +224,9 @@ program main
        cnt_dead(nproc),beam_div(4,nproc),j_die_xz(2,0:n(1)+2,0:n(3)+2),j_die_yz(2,0:n(2)+2,0:n(3)+2),&
        sum_q_xz(0:n(1)+2,0:n(3)+2,ntype,nproc),sum_q_yz(2,0:n(2)+2,0:n(3)+2,ntype,nproc),&
        sum_q_red_xz(ntype,0:n(1)+2,0:n(3)+2),sum_q_red_yz(2,ntype,0:n(2)+2,0:n(3)+2))
+  allocate ( t_push_accum(nproc), t_dep_accum(nproc) )
+  t_push_accum= 0.d0
+  t_dep_accum= 0.d0
   allocate ( phi_avg_xy(0:n(1)+2,0:n(2)+2), &
        phi_avg_xz(0:n(1)+2,0:n(3)+2), &
        phi_avg_yz(0:n(2)+2,0:n(3)+2), &
@@ -1237,21 +1247,22 @@ program main
              ' HEAT_LEG it=',it,' vt=',vt,' Nh=',sum_Nh,' sum_dEk=',sum_dEk_tot
      endif
      
-     !$OMP PARALLEL PRIVATE(iproc,ptype,iseed_OMP,sav_np)
+     !$OMP PARALLEL PRIVATE(iproc,ptype,iseed_OMP,sav_np,t0_push_omp,t0_dep_omp)
      iproc= omp_get_thread_num() + 1
      iseed_OMP= iseed(iproc)
 
      ! Initialize counters and arrays
      Nh(iproc)=0
      sum_dEk(iproc)=0.d0
-        
+
      ! Electron heating
-     if( MOD(it,ns_heat).eq.0 .and. flag_heat.eq.1 ) then 
-        if(flag_inj.eq.1) vt= vt0(1) ! Constant electron temperature 
+     if( MOD(it,ns_heat).eq.0 .and. flag_heat.eq.1 ) then
+        if(flag_inj.eq.1) vt= vt0(1) ! Constant electron temperature
         call eheating(h,vxp,nmax,ntype,nproc,iseed_OMP,np_tot,vt,iproc,P_loss)
      endif
 
      ! Push particles
+     t0_push_omp= omp_get_wtime()
      if(flag_nopart.eq.0) then
         do ptype=1,ntype
            ! Do not consider neutrals in this subroutine
@@ -1268,17 +1279,19 @@ program main
            endif
         enddo
      endif
-     
+     t_push_accum(iproc)= t_push_accum(iproc) + (omp_get_wtime()-t0_push_omp)
+
      ! Particle injection
      if( MOD(it,ns_inj).eq.0 .and. flag_inj.eq.1 ) then
         call part_injection(n,h,bcnd,vxp,sour_xy,sour_xz,sour_yz,ntype,nmax,&
              I_inj,xl_pow,xr_pow,yl_pow,yr_pow,zl_pow,zr_pow,np_tot,nproc,&
              iseed_OMP,nproc_mpi,N_inj,iproc,P_loss,phi,ni0)
-        ! Reset counter 
+        ! Reset counter
         N_inj(:,iproc)= 0
      endif
 
      ! Calculate particle density
+     t0_dep_omp= omp_get_wtime()
      do ptype=1,ntype
         ! Initialize particle density array
         np(:,:,:,ptype,iproc)=0.d0
@@ -1286,7 +1299,8 @@ program main
              call charge_deposition(n,h,vxp,nmax,ntype,kq,np,nproc,np_tot,sum_dEk,&
              Nh,iproc,ptype)
      enddo
-     
+     t_dep_accum(iproc)= t_dep_accum(iproc) + (omp_get_wtime()-t0_dep_omp)
+
      iseed(iproc)= iseed_OMP
      !$OMP END PARALLEL
      ctime(6)= ctime(6) + MSTIMER()
@@ -1495,6 +1509,25 @@ program main
 103        format(' <t> (ms): E/rho= ',f6.1,', poisson= ',f6.1,', sorting= ',f6.1, &
                 ', avg/write= ',f6.1,', MC= ',f6.1,', mover= ',f7.1,', bck= ',f6.1,', total= ',f7.1)
 
+           ! OMP load-imbalance check across iproc, same diagnostic added
+           ! to the modular side's advance_particles_local/mod_simulation.f90
+           ! print block. max/avg close to 1 means the fused push/deposit
+           ! OMP region above is evenly loaded across iproc.
+           if(it.gt.1) then
+              write(*,'(a)') &
+                   ' ----- LEGACY OMP load imbalance across iproc (min/avg/max, max/avg ratio) -----'
+              write(*,104) minval(t_push_accum)*1000.d0/real(cnt_avg(2)), &
+                   sum(t_push_accum)/real(nproc)*1000.d0/real(cnt_avg(2)), &
+                   maxval(t_push_accum)*1000.d0/real(cnt_avg(2)), &
+                   maxval(t_push_accum)/max(sum(t_push_accum)/real(nproc),1.d-30)
+104           format('  push(ms) min=',f8.2,' avg=',f8.2,' max=',f8.2,' max/avg=',f6.3)
+              write(*,109) minval(t_dep_accum)*1000.d0/real(cnt_avg(2)), &
+                   sum(t_dep_accum)/real(nproc)*1000.d0/real(cnt_avg(2)), &
+                   maxval(t_dep_accum)*1000.d0/real(cnt_avg(2)), &
+                   maxval(t_dep_accum)/max(sum(t_dep_accum)/real(nproc),1.d-30)
+109           format('  dep (ms) min=',f8.2,' avg=',f8.2,' max=',f8.2,' max/avg=',f6.3)
+           endif
+
            ! Save 3D Efield map
            if(flag_avg3D.eq.1) then
               print*, 'Saving 3D potentiel and density maps ...'
@@ -1559,6 +1592,8 @@ program main
            cnt_dead=0.d0
            beam_div=0.d0
            ctime=0
+           t_push_accum=0.d0
+           t_dep_accum=0.d0
            if(flag_avg3D.eq.1) avg3D= 0.d0
         endif
 

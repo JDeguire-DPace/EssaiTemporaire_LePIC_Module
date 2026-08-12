@@ -64,6 +64,28 @@ module mod_config
     integer           :: flag_inj     = 0
     integer           :: flag_coulomb = 0  ! 1 = enable Coulomb collisions (Nanbu 2000)
 
+    ! Selects the E-field calc + gather scheme used by advance_particles_local
+    ! (mod_state.f90) and calc_Efield_* (mod_electricField.f90):
+    !   'momentum' - node-centered E, same trilinear shape function for
+    !                deposit and gather (default, matches legacy/existing
+    !                behavior exactly).
+    !   'energy'   - explicit energy-conserving scheme (Powis & Kaganovich,
+    !                Phys. Plasmas 31, 023901 (2024)): face-centered E,
+    !                nearest-grid-point gather normal to each component,
+    !                linear gather tangentially. Only supports plain wall
+    !                boundaries (flag_pbc=flag_pbcz=flag_nmn=flag_die=0) -
+    !                see mod_simulation.f90's push_scheme guard.
+    ! Read from conditions.inp (mod_readConditions.f90), the last line
+    ! before END - REQUIRED, not optional: a conditions.inp missing this
+    ! line makes the read hit EOF, which is a hard failure (err=999 ->
+    ! stop_calculation), not a fallback to the default below. Every
+    ! conditions.inp (including archived per-case copies under input_dir/)
+    ! must have this line. legacy's Src/read_input.f90 has no matching read
+    ! for it, but tolerates its presence fine - its own END-search loop
+    ! skips any non-END line, same as it already does for the
+    ! Coulomb-collisions line just above this one in the file.
+    character(len=20) :: push_scheme = 'momentum'
+
     real(real64)      :: n0        = 0.0_real64
     real(real64)      :: ngas      = 0.0_real64
     integer           :: np_cell   = 0

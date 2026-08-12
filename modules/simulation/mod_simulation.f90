@@ -1,12 +1,12 @@
 module mod_simulation
   use iso_fortran_env, only: int32, real64, int8
 
-  use mod_state,                 only: State
+  use mod_state,                 only: State, advance_particles_local
   use mod_density,               only: reduce_species_density, build_rho_from_np, average_species_density
   use mod_restart,               only: write_restart_modular
   use mod_injection,             only: inject_particles_volume, inject_flux_particles
   use mod_PoissonSolver_legacy,  only: solve_poisson_legacy, print_poisson_breakdown, reset_poisson_breakdown
-  use mod_electricField,         only: calc_Efield_modular
+  use mod_electricField,         only: calc_Efield_modular, calc_Efield_energy_conserving
   use mod_output_2d,             only: write_density_planes, write_scalar_planes, &
                                        write_vector_component_planes, &
                                        write_plane_xy_scalar_2d, write_plane_xz_scalar_2d, &
@@ -46,6 +46,15 @@ module mod_simulation
     real(real64) :: t_dep_loop   = 0.0_real64
     real(real64) :: t_dep_reduce = 0.0_real64
 
+    ! Min/avg across iproc of t_mover_push/t_dep_loop (t_mover_push and
+    ! t_dep_loop above already hold the max across iproc, since that's what
+    ! bounds the fused OMP region's wall time). Only used to check OMP load
+    ! imbalance across iproc - see advance_particles_local (mod_state.f90).
+    real(real64) :: t_mover_push_min = 0.0_real64
+    real(real64) :: t_mover_push_avg = 0.0_real64
+    real(real64) :: t_dep_loop_min   = 0.0_real64
+    real(real64) :: t_dep_loop_avg   = 0.0_real64
+
     ! Toggles DATA.BAK/ <-> DATA.BAK2/ on each backup write, matching
     ! legacy's flag_wrt (so a crash mid-write never destroys the only
     ! valid backup - the other directory still has the previous one).
@@ -79,6 +88,23 @@ contains
     !   write(*,*) "DEBUG p_ncol =", self%state%chem%p_ncol(1:self%state%rxn%ntype)
     !   write(*,*) "DEBUG size(sig_list,2) =", size(self%state%rxn%sig_list,2)
     ! end if
+
+    ! The energy-conserving push_scheme (mod_config.f90) supports plain wall
+    ! boundaries and y/z-periodic (flag_pbc/flag_pbcz) - see the ghost
+    ! fix-up in calc_Efield_energy_conserving (mod_electricField.f90).
+    ! Neumann (flag_nmn) and dielectric (flag_die) are still unimplemented.
+    ! Fail fast at startup rather than silently produce wrong physics for
+    ! an untested boundary combination.
+    if (trim(self%state%cfg%push_scheme) == 'energy') then
+      if (self%state%dom%flag_nmn == 1 .or. self%state%dom%flag_die  == 1) then
+        if (self%state%mpi_rank == 0) then
+          write(*,'(a)') "ERROR: cfg%push_scheme = 'energy' does not support " // &
+            "Neumann or dielectric boundaries (flag_nmn=flag_die=0 required). " // &
+            "Plain walls and periodic (flag_pbc/flag_pbcz) are supported."
+        end if
+        error stop 1
+      end if
+    end if
   end subroutine init
 
 
@@ -112,12 +138,23 @@ contains
          flag_pbc_in = self%state%dom%flag_pbc, &
          flag_nmn_in = self%state%dom%flag_nmn )
 
-    call calc_Efield_modular( &
-         n    = int(self%state%dom%n, int32), &
-         h    = self%state%dom%h, &
-         phi  = self%state%fld%phi, &
-         E    = self%state%fld%E, &
-         bcnd = self%state%dom%bcnd )
+    if (trim(self%state%cfg%push_scheme) == 'energy') then
+      call calc_Efield_energy_conserving( &
+           n         = int(self%state%dom%n, int32), &
+           h         = self%state%dom%h, &
+           phi       = self%state%fld%phi, &
+           E         = self%state%fld%E, &
+           bcnd      = self%state%dom%bcnd, &
+           flag_pbc  = int(self%state%dom%flag_pbc, int32), &
+           flag_pbcz = int(self%state%dom%flag_pbcz, int32) )
+    else
+      call calc_Efield_modular( &
+           n    = int(self%state%dom%n, int32), &
+           h    = self%state%dom%h, &
+           phi  = self%state%fld%phi, &
+           E    = self%state%fld%E, &
+           bcnd = self%state%dom%bcnd )
+    end if
   end subroutine build_initial_fields
 
 
@@ -383,6 +420,7 @@ contains
     real(real64)   :: vt_heat
     real(real64)   :: t0, t1, tstep0
     real(real64)   :: t_move_dbg, t_bc_dbg, t_deposit_dbg
+    real(real64)   :: t_move_min_dbg, t_move_avg_dbg, t_deposit_min_dbg, t_deposit_avg_dbg
     integer(int32) :: iproc_h, i_h, ix_h, ixl_h, ixr_h
     real(real64)   :: xp_h, yp_h, zp_h, Eki_h, yhalf_h, zhalf_h
 
@@ -397,16 +435,16 @@ contains
     ! self%t_sort = self%t_sort + (t1 - t0)
 
     ! E/rho
+    !
+    ! No reduce_species_density call here: fld%np already holds the
+    ! reduction of np_thread as of the end of the PREVIOUS step's
+    ! deposit_all_particles (or, for istep==1, of build_initial_fields's
+    ! initial load). Nothing writes np_thread in between - the mover is
+    ! the only writer, and it runs later in THIS step (below) - so
+    ! re-reducing here would just recompute the same np_red bit-for-bit.
+    ! Matches build_initial_fields, which also calls build_rho_from_np
+    ! directly on fld%np with no preceding reduce.
     t0 = MPI_Wtime()
-    call reduce_species_density( &
-      n         = int(self%state%dom%n, int32), &
-      bcnd      = self%state%dom%bcnd, &
-      np_thread = self%state%np_thread, &
-      ntype     = int(self%state%ntype), &
-      nproc     = int(self%state%nproc), &
-      mpi_comm  = self%state%comm, &
-      np_red    = self%state%fld%np )
-
     call build_rho_from_np( &
       n        = int(self%state%dom%n, int32), &
       np_red   = self%state%fld%np, &
@@ -449,12 +487,23 @@ contains
         write(*,*) "phi min/max/sum = ", minval(self%state%fld%phi), maxval(self%state%fld%phi), sum(self%state%fld%phi)
       end if
 
-    call calc_Efield_modular( &
-      n    = int(self%state%dom%n, int32), &
-      h    = self%state%dom%h, &
-      phi  = self%state%fld%phi, &
-      E    = self%state%fld%E, &
-      bcnd = self%state%dom%bcnd )
+    if (trim(self%state%cfg%push_scheme) == 'energy') then
+      call calc_Efield_energy_conserving( &
+        n         = int(self%state%dom%n, int32), &
+        h         = self%state%dom%h, &
+        phi       = self%state%fld%phi, &
+        E         = self%state%fld%E, &
+        bcnd      = self%state%dom%bcnd, &
+        flag_pbc  = int(self%state%dom%flag_pbc, int32), &
+        flag_pbcz = int(self%state%dom%flag_pbcz, int32) )
+    else
+      call calc_Efield_modular( &
+        n    = int(self%state%dom%n, int32), &
+        h    = self%state%dom%h, &
+        phi  = self%state%fld%phi, &
+        E    = self%state%fld%E, &
+        bcnd = self%state%dom%bcnd )
+    end if
     t1 = MPI_Wtime()
     self%t_poisson = self%t_poisson + (t1 - t0)
 
@@ -500,11 +549,18 @@ contains
     ! that real BC time and deposit-loop time respectively, restoring the
     ! "mover / deposit timing breakdown" print block below to real numbers.
     t0 = MPI_Wtime()
-    call self%state%advance_particles_local(t_move_dbg, t_bc_dbg, t_deposit_dbg)
+    call advance_particles_local(self%state, t_move_dbg, t_bc_dbg, t_deposit_dbg, &
+                                  t_move_min_dbg, t_move_avg_dbg, &
+                                  t_deposit_min_dbg, t_deposit_avg_dbg)
     t1 = MPI_Wtime()
     self%t_mover_push = self%t_mover_push + t_move_dbg
     self%t_mover_bc   = self%t_mover_bc   + t_bc_dbg
     self%t_dep_loop   = self%t_dep_loop   + t_deposit_dbg
+
+    self%t_mover_push_min = self%t_mover_push_min + t_move_min_dbg
+    self%t_mover_push_avg = self%t_mover_push_avg + t_move_avg_dbg
+    self%t_dep_loop_min   = self%t_dep_loop_min   + t_deposit_min_dbg
+    self%t_dep_loop_avg   = self%t_dep_loop_avg   + t_deposit_avg_dbg
 
     ! t_mover kept as the combined push+BC+deposit total for the existing
     ! top-level summary line (comparable to legacy's fused mover timer,
@@ -875,6 +931,37 @@ contains
         "  dep_clear(ms)=",  1000.0_real64*self%t_dep_clear/real(self%t_count,real64), &
         "  dep_loop(ms)=",   1000.0_real64*self%t_dep_loop/real(self%t_count,real64), &
         "  dep_reduce(ms)=", 1000.0_real64*self%t_dep_reduce/real(self%t_count,real64)
+
+      ! OMP load-imbalance check across iproc: min/avg/max of the same
+      ! per-thread timings mover_push(ms)/dep_loop(ms) above already
+      ! reduce with max. imbalance = max/avg; close to 1 means threads are
+      ! evenly loaded, so the mover_push(ms)/dep_loop(ms) cost above is
+      ! genuine per-particle work, not a few slow iproc dragging the max up.
+      block
+        real(real64) :: push_min_ms, push_avg_ms, push_max_ms, push_imbalance
+        real(real64) :: dep_min_ms, dep_avg_ms, dep_max_ms, dep_imbalance
+
+        push_min_ms = 1000.0_real64*self%t_mover_push_min/real(self%t_count,real64)
+        push_avg_ms = 1000.0_real64*self%t_mover_push_avg/real(self%t_count,real64)
+        push_max_ms = 1000.0_real64*self%t_mover_push/real(self%t_count,real64)
+        push_imbalance = 0.0_real64
+        if (push_avg_ms > 0.0_real64) push_imbalance = push_max_ms / push_avg_ms
+
+        dep_min_ms = 1000.0_real64*self%t_dep_loop_min/real(self%t_count,real64)
+        dep_avg_ms = 1000.0_real64*self%t_dep_loop_avg/real(self%t_count,real64)
+        dep_max_ms = 1000.0_real64*self%t_dep_loop/real(self%t_count,real64)
+        dep_imbalance = 0.0_real64
+        if (dep_avg_ms > 0.0_real64) dep_imbalance = dep_max_ms / dep_avg_ms
+
+        write(*,'(a)') " ----- OMP load imbalance across iproc (min/avg/max, max/avg ratio) -----"
+        write(*,'(a,f8.2,a,f8.2,a,f8.2,a,f6.3)') &
+          "  mover_push(ms) min=", push_min_ms, " avg=", push_avg_ms, &
+          " max=", push_max_ms, " max/avg=", push_imbalance
+        write(*,'(a,f8.2,a,f8.2,a,f8.2,a,f6.3)') &
+          "  dep_loop(ms)   min=", dep_min_ms, " avg=", dep_avg_ms, &
+          " max=", dep_max_ms, " max/avg=", dep_imbalance
+      end block
+
       write(*,'(a)') " ---------------------------------------------"
     end if
 
@@ -903,6 +990,10 @@ contains
     self%t_dep_clear  = 0.0_real64
     self%t_dep_loop   = 0.0_real64
     self%t_dep_reduce = 0.0_real64
+    self%t_mover_push_min = 0.0_real64
+    self%t_mover_push_avg = 0.0_real64
+    self%t_dep_loop_min   = 0.0_real64
+    self%t_dep_loop_avg   = 0.0_real64
     self%t_bck     = 0.0_real64
     self%t_total   = 0.0_real64
     self%t_count   = 0_int32

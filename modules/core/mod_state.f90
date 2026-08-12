@@ -34,6 +34,7 @@ module mod_state
   implicit none
   private
   public :: State
+  public :: advance_particles_local
 
   ! Production defaults. Keep expensive consistency checks available in the
   ! source, but do not run them in normal legacy-comparison/production runs.
@@ -108,7 +109,6 @@ module mod_state
     procedure :: init_particles
 
     procedure :: sort_particles_local
-    procedure :: advance_particles_local
     procedure :: apply_electron_heating_local
     procedure :: compute_heating_region_moments
     procedure :: update_heating_vt
@@ -509,8 +509,21 @@ contains
   end subroutine apply_dielectric_bc_to_phi
 
 
-  subroutine advance_particles_local(self, t_move_out, t_bc_out, t_deposit_out)
+  subroutine advance_particles_local(self, t_move_out, t_bc_out, t_deposit_out, &
+                                      t_move_min_out, t_move_avg_out, &
+                                      t_deposit_min_out, t_deposit_avg_out)
     ! Fused push + boundary-condition/SEE + charge-deposition pass.
+    !
+    ! Not a type-bound procedure (called as advance_particles_local(self%state, ...)
+    ! from mod_simulation.f90, not self%state%advance_particles_local(...)) so that
+    ! self below can be type(State) instead of class(State) - a type-bound
+    ! procedure's passed-object argument is required by the standard to be
+    ! polymorphic. State is never extended, so the polymorphism bought nothing
+    ! but prevented the compiler from proving self%np_thread(...) below is a
+    ! plain contiguous array; profiling showed the per-step clear of that
+    ! array (__intel_avx_rep_memset) as the single largest self-time cost in
+    ! the whole run, disproportionately larger than the equivalent clear in
+    ! legacy's plain (non-derived-type) np(...) array.
     !
     ! Parallelizes over iproc only (no collapse with ptype), one thread
     ! owning every species of its own iproc for the whole pass - matching
@@ -543,20 +556,35 @@ contains
     ! there is nothing left to time apart from t_move_out - kept as a
     ! separate output (rather than removed) so mod_simulation.f90's
     ! t_mover_bc field and print line don't need touching again.
-    class(State), intent(inout) :: self
+    !
+    ! t_move_min_out/t_move_avg_out and t_deposit_min_out/t_deposit_avg_out:
+    ! min and mean across iproc of the same per-thread timings that
+    ! t_move_out/t_deposit_out already reduce with maxval. Added to check
+    ! OMP load imbalance across iproc directly (max/avg ratio close to 1
+    ! means threads are evenly loaded; a large ratio means a few iproc are
+    ! doing most of the work and the mover cost is imbalance, not raw
+    ! per-particle cost) instead of guessing from the max alone.
+    type(State), intent(inout) :: self
     real(real64), intent(out) :: t_move_out, t_bc_out, t_deposit_out
+    real(real64), intent(out) :: t_move_min_out, t_move_avg_out
+    real(real64), intent(out) :: t_deposit_min_out, t_deposit_avg_out
 
     integer(int32)  :: ptype, iproc
     integer(int32)  :: tag_neg_local, ispec
     real(real64)    :: q_species, m_species, dt_local, qmacro
     real(real64)    :: tw0, tw1
     logical         :: use_boris
+    logical         :: use_energy_conserving
     type(SeeParams) :: see
     real(real64), allocatable :: t_move_thread(:), t_bc_thread(:), t_deposit_thread(:)
 
-    t_move_out    = 0.0_real64
-    t_bc_out      = 0.0_real64
-    t_deposit_out = 0.0_real64
+    t_move_out        = 0.0_real64
+    t_bc_out          = 0.0_real64
+    t_deposit_out     = 0.0_real64
+    t_move_min_out    = 0.0_real64
+    t_move_avg_out    = 0.0_real64
+    t_deposit_min_out = 0.0_real64
+    t_deposit_avg_out = 0.0_real64
 
     if (.not. allocated(self%part)) return
 
@@ -566,6 +594,7 @@ contains
     t_deposit_thread = 0.0_real64
 
     dt_local = self%params%dt
+    use_energy_conserving = (trim(self%cfg%push_scheme) == 'energy')
 
     tag_neg_local = -1_int32
     do ispec = 1_int32, self%ntype
@@ -616,6 +645,7 @@ contains
                 q              = q_species, &
                 m              = m_species, &
                 dt             = dt_local, &
+                use_energy_conserving = use_energy_conserving, &
                 bcnd           = self%dom%bcnd, &
                 xmax           = self%dom%xmax, &
                 ymax           = self%dom%ymax, &
@@ -645,6 +675,7 @@ contains
                 q              = q_species, &
                 m              = m_species, &
                 dt             = dt_local, &
+                use_energy_conserving = use_energy_conserving, &
                 bcnd           = self%dom%bcnd, &
                 xmax           = self%dom%xmax, &
                 ymax           = self%dom%ymax, &
@@ -724,6 +755,12 @@ contains
     t_move_out    = maxval(t_move_thread)
     t_bc_out      = maxval(t_bc_thread)
     t_deposit_out = maxval(t_deposit_thread)
+
+    t_move_min_out    = minval(t_move_thread)
+    t_move_avg_out    = sum(t_move_thread) / real(self%nproc, real64)
+    t_deposit_min_out = minval(t_deposit_thread)
+    t_deposit_avg_out = sum(t_deposit_thread) / real(self%nproc, real64)
+
     deallocate(t_move_thread, t_bc_thread, t_deposit_thread)
   end subroutine advance_particles_local
 

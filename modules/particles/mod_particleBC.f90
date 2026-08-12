@@ -61,7 +61,7 @@ contains
                                 charge_species, see,                   &
                                 part_electrons, iseed, P_loss_see )
 
-    class(ParticleSet), intent(inout) :: part
+    type(ParticleSet),  intent(inout) :: part
     integer(int32),     intent(in)    :: n(3)
     real(real64),       intent(in)    :: h(3)
     integer(int32),     intent(in)    :: bcnd(0:n(1)+2,0:n(2)+2,0:n(3)+2)
@@ -78,7 +78,7 @@ contains
     real(real64),       intent(in)    :: Nm_species
     real(real64),       intent(in)    :: charge_species
     type(SeeParams),    intent(in)    :: see
-    class(ParticleSet), intent(inout) :: part_electrons
+    type(ParticleSet),  intent(inout) :: part_electrons
     integer(int32),     intent(inout) :: iseed
     real(real64),       intent(inout) :: P_loss_see
 
