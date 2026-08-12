@@ -1,9 +1,0 @@
-/scratch/deguire1/LePIC_optimisation/build_profile/CMakeFiles/core_deps.dir
-/scratch/deguire1/LePIC_optimisation/build_profile/CMakeFiles/config_base.dir
-/scratch/deguire1/LePIC_optimisation/build_profile/CMakeFiles/geometry_base.dir
-/scratch/deguire1/LePIC_optimisation/build_profile/CMakeFiles/fields_base.dir
-/scratch/deguire1/LePIC_optimisation/build_profile/CMakeFiles/pic_core_obj.dir
-/scratch/deguire1/LePIC_optimisation/build_profile/CMakeFiles/legacy_mg.dir
-/scratch/deguire1/LePIC_optimisation/build_profile/CMakeFiles/run_min.dir
-/scratch/deguire1/LePIC_optimisation/build_profile/CMakeFiles/edit_cache.dir
-/scratch/deguire1/LePIC_optimisation/build_profile/CMakeFiles/rebuild_cache.dir
