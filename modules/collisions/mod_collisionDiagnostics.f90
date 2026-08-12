@@ -2,13 +2,11 @@ module mod_collisionDiagnostics
   use iso_fortran_env, only: int32, int64, real64
   implicit none
   private
-  public :: init_rxn_counts, count_rxn, print_rxn_counts, reset_rxn_counts, count_mcc, count_bmcc
+  public :: init_rxn_counts, count_rxn, print_rxn_counts, reset_rxn_counts
   public :: init_debug_diagnostics, record_np_mx, record_target_search, record_npt
   public :: print_debug_diagnostics, reset_debug_diagnostics
 
   integer(int64), allocatable, save :: rxn_count(:)
-  integer(int64), save :: n_mcc = 0_int64
-  integer(int64), save :: n_bmcc = 0_int64
 
   ! --- per-tracked-species debug accumulators (mod_collisionsGwenael
   !     instrumentation, see that module's header). All reset on the same
@@ -54,20 +52,6 @@ contains
   subroutine reset_rxn_counts()
     if (allocated(rxn_count)) rxn_count = 0_int64
   end subroutine reset_rxn_counts
-
-  subroutine count_mcc(c_ind)
-    integer(int32), intent(in) :: c_ind
-    call count_rxn(c_ind)
-    !$omp atomic
-    n_mcc = n_mcc + 1_int64
-  end subroutine
-
-  subroutine count_bmcc(c_ind)
-    integer(int32), intent(in) :: c_ind
-    call count_rxn(c_ind)
-    !$omp atomic
-    n_bmcc = n_bmcc + 1_int64
-  end subroutine
 
   !=========================================================================
   ! Debug instrumentation for mod_collisionsGwenael, tracking H2+ (and

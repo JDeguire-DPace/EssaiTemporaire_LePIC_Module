@@ -1,5 +1,5 @@
 module mod_particleBC
-  use iso_fortran_env,  only: int32, int64, int8, real64
+  use iso_fortran_env,  only: int32, int8, real64
   use mod_particles,    only: ParticleSet
   use mod_constants,    only: qe
   use mod_rng,          only: ran2, load_gauss
@@ -10,17 +10,6 @@ module mod_particleBC
   public :: apply_particle_bc
   public :: particle_is_lost
   public :: SeeParams
-
-  public :: dbg_loss_xright_s1, dbg_loss_xright_s2
-  public :: dbg_loss_zlow_s1,   dbg_loss_zlow_s2
-  public :: dbg_loss_zhigh_s1,  dbg_loss_zhigh_s2
-
-  integer(int64), save :: dbg_loss_xright_s1 = 0_int64
-  integer(int64), save :: dbg_loss_xright_s2 = 0_int64
-  integer(int64), save :: dbg_loss_zlow_s1   = 0_int64
-  integer(int64), save :: dbg_loss_zlow_s2   = 0_int64
-  integer(int64), save :: dbg_loss_zhigh_s1  = 0_int64
-  integer(int64), save :: dbg_loss_zhigh_s2  = 0_int64
 
   ! Secondary electron emission parameters.
   ! Set gam_sec <= 0 (or charge_species <= 0) to disable SEE for a species.
@@ -140,16 +129,6 @@ contains
       end if
 
       if (flag_lost >= 1_int32) then
-
-        if (ptype == 1_int32) then
-          if (xp_new > xmax - h(1)) dbg_loss_xright_s1 = dbg_loss_xright_s1 + 1_int64
-          if (zp_new < h(3))        dbg_loss_zlow_s1   = dbg_loss_zlow_s1   + 1_int64
-          if (zp_new > zmax-h(3))   dbg_loss_zhigh_s1  = dbg_loss_zhigh_s1  + 1_int64
-        else if (ptype == 2_int32) then
-          if (xp_new > xmax - h(1)) dbg_loss_xright_s2 = dbg_loss_xright_s2 + 1_int64
-          if (zp_new < h(3))        dbg_loss_zlow_s2   = dbg_loss_zlow_s2   + 1_int64
-          if (zp_new > zmax-h(3))   dbg_loss_zhigh_s2  = dbg_loss_zhigh_s2  + 1_int64
-        end if
 
         igrid = bcnd(ix,iy,iz)
 

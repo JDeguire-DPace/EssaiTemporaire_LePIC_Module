@@ -1,12 +1,9 @@
 module mod_particleMover
-  use iso_fortran_env, only: int32, int64, real64, int8
+  use iso_fortran_env, only: int32, real64, int8
   use mod_particles,   only: ParticleSet
   use mod_constants,   only: qe
   use mod_rng,         only: ran2, load_gauss
-  use mod_particleBC,  only: particle_is_lost, SeeParams, &
-                              dbg_loss_xright_s1, dbg_loss_xright_s2, &
-                              dbg_loss_zlow_s1,   dbg_loss_zlow_s2,   &
-                              dbg_loss_zhigh_s1,  dbg_loss_zhigh_s2
+  use mod_particleBC,  only: particle_is_lost, SeeParams
   implicit none
   private
 
@@ -291,16 +288,6 @@ contains
       end if
 
       if (flag_lost >= 1_int32) then
-
-        if (ptype == 1_int32) then
-          if (xp_new > xmax - h(1)) dbg_loss_xright_s1 = dbg_loss_xright_s1 + 1_int64
-          if (zp_new < h(3))        dbg_loss_zlow_s1   = dbg_loss_zlow_s1   + 1_int64
-          if (zp_new > zmax-h(3))   dbg_loss_zhigh_s1  = dbg_loss_zhigh_s1  + 1_int64
-        else if (ptype == 2_int32) then
-          if (xp_new > xmax - h(1)) dbg_loss_xright_s2 = dbg_loss_xright_s2 + 1_int64
-          if (zp_new < h(3))        dbg_loss_zlow_s2   = dbg_loss_zlow_s2   + 1_int64
-          if (zp_new > zmax-h(3))   dbg_loss_zhigh_s2  = dbg_loss_zhigh_s2  + 1_int64
-        end if
 
         igrid = bcnd(ix,iy,iz)
 
@@ -740,16 +727,6 @@ contains
       end if
 
       if (flag_lost >= 1_int32) then
-
-        if (ptype == 1_int32) then
-          if (xp_new > xmax - h(1)) dbg_loss_xright_s1 = dbg_loss_xright_s1 + 1_int64
-          if (zp_new < h(3))        dbg_loss_zlow_s1   = dbg_loss_zlow_s1   + 1_int64
-          if (zp_new > zmax-h(3))   dbg_loss_zhigh_s1  = dbg_loss_zhigh_s1  + 1_int64
-        else if (ptype == 2_int32) then
-          if (xp_new > xmax - h(1)) dbg_loss_xright_s2 = dbg_loss_xright_s2 + 1_int64
-          if (zp_new < h(3))        dbg_loss_zlow_s2   = dbg_loss_zlow_s2   + 1_int64
-          if (zp_new > zmax-h(3))   dbg_loss_zhigh_s2  = dbg_loss_zhigh_s2  + 1_int64
-        end if
 
         igrid = bcnd(ix,iy,iz)
 

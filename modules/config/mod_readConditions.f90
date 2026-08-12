@@ -81,7 +81,6 @@ module mod_readConditions
 
         ! locals for signature outputs (still stored in cfg)
         integer :: flag_avg3D
-        real(real64) :: tmp
 
         ! Init things that must reset each read
         cfg%xl_rg = 0.0_real64

@@ -59,14 +59,6 @@ contains
     integer(int32) :: chosen_col, chosen_ttype, chosen_it
     integer(int32) :: max_ncol
 
-    ! Per-reaction storage (stack-allocated; size = max reactions per species)
-    integer(int32) :: saved_it(size(sig_list,2))
-    integer(int32) :: saved_ttype(size(sig_list,2))
-    real(real64)   :: saved_tvx(size(sig_list,2))
-    real(real64)   :: saved_tvy(size(sig_list,2))
-    real(real64)   :: saved_tvz(size(sig_list,2))
-    real(real64)   :: nu_store(size(sig_list,2))
-
     nproc    = int(size(part, 2), int32)
     max_ncol = int(size(sig_list, 2), int32)
 
@@ -156,16 +148,6 @@ contains
               if (part(ttype,iproc)%n <= 0_int32) cycle
 
               ! Random target particle
-              !!! MODIF
-              ! call select_local_target_particle( &
-              !     part(ttype,iproc), &
-              !     part(ptype,iproc)%x(ip), &
-              !     part(ptype,iproc)%y(ip), &
-              !     part(ptype,iproc)%z(ip), &
-              !     n, h, iseed(iproc), it)
-
-              ! if (it <= 0_int32) cycle
-
               call select_target_from_cell_list( &
                   part(ttype,iproc), &
                   part(ptype,iproc)%x(ip), &
@@ -184,9 +166,6 @@ contains
               Ekr   = 0.5_real64 * mu * vr * vr / QE_ABS
               sig_p = interp_sigma(Ekr, sig, ind_col, sig_Er, count_valid_pts(sig_Er))
 
-              ! n_ttype_avg = estimate_local_density(part(ttype,iproc), &
-              !     part(ptype,iproc)%x(ip), part(ptype,iproc)%y(ip), &
-              !     part(ptype,iproc)%z(ip), n, h, Nm(ttype))
               nu_icol     = n_ttype_avg * sig_p * vr
 
               nu_store(icol)   = nu_icol
@@ -503,90 +482,6 @@ contains
       end if
     end do
   end function has_bmcc_reactions
-
-  subroutine select_local_target_particle(p, xp, yp, zp, n, h, iseed, it)
-    type(ParticleSet), intent(in) :: p
-    real(real64), intent(in) :: xp, yp, zp
-    integer(int32), intent(in) :: n(3)
-    real(real64), intent(in) :: h(3)
-    integer(int32), intent(inout) :: iseed
-    integer(int32), intent(out) :: it
-
-    integer(int32) :: ix0, iy0, iz0
-    integer(int32) :: ix, iy, iz
-    integer(int32) :: j, trial, max_trial
-    real(real64) :: rnd
-
-    it = 0_int32
-
-    if (p%n <= 0_int32) return
-
-    ix0 = int(xp / h(1), int32) + 1_int32
-    iy0 = int(yp / h(2), int32) + 1_int32
-    iz0 = int(zp / h(3), int32) + 1_int32
-
-    ix0 = max(1_int32, min(n(1), ix0))
-    iy0 = max(1_int32, min(n(2), iy0))
-    iz0 = max(1_int32, min(n(3), iz0))
-
-    max_trial = min(2000_int32, max(100_int32, p%n))
-
-    do trial = 1_int32, max_trial
-
-      rnd = ran2(iseed)
-      j = int(real(p%n, real64) * rnd, int32) + 1_int32
-      if (j > p%n) j = p%n
-
-      ix = int(p%x(j) / h(1), int32) + 1_int32
-      iy = int(p%y(j) / h(2), int32) + 1_int32
-      iz = int(p%z(j) / h(3), int32) + 1_int32
-
-      if (abs(ix - ix0) <= 1_int32 .and. &
-          abs(iy - iy0) <= 1_int32 .and. &
-          abs(iz - iz0) <= 1_int32) then
-        it = j
-        return
-      end if
-
-    end do
-
-  end subroutine select_local_target_particle
-
-  function estimate_local_density(p, xp, yp, zp, n, h, Nm) result(ndens)
-    type(ParticleSet), intent(in) :: p
-    real(real64), intent(in) :: xp, yp, zp
-    integer(int32), intent(in) :: n(3)
-    real(real64), intent(in) :: h(3)
-    real(real64), intent(in) :: Nm
-    real(real64) :: ndens
-
-    integer(int32) :: j, ix0, iy0, iz0, ix, iy, iz
-    integer(int32) :: count_local
-    real(real64) :: Vlocal
-
-    ix0 = int(xp / h(1), int32) + 1_int32
-    iy0 = int(yp / h(2), int32) + 1_int32
-    iz0 = int(zp / h(3), int32) + 1_int32
-
-    count_local = 0_int32
-
-    do j = 1_int32, p%n
-      ix = int(p%x(j) / h(1), int32) + 1_int32
-      iy = int(p%y(j) / h(2), int32) + 1_int32
-      iz = int(p%z(j) / h(3), int32) + 1_int32
-
-      if (abs(ix - ix0) <= 1_int32 .and. &
-          abs(iy - iy0) <= 1_int32 .and. &
-          abs(iz - iz0) <= 1_int32) then
-        count_local = count_local + 1_int32
-      end if
-    end do
-
-    Vlocal = 27.0_real64 * h(1) * h(2) * h(3)
-
-    ndens = real(count_local, real64) * Nm / Vlocal
-
-  end function estimate_local_density
 
   subroutine select_target_from_cell_list(p, xp, yp, zp, n, h, iseed, it, ndens, Nm)
     type(ParticleSet), intent(in) :: p

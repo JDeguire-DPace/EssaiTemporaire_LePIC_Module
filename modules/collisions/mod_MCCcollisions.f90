@@ -93,9 +93,6 @@ contains
     real(real64) :: sum_nu
     real(real64) :: target_vx, target_vy, target_vz
 
-    associate(dummy_rank => mpi_rank)
-    end associate
-
     nproc = int(size(part,2), int32)
     npt_sig = count_valid_energy_points(sig_Er)
 
@@ -404,35 +401,6 @@ contains
     end do
 
   end function count_valid_energy_points
-
-
-  subroutine swap_particle_in_set(p, i, j)
-
-    type(ParticleSet), intent(inout) :: p
-    integer(int32), intent(in) :: i, j
-
-    if (i == j) return
-
-    call swap_real(p%x(i),  p%x(j))
-    call swap_real(p%y(i),  p%y(j))
-    call swap_real(p%z(i),  p%z(j))
-    call swap_real(p%vx(i), p%vx(j))
-    call swap_real(p%vy(i), p%vy(j))
-    call swap_real(p%vz(i), p%vz(j))
-
-  end subroutine swap_particle_in_set
-
-
-  pure subroutine swap_real(a,b)
-
-    real(real64), intent(inout) :: a,b
-    real(real64) :: tmp
-
-    tmp = a
-    a = b
-    b = tmp
-
-  end subroutine swap_real
 
 
   subroutine sample_maxwellian_velocity(T_eV, m, iseed, vx, vy, vz)

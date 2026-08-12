@@ -133,9 +133,6 @@ contains
 
     integer(int32) :: s
 
-    ! silence unused-arg warnings (kept for interface symmetry / future use)
-    associate(dummy => mpi_rank, dummy2 => dom_volume); end associate
-
     nproc   = int(size(part,2), int32)
     npt_sig = count_valid_pts(sig_Er)
     if (npt_sig < 2_int32) return

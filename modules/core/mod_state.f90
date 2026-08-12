@@ -72,7 +72,6 @@ module mod_state
     integer(int32), allocatable :: Nh(:)
     real(real64), allocatable :: sum_dEk(:)
 
-    real(real64) :: p_loss_heating_local
     real(real64), allocatable :: P_loss(:,:,:)
     real(real64), allocatable :: p_mac(:,:,:,:)
 
@@ -248,18 +247,6 @@ contains
     real(real64) :: lmax, gmax
 
     call build_boundary(self%dom, self%cfg, self%fld, self%mpi_rank)
-    !!! MODIF
-    write(*,*) "DEBUG phi after boundary min/max/sum = ", &
-      minval(self%fld%phi), maxval(self%fld%phi), sum(self%fld%phi)
-
-    write(*,*) "DEBUG bcnd counts: interior, ghost, wall, nmn = ", &
-      count(self%dom%bcnd == -1), &
-      count(self%dom%bcnd == 0), &
-      count(self%dom%bcnd > 0), &
-      count(self%dom%bcnd == -2)
-
-    write(*,*) "DEBUG wall phi sum = ", sum(self%fld%phi, mask=self%dom%bcnd > 0)
-    !!! ENDMODIF
     call self%magField%build_from_cfg(self%cfg, self%dom, self%mpi_rank)
     call self%magField%write_macho_planes('./Output/Output_2D', 1, self%mpi_rank)
 

@@ -83,11 +83,6 @@ contains
     integer, intent(in) :: comm_in
 
     call self%state%init(comm_in)
-    ! if (self%state%mpi_rank == 0) then
-    !   write(*,*) "DEBUG max p_ncol =", maxval(self%state%chem%p_ncol)
-    !   write(*,*) "DEBUG p_ncol =", self%state%chem%p_ncol(1:self%state%rxn%ntype)
-    !   write(*,*) "DEBUG size(sig_list,2) =", size(self%state%rxn%sig_list,2)
-    ! end if
 
     ! The energy-conserving push_scheme (mod_config.f90) supports plain wall
     ! boundaries and y/z-periodic (flag_pbc/flag_pbcz) - see the ghost
@@ -426,14 +421,6 @@ contains
 
     tstep0 = MPI_Wtime()
 
-    ! Sorting
-    ! t0 = MPI_Wtime()
-    ! if (mod(istep, self%state%params%nb_step_sort) == 1_int32) then
-    !   call self%state%sort_particles_local()
-    ! end if
-    ! t1 = MPI_Wtime()
-    ! self%t_sort = self%t_sort + (t1 - t0)
-
     ! E/rho
     !
     ! No reduce_species_density call here: fld%np already holds the
@@ -460,11 +447,6 @@ contains
     t0 = MPI_Wtime()
     call self%state%apply_dielectric_bc_to_phi()
 
-    if (self%state%mpi_rank == 0 .and. istep == 1) then
-      write(*,*) "BEFORE POISSON it=", istep
-      write(*,*) "rho min/max/sum = ", minval(self%state%fld%rho), maxval(self%state%fld%rho), sum(self%state%fld%rho)
-      write(*,*) "phi min/max/sum = ", minval(self%state%fld%phi), maxval(self%state%fld%phi), sum(self%state%fld%phi)
-    end if
     call solve_poisson_legacy( &
       pdec        = self%state%pdec, &
       phi_global  = self%state%fld%phi, &
@@ -480,12 +462,6 @@ contains
       ng          = self%state%cfg%ng, &
       flag_pbc_in = self%state%dom%flag_pbc, &
       flag_nmn_in = self%state%dom%flag_nmn )
-
-      if (self%state%mpi_rank == 0 .and. istep == 1) then
-        write(*,*) "AFTER POISSON it=", istep
-        write(*,*) "rho min/max/sum = ", minval(self%state%fld%rho), maxval(self%state%fld%rho), sum(self%state%fld%rho)
-        write(*,*) "phi min/max/sum = ", minval(self%state%fld%phi), maxval(self%state%fld%phi), sum(self%state%fld%phi)
-      end if
 
     if (trim(self%state%cfg%push_scheme) == 'energy') then
       call calc_Efield_energy_conserving( &
