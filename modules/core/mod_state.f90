@@ -435,8 +435,8 @@ contains
     end do
     !$omp end parallel do
 
-    if (self%mpi_rank == 0) &
-      write(*,'(a,es12.4)') ' HEAT_MOD_dEk=', sum(self%P_loss(2,1,:)) - Ploss_before
+    !if (self%mpi_rank == 0) &
+     ! write(*,'(a,es12.4)') ' HEAT_MOD_dEk=', sum(self%P_loss(2,1,:)) - Ploss_before
 
   end subroutine apply_electron_heating_local
 
@@ -840,9 +840,9 @@ contains
       vt_heat = sqrt(2.0_real64 * qe * Te / abs(self%chem%mass(1)))
     end if
 
-    if (self%mpi_rank == 0) &
-      write(*,'(a,es12.4,a,i10,a,es12.4)') &
-      ' HEAT_MOD vt=', vt_heat, ' Nh=', sum_Nh_global, ' sum_dEk=', sum_dEk_global
+    !if (self%mpi_rank == 0) &
+     ! write(*,'(a,es12.4,a,i10,a,es12.4)') &
+      !' HEAT_MOD vt=', vt_heat, ' Nh=', sum_Nh_global, ' sum_dEk=', sum_dEk_global
 
   end subroutine update_heating_vt
 
