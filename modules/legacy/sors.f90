@@ -12,6 +12,7 @@ subroutine sor_rb(u,b,h,bcnd,res,n,n3,omega,eps,ksor,kmg,dig,rank,nproc)
   use mpi
   use mod_constants, only: eps0
   use mod_part_info, only: flag_pbc, flag_nmn
+  use mod_sor_timing, only: accum_concat_time
   implicit none
   integer:: i,is,j,k,ks,kr,kl,l,n(3),n3,shift(0:nproc-1), &
        length(0:nproc-1),ksor,kmg,dig,nr,m,u_0,u_n3p1,flag, &
@@ -22,6 +23,7 @@ subroutine sor_rb(u,b,h,bcnd,res,n,n3,omega,eps,ksor,kmg,dig,rank,nproc)
        b(0:n(1)+1,0:n(2)+1,0:n(3)+1),u_pbc(0:n(1)+2,0:n(2)+2,2)
   real(kind=8), allocatable:: u_tmp(:,:,:),b_tmp(:,:,:)
   integer, allocatable:: bcnd_tmp(:,:,:)
+  real(kind=8):: t_concat0, t_concat1
   ! Solver constants
   real(kind=8):: omega,eta,eps,rij,res_s,res,res_tmp ! residual
   include 'mg.h'
@@ -460,7 +462,9 @@ subroutine sor_rb(u,b,h,bcnd,res,n,n3,omega,eps,ksor,kmg,dig,rank,nproc)
   !
   ! Concatenate arrays u, bcnd, b when m=1 and move toward coarser grids
   !
-  if(flag_c.eq.1) then  
+  if(flag_c.eq.1) then
+
+     t_concat0 = MPI_Wtime()
 
      allocate ( u_tmp(0:n(1)+2,0:n(2)+2,-1:n(3)+2), &
           b_tmp(0:n(1)+1,0:n(2)+1,0:n(3)+1), &
@@ -530,6 +534,9 @@ subroutine sor_rb(u,b,h,bcnd,res,n,n3,omega,eps,ksor,kmg,dig,rank,nproc)
      bcnd= bcnd_tmp
 
      deallocate ( u_tmp, b_tmp, bcnd_tmp )
+
+     t_concat1 = MPI_Wtime()
+     call accum_concat_time(t_concat1 - t_concat0)
 
   endif
 

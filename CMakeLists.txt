@@ -195,6 +195,8 @@ target_include_directories(fields_base PUBLIC
 add_dependencies(fields_base geometry_base)
 
 add_library(pic_core_obj OBJECT
+  ${MODULES_DIR}/legacy/mod_sor_timing.f90
+
   ${MODULES_DIR}/config/mod_readConditions.f90
 
   ${MODULES_DIR}/core/mod_intro.f90

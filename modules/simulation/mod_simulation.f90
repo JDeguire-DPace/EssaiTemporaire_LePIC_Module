@@ -6,6 +6,7 @@ module mod_simulation
   use mod_restart,               only: write_restart_modular
   use mod_injection,             only: inject_particles_volume, inject_flux_particles
   use mod_PoissonSolver_legacy,  only: solve_poisson_legacy, print_poisson_breakdown, reset_poisson_breakdown
+  use mod_sor_timing,            only: print_sor_timing, reset_sor_timing
   use mod_electricField,         only: calc_Efield_modular, calc_Efield_energy_conserving
   use mod_output_2d,             only: write_density_planes, write_scalar_planes, &
                                        write_vector_component_planes, &
@@ -897,6 +898,7 @@ contains
     end if
 
     call print_poisson_breakdown(self%t_count)
+    call print_sor_timing(self%t_count)
 
     if (self%t_count > 0_int32) then
       write(*,'(a)') " ----- mover / deposit timing breakdown -----"
@@ -957,6 +959,7 @@ contains
     self%t_Erho    = 0.0_real64
     self%t_poisson = 0.0_real64
     call reset_poisson_breakdown()
+    call reset_sor_timing()
     self%t_sort    = 0.0_real64
     self%t_avg     = 0.0_real64
     self%t_MC      = 0.0_real64
