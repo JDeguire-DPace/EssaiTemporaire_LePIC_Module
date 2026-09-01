@@ -231,6 +231,7 @@ def plot_array(
     im = axes[0].imshow(
         arr,
         origin="lower",
+        cmap="Spectral",
         aspect="auto",
     )
 

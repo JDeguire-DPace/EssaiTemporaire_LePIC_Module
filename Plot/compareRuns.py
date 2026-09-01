@@ -146,8 +146,8 @@ def compare_one_dim(
     avg2 = np.mean(arr2_interp, axis=0)
     x = np.linspace(0.0, 1.0, avg1.size)
 
-    axes[3].plot(x, avg1, label=f"it{it1}", linewidth=3)
-    axes[3].plot(x, avg2, label=f"it{it2}", linewidth=3)
+    axes[3].plot(x, avg1, label=f"it{it1}", linewidth=1)
+    axes[3].plot(x, avg2, label=f"it{it2}", linewidth=1)
 
     axes[3].set_title(f"Average profiles, {dim}")
     axes[3].set_xlabel(xlabel)

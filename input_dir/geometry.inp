@@ -1,5 +1,6 @@
-40. 32. 58. ! Box size: xmax, ymax, zmax
-0. 0.  0. 40. 32. 58. 1 ! (x<,y<,z<), (x>,y>,z>), V 
-0. 0. 16.75 16. 32. 41.25 2
-40. 0. 0. 40. 32. 58. -4
-40. 0. 15.1 40. 32. 42.9 -3
+16. -9.84 9.84 ! Box size: xmax, ymax, zmax  -- CORRECTED: was -10 10 (box=10cm); now 9.84cm to match actual chamber diameter, no margin
+0. 0. 0. 16. 9.84 9.84 1 ! (x<,y<,z<), (x>,y>,z>), V  -- CORRECTED: was 10 10, now 9.84 9.84 -> R=4.92cm, wall coincides with mesh edge
+16. 0. 0. 16. 9.84 9.84 -3 ! x> negatif: dielectric in YZ plane  -- CORRECTED: was 10 10, matched to new box extent
+16. 2.5 2.5 16 7.5 7.5 -4 ! y> negatif: dielectric in XZ plane, z> negatif: z=1 and n+1 set as periodic BC's
+0. 0. 0. 0. 9.84 9.84 -2 ! CORRECTED: was 10 10, matched to new box extent
+
