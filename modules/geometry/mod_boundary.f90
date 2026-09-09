@@ -1,5 +1,5 @@
 module mod_boundary
-  use iso_fortran_env, only: real64
+  use iso_fortran_env, only: real64, int32
   use mod_domain,      only: Domain
   use mod_config,      only: Config
   use mod_fields,      only: Fields
@@ -131,6 +131,34 @@ contains
 
     ! dtype -> dom
     dom%dtype = dtype
+
+    ! ------------------------------------------------------------
+    ! precompute wall_cell(ix,iy,iz) = all 8 corners of bcnd around
+    ! (ix,iy,iz) are >= 1 -- the exact predicate particle_is_lost checks,
+    ! cached once here since bcnd never changes after this point.
+    ! ------------------------------------------------------------
+    block
+      integer(int32) :: ix, iy, iz
+
+      if (allocated(dom%wall_cell)) deallocate(dom%wall_cell)
+      allocate(dom%wall_cell(0:dom%n(1)+1, 0:dom%n(2)+1, 0:dom%n(3)+1))
+
+      do iz = 0, dom%n(3)+1
+        do iy = 0, dom%n(2)+1
+          do ix = 0, dom%n(1)+1
+            dom%wall_cell(ix,iy,iz) = &
+                 dom%bcnd(ix  ,iy  ,iz  ) >= 1_int32 .and. &
+                 dom%bcnd(ix+1,iy  ,iz  ) >= 1_int32 .and. &
+                 dom%bcnd(ix+1,iy+1,iz  ) >= 1_int32 .and. &
+                 dom%bcnd(ix  ,iy+1,iz  ) >= 1_int32 .and. &
+                 dom%bcnd(ix  ,iy  ,iz+1) >= 1_int32 .and. &
+                 dom%bcnd(ix+1,iy  ,iz+1) >= 1_int32 .and. &
+                 dom%bcnd(ix+1,iy+1,iz+1) >= 1_int32 .and. &
+                 dom%bcnd(ix  ,iy+1,iz+1) >= 1_int32
+          end do
+        end do
+      end do
+    end block
 
     deallocate(V, dtype)
   end subroutine build_boundary

@@ -184,7 +184,7 @@ contains
 
   subroutine move_and_bc_electrostatic( part, n, h, E, q, m, dt, &
                                          use_energy_conserving, &
-                                         bcnd, xmax, ymax, zmax, flag_pbc, flag_nmn, &
+                                         bcnd, wall_cell, xmax, ymax, zmax, flag_pbc, flag_nmn, &
                                          ptype, tag_neg, flag_die, dtype, qmacro, &
                                          sum_q_xz_local, sum_q_yz_local, p_mac_boundary, &
                                          P_loss_wall, Nm_species, see, part_electrons, &
@@ -212,6 +212,7 @@ contains
     logical,            intent(in)    :: use_energy_conserving
 
     integer(int32),     intent(in)    :: bcnd(0:n(1)+2,0:n(2)+2,0:n(3)+2)
+    logical(1),         intent(in)    :: wall_cell(0:n(1)+1,0:n(2)+1,0:n(3)+1)
     real(real64),       intent(in)    :: xmax, ymax, zmax
     integer(int32),     intent(in)    :: flag_pbc, flag_nmn, ptype, tag_neg
     integer(int32),     intent(in)    :: flag_die
@@ -368,7 +369,7 @@ contains
 
       flag_lost = 0_int32
 
-      if (particle_is_lost(bcnd, ix, iy, iz, n)) flag_lost = 1_int32
+      if (particle_is_lost(wall_cell, ix, iy, iz, n)) flag_lost = 1_int32
 
       if (ptype == tag_neg) then
         if (xp_new < 0.0_real64 .and. flag_nmn == 1_int32) flag_lost = 2_int32
@@ -537,7 +538,7 @@ contains
 
 
   subroutine move_and_bc_electrostatic_fast( part, n, h, E, q, m, dt, &
-                                              bcnd, xmax, ymax, zmax, flag_pbc, flag_nmn, &
+                                              bcnd, wall_cell, xmax, ymax, zmax, flag_pbc, flag_nmn, &
                                               ptype, tag_neg, flag_die, dtype, qmacro, &
                                               sum_q_xz_local, sum_q_yz_local, p_mac_boundary, &
                                               P_loss_wall, Nm_species, see, part_electrons, &
@@ -564,6 +565,7 @@ contains
     real(real64),       intent(in)    :: q, m, dt
 
     integer(int32),     intent(in)    :: bcnd(0:n(1)+2,0:n(2)+2,0:n(3)+2)
+    logical(1),         intent(in)    :: wall_cell(0:n(1)+1,0:n(2)+1,0:n(3)+1)
     real(real64),       intent(in)    :: xmax, ymax, zmax
     integer(int32),     intent(in)    :: flag_pbc, flag_nmn, ptype, tag_neg
     integer(int32),     intent(in)    :: flag_die
@@ -684,7 +686,7 @@ contains
 
       flag_lost = 0_int32
 
-      if (particle_is_lost(bcnd, ix, iy, iz, n)) flag_lost = 1_int32
+      if (particle_is_lost(wall_cell, ix, iy, iz, n)) flag_lost = 1_int32
 
       if (ptype == tag_neg) then
         if (xp_new < 0.0_real64 .and. flag_nmn == 1_int32) flag_lost = 2_int32
@@ -854,7 +856,7 @@ contains
 
   subroutine move_and_bc_boris( part, n, h, E, n_B, h_B, Bi, q, m, dt, &
                                  use_energy_conserving, &
-                                 bcnd, xmax, ymax, zmax, flag_pbc, flag_nmn, &
+                                 bcnd, wall_cell, xmax, ymax, zmax, flag_pbc, flag_nmn, &
                                  ptype, tag_neg, flag_die, dtype, qmacro, &
                                  sum_q_xz_local, sum_q_yz_local, p_mac_boundary, &
                                  P_loss_wall, Nm_species, see, part_electrons, &
@@ -879,6 +881,7 @@ contains
     logical,            intent(in)    :: use_energy_conserving
 
     integer(int32),     intent(in)    :: bcnd(0:n(1)+2,0:n(2)+2,0:n(3)+2)
+    logical(1),         intent(in)    :: wall_cell(0:n(1)+1,0:n(2)+1,0:n(3)+1)
     real(real64),       intent(in)    :: xmax, ymax, zmax
     integer(int32),     intent(in)    :: flag_pbc, flag_nmn, ptype, tag_neg
     integer(int32),     intent(in)    :: flag_die
@@ -1156,7 +1159,7 @@ contains
 
       flag_lost = 0_int32
 
-      if (particle_is_lost(bcnd, ix, iy, iz, n)) flag_lost = 1_int32
+      if (particle_is_lost(wall_cell, ix, iy, iz, n)) flag_lost = 1_int32
 
       if (ptype == tag_neg) then
         if (xp_new < 0.0_real64 .and. flag_nmn == 1_int32) flag_lost = 2_int32

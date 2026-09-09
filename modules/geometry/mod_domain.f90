@@ -35,6 +35,13 @@ module mod_domain
     ! core arrays (legacy layout: ghosted 0:n+2)
     integer(int32), allocatable :: bcnd(:,:,:)
 
+    ! precomputed cache: wall_cell(ix,iy,iz) == (all 8 corners of bcnd around
+    ! (ix,iy,iz) are >= 1), i.e. the exact predicate particle_is_lost computes.
+    ! bcnd is static after generate_boundary() fills it, so this is computed
+    ! once (see mod_boundary.f90::build_boundary) instead of recomputed via an
+    ! 8-corner gather on every particle, every step.
+    logical(1), allocatable :: wall_cell(:,:,:)
+
   contains
     procedure :: init_from_config
     procedure :: allocate_masks_domain

@@ -711,6 +711,7 @@ contains
                 dt             = dt_local, &
                 use_energy_conserving = use_energy_conserving, &
                 bcnd           = self%dom%bcnd, &
+                wall_cell      = self%dom%wall_cell, &
                 xmax           = self%dom%xmax, &
                 ymax           = self%dom%ymax, &
                 zmax           = self%dom%zmax, &
@@ -751,6 +752,7 @@ contains
                 m              = m_species, &
                 dt             = dt_local, &
                 bcnd           = self%dom%bcnd, &
+                wall_cell      = self%dom%wall_cell, &
                 xmax           = self%dom%xmax, &
                 ymax           = self%dom%ymax, &
                 zmax           = self%dom%zmax, &
@@ -781,6 +783,7 @@ contains
                 dt             = dt_local, &
                 use_energy_conserving = use_energy_conserving, &
                 bcnd           = self%dom%bcnd, &
+                wall_cell      = self%dom%wall_cell, &
                 xmax           = self%dom%xmax, &
                 ymax           = self%dom%ymax, &
                 zmax           = self%dom%zmax, &
@@ -821,6 +824,7 @@ contains
               n              = int(self%dom%n, int32), &
               h              = self%dom%h, &
               bcnd           = self%dom%bcnd, &
+              wall_cell      = self%dom%wall_cell, &
               xmax           = self%dom%xmax, &
               ymax           = self%dom%ymax, &
               zmax           = self%dom%zmax, &

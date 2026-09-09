@@ -24,24 +24,19 @@ module mod_particleBC
 
 contains
 
-  logical function particle_is_lost(bcnd, ix, iy, iz, n) result(is_lost)
+  logical function particle_is_lost(wall_cell, ix, iy, iz, n) result(is_lost)
     integer(int32), intent(in) :: ix, iy, iz
     integer(int32), intent(in) :: n(3)
-    integer(int32), intent(in) :: bcnd(0:n(1)+2,0:n(2)+2,0:n(3)+2)
+    logical(1),     intent(in) :: wall_cell(0:n(1)+1,0:n(2)+1,0:n(3)+1)
 
-    is_lost = &
-         bcnd(ix  ,iy  ,iz  ) >= 1_int32 .and. &
-         bcnd(ix+1,iy  ,iz  ) >= 1_int32 .and. &
-         bcnd(ix+1,iy+1,iz  ) >= 1_int32 .and. &
-         bcnd(ix  ,iy+1,iz  ) >= 1_int32 .and. &
-         bcnd(ix  ,iy  ,iz+1) >= 1_int32 .and. &
-         bcnd(ix+1,iy  ,iz+1) >= 1_int32 .and. &
-         bcnd(ix+1,iy+1,iz+1) >= 1_int32 .and. &
-         bcnd(ix  ,iy+1,iz+1) >= 1_int32
+    ! wall_cell(ix,iy,iz) is precomputed once (mod_boundary.f90::build_boundary)
+    ! as the exact 8-corner-of-bcnd-all->=1 predicate this used to compute here
+    ! on every call -- bcnd is static after init, so this is a cache lookup now.
+    is_lost = wall_cell(ix,iy,iz)
   end function particle_is_lost
 
 
-  subroutine apply_particle_bc( part, n, h, bcnd, xmax, ymax, zmax, &
+  subroutine apply_particle_bc( part, n, h, bcnd, wall_cell, xmax, ymax, zmax, &
                                 flag_pbc, flag_nmn, ptype, tag_neg,  &
                                 flag_die, dtype, qmacro,              &
                                 sum_q_xz_local, sum_q_yz_local,       &
@@ -54,6 +49,7 @@ contains
     integer(int32),     intent(in)    :: n(3)
     real(real64),       intent(in)    :: h(3)
     integer(int32),     intent(in)    :: bcnd(0:n(1)+2,0:n(2)+2,0:n(3)+2)
+    logical(1),         intent(in)    :: wall_cell(0:n(1)+1,0:n(2)+1,0:n(3)+1)
     real(real64),       intent(in)    :: xmax, ymax, zmax
     integer(int32),     intent(in)    :: flag_pbc, flag_nmn, ptype, tag_neg
     integer(int32),     intent(in)    :: flag_die
@@ -122,7 +118,7 @@ contains
 
       flag_lost = 0_int32
 
-      if (particle_is_lost(bcnd, ix, iy, iz, n)) flag_lost = 1_int32
+      if (particle_is_lost(wall_cell, ix, iy, iz, n)) flag_lost = 1_int32
 
       if (ptype == tag_neg) then
         if (xp_new < 0.0_real64 .and. flag_nmn == 1_int32) flag_lost = 2_int32
