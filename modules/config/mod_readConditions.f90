@@ -199,9 +199,31 @@ module mod_readConditions
 
         read(10,*,err=999) cfg%jne, cfg%THm, cfg%num_grd, cfg%Ca
 
-        read(10,*,err=999) cfg%gam_sec, cfg%igrid_sec, ans, cfg%phi0_RF, cfg%f0_RF, cfg%phi1_RF, cfg%f1_RF
+        read(10,*,err=999) cfg%gam_sec, cfg%igrid_sec, ans, cfg%phi0_RF, cfg%f0_RF, cfg%phi1_RF, cfg%f1_RF, cfg%E0_RF
         cfg%flag_RFpot = 0
         if (ans=='y' .or. ans=='Y') cfg%flag_RFpot = 1
+
+        ! RF antenna (inductive) heating - Src/read_input.f90:128-134
+        ! 'A'/'a': wall-coil geometry (skin depth decays radially inward
+        ! from R_ahp). 'P'/'p': planar-coil geometry (coil under a
+        ! dielectric window at x=xl_pow; skin depth decays axially away
+        ! from the window instead, and the radial term uses the bounded
+        ! Faraday's-law profile rather than an unbounded r/R_ahp growth).
+        cfg%flag_RFant = 0
+        cfg%flag_planar_ant = 0
+        if (ans=='A' .or. ans=='a') then
+            cfg%flag_RFant = 1
+            cfg%flag_inj  = 0
+            cfg%I_inj     = 0.0_real64
+            cfg%flag_heat = 0
+        end if
+        if (ans=='P' .or. ans=='p') then
+            cfg%flag_RFant      = 1
+            cfg%flag_planar_ant = 1
+            cfg%flag_inj  = 0
+            cfg%I_inj     = 0.0_real64
+            cfg%flag_heat = 0
+        end if
 
         if (cfg%I_inj > 0.0_real64 .and. cfg%gam_sec > 0.0_real64) then
             print*, 'Warning: gam_sec>0 is incompatible with I_inj>0, please correct ...'

@@ -1,0 +1,40 @@
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 376K of event 'cycles:u'
+# Event count (approx.): 412799346366
+#
+# Children      Self  Symbol                                                                                                                                                                          IPC   [IPC Coverage]
+# ........  ........  ..............................................................................................................................................................................  ....................
+#
+    66.66%    56.12%  [.] mod_state_mp_advance_particles_local_.DIR.OMP.PARALLEL.LOOP.27356.split7359                                                                                                 -      -            
+    26.19%     0.01%  [.] __kmp_launch_thread                                                                                                                                                         -      -            
+    26.19%     0.00%  [.] __kmp_launch_worker                                                                                                                                                         -      -            
+    25.93%     0.00%  [.] 0x0000146e84cafa9c                                                                                                                                                          -      -            
+    25.63%     0.00%  [.] 0x0000146e84d3009b                                                                                                                                                          -      -            
+    16.38%     0.01%  [.] __kmp_invoke_task_func                                                                                                                                                      -      -            
+    16.36%     0.42%  [.] __kmp_invoke_microtask                                                                                                                                                      -      -            
+    15.67%    14.84%  [.] kmp_flag_64<false, true>::wait                                                                                                                                              -      -            
+    14.07%     0.53%  [.] __kmp_hyper_barrier_release                                                                                                                                                 -      -            
+    13.74%     0.00%  [.] __kmp_fork_barrier                                                                                                                                                          -      -            
+     9.65%     9.65%  [.] mod_chargedeposition_mp_deposit_particle_set_to_np_thread_                                                                                                                  -      -            
+     6.53%     0.00%  [.] __kmpc_fork_call                                                                                                                                                            -      -            
+     4.38%     0.07%  [.] __kmp_fork_call                                                                                                                                                             -      -            
+     2.95%     2.49%  [.] mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525                                                                                                         -      -            
+     2.94%     0.00%  [.] MAIN__                                                                                                                                                                      -      -            
+     2.76%     1.80%  [.] restriction_.DIR.OMP.PARALLEL.10.split3694                                                                                                                                  -      -            
+     2.74%     0.00%  [.] sor_rb_                                                                                                                                                                     -      -            
+     2.68%     0.00%  [.] mod_simulation_mp_advance_one_step_                                                                                                                                         -      -            
+     2.52%     0.00%  [.] mod_simulation_mp_run_                                                                                                                                                      -      -            
+     2.43%     0.29%  [.] __kmp_hyper_barrier_gather                                                                                                                                                  -      -            
+     2.31%     0.02%  [.] __kmp_join_barrier                                                                                                                                                          -      -            
+     2.16%     0.04%  [.] __kmp_join_call                                                                                                                                                             -      -            
+     2.02%     0.00%  [.] __kmp_internal_join                                                                                                                                                         -      -            
+     1.98%     1.97%  [.] sor_rb_.DIR.OMP.PARALLEL.25                                                                                                                                                 -      -            
+     1.87%     1.29%  [.] sor_rb_.DIR.OMP.PARALLEL.48                                                                                                                                                 -      -            
+     1.77%     1.77%  [.] sor_rb_.DIR.OMP.PARALLEL.2                                                                                                                                                  -      -            
+     1.12%     0.83%  [.] mod_particle_loader_mp_load_particles_modular_.DIR.OMP.PARALLEL.2.split3702.split3706                                                                                       -      -            
+     1.04%     1.04%  [.] getres_                                                                                                                                                                     -      -            
+     1.00%     0.97%  [.] __intel_avx_rep_memset                                                                                                                                                      -      -            

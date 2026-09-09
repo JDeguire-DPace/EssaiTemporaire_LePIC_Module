@@ -1,0 +1,40 @@
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 438K of event 'cycles:u'
+# Event count (approx.): 482730709126
+#
+# Children      Self  Symbol                                                                      IPC   [IPC Coverage]
+# ........  ........  ..........................................................................  ....................
+#
+    76.80%     0.03%  [.] __kmp_launch_thread                                                     -      -            
+    76.80%     0.00%  [.] __kmp_launch_worker                                                     -      -            
+    76.75%     0.00%  [.] 0x0000153dcd6afa9c                                                      -      -            
+    76.70%     0.00%  [.] 0x0000153dcd73009b                                                      -      -            
+    75.86%     0.02%  [.] __kmp_invoke_task_func                                                  -      -            
+    75.80%     0.77%  [.] __kmp_invoke_microtask                                                  -      -            
+    33.97%    26.30%  [.] MAIN__.DIR.OMP.PARALLEL.82                                              -      -            
+    22.70%     0.00%  [.] __kmpc_fork_call                                                        -      -            
+    22.22%    20.49%  [.] kmp_flag_64<false, true>::wait                                          -      -            
+    20.31%     1.32%  [.] __kmp_hyper_barrier_release                                             -      -            
+    19.51%     0.14%  [.] __kmp_fork_call                                                         -      -            
+    19.13%     0.00%  [.] __kmp_fork_barrier                                                      -      -            
+     9.78%     0.01%  [.] MAIN__                                                                  -      -            
+     8.99%     0.01%  [.] sor_rb_                                                                 -      -            
+     8.08%     5.32%  [.] restriction_.DIR.OMP.PARALLEL.10.split3695                              -      -            
+     7.51%     7.50%  [.] sor_rb_.DIR.OMP.PARALLEL.25                                             -      -            
+     7.41%     7.41%  [.] charge_deposition_                                                      -      -            
+     7.32%     7.31%  [.] sor_rb_.DIR.OMP.PARALLEL.2                                              -      -            
+     6.21%     4.78%  [.] sor_rb_.DIR.OMP.PARALLEL.48                                             -      -            
+     4.72%     3.24%  [.] part_sorting_.DIR.OMP.PARALLEL.2                                        -      -            
+     4.07%     0.84%  [.] __kmp_hyper_barrier_gather                                              -      -            
+     3.80%     0.07%  [.] __kmp_join_barrier                                                      -      -            
+     3.19%     0.06%  [.] __kmp_join_call                                                         -      -            
+     3.04%     3.04%  [.] getres_                                                                 -      -            
+     2.93%     0.00%  [.] __kmp_internal_join                                                     -      -            
+     2.47%     0.03%  [.] restriction_                                                            -      -            
+     2.37%     2.37%  [.] prolongation_.DIR.OMP.PARALLEL.2.split824                               -      -            
+     1.92%     0.01%  [.] pdesolver_                                                              -      -            
+     1.58%     0.00%  [.] __kmp_barrier                                                           -      -            

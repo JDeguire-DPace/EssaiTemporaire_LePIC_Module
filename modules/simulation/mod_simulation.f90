@@ -421,6 +421,19 @@ contains
 
     tstep0 = MPI_Wtime()
 
+    ! RF antenna heating: periodic convergence (skin depth + E0_RF rescale),
+    ! ported from legacy Src/main.f90:887-933. Placed here, before
+    ! build_rho_from_np below, so it reads self%state%fld%np as left by the
+    ! PREVIOUS step's deposit_all_particles - mirrors legacy, whose
+    ! equivalent block (main.f90:859) also runs before that iteration's
+    ! calc_rho (main.f90:970), reading the same "previous period" density
+    ! and already-accumulated P_RF.
+    if (self%state%cfg%flag_RFant == 1_int32) then
+      if (mod(istep, self%state%params%ns_RF) == 0_int32) then
+        call self%state%update_rf_convergence(istep)
+      end if
+    end if
+
     ! E/rho
     !
     ! No reduce_species_density call here: fld%np already holds the
@@ -525,7 +538,7 @@ contains
     ! that real BC time and deposit-loop time respectively, restoring the
     ! "mover / deposit timing breakdown" print block below to real numbers.
     t0 = MPI_Wtime()
-    call advance_particles_local(self%state, t_move_dbg, t_bc_dbg, t_deposit_dbg, &
+    call advance_particles_local(self%state, istep, t_move_dbg, t_bc_dbg, t_deposit_dbg, &
                                   t_move_min_dbg, t_move_avg_dbg, &
                                   t_deposit_min_dbg, t_deposit_avg_dbg)
     t1 = MPI_Wtime()
@@ -732,7 +745,9 @@ contains
           tag_neg  = int(self%state%chem%tag_neg, int32), &
           part     = self%state%part, &
           time     = real(istep, real64) * self%state%params%dt, &
-          flag_wrt = self%flag_wrt )
+          flag_wrt = self%flag_wrt, &
+          flag_RFant = self%state%cfg%flag_RFant, &
+          E0_RF      = self%state%cfg%E0_RF )
         if (self%state%mpi_rank == 0_int32) write(*,*) 'Done!'
       end if
     end if

@@ -1,13 +1,14 @@
 module mod_particleMover
   use iso_fortran_env, only: int32, real64, int8
   use mod_particles,   only: ParticleSet
-  use mod_constants,   only: qe
+  use mod_constants,   only: qe, pi
   use mod_rng,         only: ran2, load_gauss
   use mod_particleBC,  only: particle_is_lost, SeeParams
   implicit none
   private
 
   public :: move_and_bc_electrostatic
+  public :: move_and_bc_electrostatic_fast
   public :: move_and_bc_boris
   public :: interpolate_E_trilinear
   public :: gather_E_energy_conserving
@@ -130,13 +131,67 @@ contains
   end subroutine gather_E_energy_conserving
 
 
+  pure subroutine compute_rf_field(xp, yp, zp, time, ymax, zmax, R_ahp, gams, &
+                                    E0_RF, omega_RF, flag_planar_ant, x0, &
+                                    EAy, EAz, EAth, theta)
+    ! RF antenna (inductive) heating field, azimuthal about the domain's
+    ! y-z center. Two selectable geometries (cfg%flag_planar_ant, set from
+    ! the 'A' vs 'P' ans option in mod_readConditions.f90):
+    !
+    !   flag_planar_ant==0 (wall-coil, default): coil wrapped around the
+    !   chamber wall at radius R_ahp. Field peaks at R_ahp and decays
+    !   exponentially INWARD (skin depth gams) as rp decreases. Ported
+    !   from legacy Src/part_expmover.f90:147-155.
+    !
+    !   flag_planar_ant==1 (planar-coil): coil under a dielectric window
+    !   at x=x0 (=xl_pow). Radial term is the bounded Faraday's-law
+    !   profile for a uniform time-varying B_z confined to r<=R_ahp
+    !   (E ~ r inside, E ~ R_ahp/r outside - continuous at rp=R_ahp,
+    !   unlike a naive r/R_ahp that grows without bound past the coil's
+    !   own extent). Skin depth now decays AXIALLY away from the window,
+    !   not radially - the induced field penetrates into the plasma bulk
+    !   along x, not toward the axis.
+    !
+    ! Called from both movers below, once for the field-add (before the
+    ! velocity update) and reusing its EAth/theta outputs for the
+    ! power-accumulation call after the position update.
+    real(real64),   intent(in)  :: xp, yp, zp, time, ymax, zmax, R_ahp, gams
+    real(real64),   intent(in)  :: E0_RF, omega_RF
+    integer(int32), intent(in)  :: flag_planar_ant
+    real(real64),   intent(in)  :: x0
+    real(real64),   intent(out) :: EAy, EAz, EAth, theta
+    real(real64) :: rp, radial_factor
+
+    rp    = sqrt((yp-ymax/2.0_real64)**2 + (zp-zmax/2.0_real64)**2)
+    theta = atan2(zp-zmax/2.0_real64, yp-ymax/2.0_real64)
+    if (theta < 0.0_real64) theta = theta + 2.0_real64*pi
+
+    if (flag_planar_ant == 1_int32) then
+       if (rp <= R_ahp) then
+          radial_factor = rp / R_ahp
+       else
+          radial_factor = R_ahp / rp
+       end if
+       EAth = E0_RF * radial_factor * exp(-(xp-x0)/gams) * cos(omega_RF*time)
+    else
+       EAth = E0_RF * (rp/R_ahp) * exp((rp-R_ahp)/gams) * cos(omega_RF*time)
+    end if
+
+    EAy  = -EAth*sin(theta)
+    EAz  =  EAth*cos(theta)
+  end subroutine compute_rf_field
+
+
   subroutine move_and_bc_electrostatic( part, n, h, E, q, m, dt, &
                                          use_energy_conserving, &
                                          bcnd, xmax, ymax, zmax, flag_pbc, flag_nmn, &
                                          ptype, tag_neg, flag_die, dtype, qmacro, &
                                          sum_q_xz_local, sum_q_yz_local, p_mac_boundary, &
                                          P_loss_wall, Nm_species, see, part_electrons, &
-                                         iseed, P_loss_see )
+                                         iseed, P_loss_see, &
+                                         flag_RFant, ixl_pow, ixr_pow, R_ahp, gams, &
+                                         E0_RF, omega_RF, time, P_RF_local, &
+                                         flag_planar_ant, x0 )
     ! Fused electrostatic push + boundary-condition/SEE pass: one read and
     ! one write of each live particle's position/velocity instead of two
     ! (push writing back into part%x/vx/..., then a separate BC pass
@@ -155,6 +210,358 @@ contains
     real(real64),       intent(in)    :: E(3,0:n(1)+2,0:n(2)+2,0:n(3)+2)
     real(real64),       intent(in)    :: q, m, dt
     logical,            intent(in)    :: use_energy_conserving
+
+    integer(int32),     intent(in)    :: bcnd(0:n(1)+2,0:n(2)+2,0:n(3)+2)
+    real(real64),       intent(in)    :: xmax, ymax, zmax
+    integer(int32),     intent(in)    :: flag_pbc, flag_nmn, ptype, tag_neg
+    integer(int32),     intent(in)    :: flag_die
+    integer(int32),     intent(in)    :: dtype(:)
+    real(real64),       intent(in)    :: qmacro
+    real(real64),       intent(inout) :: sum_q_xz_local(0:n(1)+2,0:n(3)+2)
+    real(real64),       intent(inout) :: sum_q_yz_local(2,0:n(2)+2,0:n(3)+2)
+    real(real64),       intent(inout) :: p_mac_boundary(:,:)
+    real(real64),       intent(inout) :: P_loss_wall
+    real(real64),       intent(in)    :: Nm_species
+    type(SeeParams),    intent(in)    :: see
+    type(ParticleSet),  intent(inout) :: part_electrons
+    integer(int32),     intent(inout) :: iseed
+    real(real64),       intent(inout) :: P_loss_see
+
+    ! RF antenna (inductive) heating - see compute_rf_field above.
+    ! ixl_pow/ixr_pow: heating-slab grid-x bounds (inclusive), gate on the
+    ! pre-push ix, matching legacy Src/part_expmover.f90:142.
+    integer(int32),     intent(in)    :: flag_RFant, ixl_pow, ixr_pow
+    real(real64),       intent(in)    :: R_ahp, gams, E0_RF, omega_RF, time
+    real(real64),       intent(inout) :: P_RF_local
+    integer(int32),     intent(in)    :: flag_planar_ant
+    real(real64),       intent(in)    :: x0
+
+    integer(int32) :: i, i_shift, i_see, ip_sec, n_sec
+    integer(int32) :: ix, iy, iz
+    integer(int32) :: flag_lost, np_lost
+    integer(int32) :: igrid, d_ind
+
+    real(real64) :: qmdt
+    real(real64) :: xp, yp, zp
+    real(real64) :: px, py, pz
+    real(real64) :: wx2, wy2, wz2
+    real(real64) :: w1, w2, w3, w4, w5, w6, w7, w8
+    real(real64) :: Exp, Eyp, Ezp
+
+    real(real64) :: xp_new, yp_new, zp_new
+    real(real64) :: vpx_new, vpy_new, vpz_new
+    real(real64) :: ki4(4)
+    real(real64) :: Ek_eV, Ek_J
+    real(real64) :: rnd(2)
+    real(real64) :: vx_sec, vy_sec, vz_sec
+
+    logical :: do_see
+
+    logical      :: in_rf_region
+    real(real64) :: EAy, EAz, EAth, theta_rf, v_theta
+
+    if (.not. allocated(part%x)) return
+    if (part%n <= 0_int32) return
+
+    qmdt   = dt*q/m
+    do_see = (see%gam_sec > 0.0_real64) .and. (q > 0.0_real64)
+
+    np_lost = 0_int32
+
+    do i = 1, part%n
+
+      if (allocated(part%flag_dead)) then
+        if (part%flag_dead(i) /= 0_int8) then
+          np_lost = np_lost + 1_int32
+          cycle
+        end if
+      end if
+
+      ! ---- push ----
+      xp = part%x(i)
+      yp = part%y(i)
+      zp = part%z(i)
+
+      ix = int(xp / h(1), int32) + 1_int32
+      iy = int(yp / h(2), int32) + 1_int32
+      iz = int(zp / h(3), int32) + 1_int32
+
+      ix = max(0_int32, min(n(1)+1_int32, ix))
+      iy = max(0_int32, min(n(2)+1_int32, iy))
+      iz = max(0_int32, min(n(3)+1_int32, iz))
+
+      px = (real(ix, real64)*h(1) - xp) / h(1)
+      py = (real(iy, real64)*h(2) - yp) / h(2)
+      pz = (real(iz, real64)*h(3) - zp) / h(3)
+
+      wx2 = 1.0_real64 - px
+      wy2 = 1.0_real64 - py
+      wz2 = 1.0_real64 - pz
+
+      w1 = px  * py  * pz
+      w2 = wx2 * py  * pz
+      w3 = wx2 * wy2 * pz
+      w4 = px  * wy2 * pz
+      w5 = px  * py  * wz2
+      w6 = wx2 * py  * wz2
+      w7 = wx2 * wy2 * wz2
+      w8 = px  * wy2 * wz2
+
+      if (use_energy_conserving) then
+        call gather_E_energy_conserving(xp, yp, zp, n, h, E, Exp, Eyp, Ezp)
+      else
+        Exp = w1*E(1,ix  ,iy  ,iz  ) + w2*E(1,ix+1,iy  ,iz  ) + &
+              w3*E(1,ix+1,iy+1,iz  ) + w4*E(1,ix  ,iy+1,iz  ) + &
+              w5*E(1,ix  ,iy  ,iz+1) + w6*E(1,ix+1,iy  ,iz+1) + &
+              w7*E(1,ix+1,iy+1,iz+1) + w8*E(1,ix  ,iy+1,iz+1)
+
+        Eyp = w1*E(2,ix  ,iy  ,iz  ) + w2*E(2,ix+1,iy  ,iz  ) + &
+              w3*E(2,ix+1,iy+1,iz  ) + w4*E(2,ix  ,iy+1,iz  ) + &
+              w5*E(2,ix  ,iy  ,iz+1) + w6*E(2,ix+1,iy  ,iz+1) + &
+              w7*E(2,ix+1,iy+1,iz+1) + w8*E(2,ix  ,iy+1,iz+1)
+
+        Ezp = w1*E(3,ix  ,iy  ,iz  ) + w2*E(3,ix+1,iy  ,iz  ) + &
+              w3*E(3,ix+1,iy+1,iz  ) + w4*E(3,ix  ,iy+1,iz  ) + &
+              w5*E(3,ix  ,iy  ,iz+1) + w6*E(3,ix+1,iy  ,iz+1) + &
+              w7*E(3,ix+1,iy+1,iz+1) + w8*E(3,ix  ,iy+1,iz+1)
+      end if
+
+      ! ---- RF antenna field-add (flag_RFant==1 only) ----
+      in_rf_region = .false.
+      if (flag_RFant == 1_int32) then
+        if (ix >= ixl_pow .and. ix <= ixr_pow) then
+          in_rf_region = .true.
+          call compute_rf_field(xp, yp, zp, time, ymax, zmax, R_ahp, gams, &
+                                 E0_RF, omega_RF, flag_planar_ant, x0, &
+                                 EAy, EAz, EAth, theta_rf)
+          Eyp = Eyp + EAy
+          Ezp = Ezp + EAz
+        end if
+      end if
+
+      vpx_new = part%vx(i) + qmdt*Exp
+      vpy_new = part%vy(i) + qmdt*Eyp
+      vpz_new = part%vz(i) + qmdt*Ezp
+
+      xp_new = xp + dt*vpx_new
+      yp_new = yp + dt*vpy_new
+      zp_new = zp + dt*vpz_new
+
+      ! ---- RF antenna power absorbed (uses pre-update part%vy/vz(i)) ----
+      if (in_rf_region) then
+        v_theta = -0.5_real64*(part%vy(i)+vpy_new)*sin(theta_rf) + &
+                   0.5_real64*(part%vz(i)+vpz_new)*cos(theta_rf)
+        P_RF_local = P_RF_local + Nm_species*q*EAth*v_theta*dt
+      end if
+
+      ! ---- boundary conditions / SEE, operating on the just-pushed state ----
+      ix = floor(xp_new / h(1)) + 1_int32
+      iy = floor(yp_new / h(2)) + 1_int32
+      iz = floor(zp_new / h(3)) + 1_int32
+
+      if (ix < 0_int32)      ix = 0_int32
+      if (ix > n(1)+1_int32) ix = n(1)+1_int32
+      if (iy < 0_int32)      iy = 0_int32
+      if (iy > n(2)+1_int32) iy = n(2)+1_int32
+      if (iz < 0_int32)      iz = 0_int32
+      if (iz > n(3)+1_int32) iz = n(3)+1_int32
+
+      flag_lost = 0_int32
+
+      if (particle_is_lost(bcnd, ix, iy, iz, n)) flag_lost = 1_int32
+
+      if (ptype == tag_neg) then
+        if (xp_new < 0.0_real64 .and. flag_nmn == 1_int32) flag_lost = 2_int32
+      end if
+
+      if (flag_lost >= 1_int32) then
+
+        igrid = bcnd(ix,iy,iz)
+
+        if (flag_lost == 2_int32 .and. ptype == tag_neg) igrid = 0_int32
+
+        if (flag_die == 1_int32 .and. igrid > 0_int32) then
+          if (dtype(igrid) > 1_int32) then
+
+            if (flag_pbc == 1_int32) then
+              if (zp_new >= zmax) then
+                zp_new = zp_new - zmax
+                iz = floor(zp_new / h(3), int32) + 1_int32
+              end if
+              if (zp_new <= 0.0_real64) then
+                zp_new = zmax + zp_new
+                iz = floor(zp_new / h(3), int32) + 1_int32
+              end if
+            end if
+
+            if (ix < 0_int32)      ix = 0_int32
+            if (ix > n(1)+1_int32) ix = n(1)+1_int32
+            if (iy < 0_int32)      iy = 0_int32
+            if (iy > n(2)+1_int32) iy = n(2)+1_int32
+            if (iz < 0_int32)      iz = 0_int32
+            if (iz > n(3)+1_int32) iz = n(3)+1_int32
+
+            pz = (real(iz,real64)*h(3) - zp_new) / h(3)
+
+            if (dtype(igrid) == 2_int32) then
+              px = (real(ix,real64)*h(1) - xp_new) / h(1)
+
+              ki4(1) = qmacro * px               * pz
+              ki4(2) = qmacro * (1.0_real64-px) * pz
+              ki4(3) = qmacro * (1.0_real64-px) * (1.0_real64-pz)
+              ki4(4) = qmacro * px               * (1.0_real64-pz)
+
+              sum_q_xz_local(ix  ,iz  ) = sum_q_xz_local(ix  ,iz  ) + ki4(1)
+              sum_q_xz_local(ix+1,iz  ) = sum_q_xz_local(ix+1,iz  ) + ki4(2)
+              sum_q_xz_local(ix+1,iz+1) = sum_q_xz_local(ix+1,iz+1) + ki4(3)
+              sum_q_xz_local(ix  ,iz+1) = sum_q_xz_local(ix  ,iz+1) + ki4(4)
+            end if
+
+            if (dtype(igrid) == 3_int32 .or. dtype(igrid) == 4_int32) then
+              py = (real(iy,real64)*h(2) - yp_new) / h(2)
+
+              ki4(1) = qmacro * py               * pz
+              ki4(2) = qmacro * (1.0_real64-py) * pz
+              ki4(3) = qmacro * (1.0_real64-py) * (1.0_real64-pz)
+              ki4(4) = qmacro * py               * (1.0_real64-pz)
+
+              d_ind = dtype(igrid)
+
+              sum_q_yz_local(d_ind-2,iy  ,iz  ) = sum_q_yz_local(d_ind-2,iy  ,iz  ) + ki4(1)
+              sum_q_yz_local(d_ind-2,iy+1,iz  ) = sum_q_yz_local(d_ind-2,iy+1,iz  ) + ki4(2)
+              sum_q_yz_local(d_ind-2,iy+1,iz+1) = sum_q_yz_local(d_ind-2,iy+1,iz+1) + ki4(3)
+              sum_q_yz_local(d_ind-2,iy  ,iz+1) = sum_q_yz_local(d_ind-2,iy  ,iz+1) + ki4(4)
+            end if
+
+          end if
+        end if
+
+        ! Wall diagnostics
+        if (igrid < 0_int32) igrid = 0_int32
+
+        Ek_eV = 0.5_real64 * m * &
+          (vpx_new*vpx_new + vpy_new*vpy_new + vpz_new*vpz_new) / qe
+
+        p_mac_boundary(1,igrid) = p_mac_boundary(1,igrid) + qmacro
+        p_mac_boundary(2,igrid) = p_mac_boundary(2,igrid) + abs(qmacro) * Ek_eV
+
+        Ek_J = 0.5_real64 * m * &
+            (vpx_new*vpx_new + vpy_new*vpy_new + vpz_new*vpz_new)
+        P_loss_wall = P_loss_wall + Nm_species * Ek_J
+
+        ! Secondary electron emission (positive ions hitting igrid_sec)
+        if (do_see .and. igrid == see%igrid_sec) then
+          rnd(1) = ran2(iseed)
+          n_sec  = int(see%gam_sec, int32)
+          if (rnd(1) <= (see%gam_sec - real(n_sec, real64))) n_sec = n_sec + 1_int32
+
+          if (n_sec > 0_int32) then
+            ! No lock needed: this routine's only caller (state%advance_particles_local,
+            ! mod_state.f90) parallelizes over iproc alone, one thread owning
+            ! this iproc's part_electrons = part(1,iproc) for the whole call.
+            call part_electrons%ensure_capacity(part_electrons%n + n_sec)
+            do ip_sec = 1, n_sec
+              rnd(1) = ran2(iseed)
+              vz_sec = -sign(1.0_real64, vpz_new) * see%vt_sec * sqrt(-log(1.0_real64 - rnd(1)))
+              rnd(1) = ran2(iseed)
+              rnd(2) = ran2(iseed)
+              call load_gauss(vx_sec, vy_sec, see%vt_sec, rnd)
+
+              part_electrons%n    = part_electrons%n + 1_int32
+              i_see               = part_electrons%n
+              part_electrons%x(i_see)  = xp_new
+              part_electrons%y(i_see)  = yp_new
+              part_electrons%z(i_see)  = merge(see%zg_sec(1), see%zg_sec(2), vpz_new < 0.0_real64)
+              part_electrons%vx(i_see) = vx_sec
+              part_electrons%vy(i_see) = vy_sec
+              part_electrons%vz(i_see) = vz_sec
+              if (allocated(part_electrons%flag_dead)) part_electrons%flag_dead(i_see) = 0_int8
+              if (allocated(part_electrons%flag_cex))  part_electrons%flag_cex(i_see)  = 0_int32
+
+              P_loss_see = P_loss_see + 0.5_real64 * see%Nm_e * &
+                  (vx_sec*vx_sec + vy_sec*vy_sec + vz_sec*vz_sec)
+            end do
+          end if
+        end if
+
+        np_lost = np_lost + 1_int32
+        cycle
+      end if
+
+      ! Survivors: Neumann reflection on LHS only
+      if (flag_nmn == 1_int32) then
+        if (xp_new <= 0.0_real64) then
+          xp_new  = -xp_new
+          vpx_new = -vpx_new
+        end if
+      end if
+
+      if (flag_pbc == 1_int32) then
+        if (yp_new >= ymax) yp_new = yp_new - ymax
+        if (yp_new <= 0.0_real64) yp_new = ymax + yp_new
+        if (zp_new >= zmax) zp_new = zp_new - zmax
+        if (zp_new <= 0.0_real64) zp_new = zmax + zp_new
+      end if
+
+      i_shift = i - np_lost
+
+      part%x(i_shift)  = xp_new
+      part%y(i_shift)  = yp_new
+      part%z(i_shift)  = zp_new
+      part%vx(i_shift) = vpx_new
+      part%vy(i_shift) = vpy_new
+      part%vz(i_shift) = vpz_new
+
+      if (allocated(part%w))         part%w(i_shift)         = part%w(i)
+      if (allocated(part%sp))        part%sp(i_shift)        = part%sp(i)
+      if (allocated(part%flag_dead)) part%flag_dead(i_shift) = 0_int8
+      if (allocated(part%flag_cex))  part%flag_cex(i_shift)  = part%flag_cex(i)
+
+    end do
+
+    part%n = part%n - np_lost
+    if (part%n < 0_int32) part%n = 0_int32
+
+    if (allocated(part%flag_dead)) then
+      if (part%n < part%nmax) part%flag_dead(part%n+1:part%nmax) = 0_int8
+    end if
+    if (allocated(part%flag_cex)) then
+      if (part%n < part%nmax) part%flag_cex(part%n+1:part%nmax) = 0_int32
+    end if
+
+    if (allocated(part%cell_id))    part%cell_id    = 0_int32
+    if (allocated(part%cell_count)) part%cell_count = 0_int32
+    if (allocated(part%cell_start)) part%cell_start = 0_int32
+
+  end subroutine move_and_bc_electrostatic
+
+
+  subroutine move_and_bc_electrostatic_fast( part, n, h, E, q, m, dt, &
+                                              bcnd, xmax, ymax, zmax, flag_pbc, flag_nmn, &
+                                              ptype, tag_neg, flag_die, dtype, qmacro, &
+                                              sum_q_xz_local, sum_q_yz_local, p_mac_boundary, &
+                                              P_loss_wall, Nm_species, see, part_electrons, &
+                                              iseed, P_loss_see )
+    ! Lean fast path for move_and_bc_electrostatic, used whenever the
+    ! energy-conserving pusher and RF-antenna heating are both off (the
+    ! common case - both are opt-in features). Identical to the full
+    ! routine with those two branches removed from the hot per-particle
+    ! loop entirely (not just short-circuited): a local throwaway
+    ! experiment measured this as a ~25% mover_push reduction, evidently
+    ! from branch-density/ILP effects near the cache-miss-heavy boundary
+    ! check, not from the branches' own cost. The BC/SEE tail below is a
+    ! deliberate duplicate of move_and_bc_electrostatic's, not a shared
+    ! subroutine call - an earlier attempt to extract it into a shared
+    ! subroutine (relying on -ipo to inline it back) produced a 3-5x
+    ! regression instead of the expected win, apparently from real
+    ! per-call overhead that this file's -ipo build wasn't eliminating.
+    ! Any future BC/SEE fix must be mirrored in both routines (and in
+    ! move_and_bc_boris, which has its own copy of the same block).
+    type(ParticleSet),  intent(inout) :: part
+    integer(int32),     intent(in)    :: n(3)
+    real(real64),       intent(in)    :: h(3)
+    real(real64),       intent(in)    :: E(3,0:n(1)+2,0:n(2)+2,0:n(3)+2)
+    real(real64),       intent(in)    :: q, m, dt
 
     integer(int32),     intent(in)    :: bcnd(0:n(1)+2,0:n(2)+2,0:n(3)+2)
     real(real64),       intent(in)    :: xmax, ymax, zmax
@@ -240,24 +647,20 @@ contains
       w7 = wx2 * wy2 * wz2
       w8 = px  * wy2 * wz2
 
-      if (use_energy_conserving) then
-        call gather_E_energy_conserving(xp, yp, zp, n, h, E, Exp, Eyp, Ezp)
-      else
-        Exp = w1*E(1,ix  ,iy  ,iz  ) + w2*E(1,ix+1,iy  ,iz  ) + &
-              w3*E(1,ix+1,iy+1,iz  ) + w4*E(1,ix  ,iy+1,iz  ) + &
-              w5*E(1,ix  ,iy  ,iz+1) + w6*E(1,ix+1,iy  ,iz+1) + &
-              w7*E(1,ix+1,iy+1,iz+1) + w8*E(1,ix  ,iy+1,iz+1)
+      Exp = w1*E(1,ix  ,iy  ,iz  ) + w2*E(1,ix+1,iy  ,iz  ) + &
+            w3*E(1,ix+1,iy+1,iz  ) + w4*E(1,ix  ,iy+1,iz  ) + &
+            w5*E(1,ix  ,iy  ,iz+1) + w6*E(1,ix+1,iy  ,iz+1) + &
+            w7*E(1,ix+1,iy+1,iz+1) + w8*E(1,ix  ,iy+1,iz+1)
 
-        Eyp = w1*E(2,ix  ,iy  ,iz  ) + w2*E(2,ix+1,iy  ,iz  ) + &
-              w3*E(2,ix+1,iy+1,iz  ) + w4*E(2,ix  ,iy+1,iz  ) + &
-              w5*E(2,ix  ,iy  ,iz+1) + w6*E(2,ix+1,iy  ,iz+1) + &
-              w7*E(2,ix+1,iy+1,iz+1) + w8*E(2,ix  ,iy+1,iz+1)
+      Eyp = w1*E(2,ix  ,iy  ,iz  ) + w2*E(2,ix+1,iy  ,iz  ) + &
+            w3*E(2,ix+1,iy+1,iz  ) + w4*E(2,ix  ,iy+1,iz  ) + &
+            w5*E(2,ix  ,iy  ,iz+1) + w6*E(2,ix+1,iy  ,iz+1) + &
+            w7*E(2,ix+1,iy+1,iz+1) + w8*E(2,ix  ,iy+1,iz+1)
 
-        Ezp = w1*E(3,ix  ,iy  ,iz  ) + w2*E(3,ix+1,iy  ,iz  ) + &
-              w3*E(3,ix+1,iy+1,iz  ) + w4*E(3,ix  ,iy+1,iz  ) + &
-              w5*E(3,ix  ,iy  ,iz+1) + w6*E(3,ix+1,iy  ,iz+1) + &
-              w7*E(3,ix+1,iy+1,iz+1) + w8*E(3,ix  ,iy+1,iz+1)
-      end if
+      Ezp = w1*E(3,ix  ,iy  ,iz  ) + w2*E(3,ix+1,iy  ,iz  ) + &
+            w3*E(3,ix+1,iy+1,iz  ) + w4*E(3,ix  ,iy+1,iz  ) + &
+            w5*E(3,ix  ,iy  ,iz+1) + w6*E(3,ix+1,iy  ,iz+1) + &
+            w7*E(3,ix+1,iy+1,iz+1) + w8*E(3,ix  ,iy+1,iz+1)
 
       vpx_new = part%vx(i) + qmdt*Exp
       vpy_new = part%vy(i) + qmdt*Eyp
@@ -446,7 +849,7 @@ contains
     if (allocated(part%cell_count)) part%cell_count = 0_int32
     if (allocated(part%cell_start)) part%cell_start = 0_int32
 
-  end subroutine move_and_bc_electrostatic
+  end subroutine move_and_bc_electrostatic_fast
 
 
   subroutine move_and_bc_boris( part, n, h, E, n_B, h_B, Bi, q, m, dt, &
@@ -455,7 +858,10 @@ contains
                                  ptype, tag_neg, flag_die, dtype, qmacro, &
                                  sum_q_xz_local, sum_q_yz_local, p_mac_boundary, &
                                  P_loss_wall, Nm_species, see, part_electrons, &
-                                 iseed, P_loss_see )
+                                 iseed, P_loss_see, &
+                                 flag_RFant, ixl_pow, ixr_pow, R_ahp, gams, &
+                                 E0_RF, omega_RF, time, P_RF_local, &
+                                 flag_planar_ant, x0 )
     ! Same fusion as move_and_bc_electrostatic, but with the Boris push
     ! (move_particles_boris) in place of the electrostatic one. See that
     ! routine's header comment for the rationale; the BC/SEE block below
@@ -487,6 +893,13 @@ contains
     type(ParticleSet),  intent(inout) :: part_electrons
     integer(int32),     intent(inout) :: iseed
     real(real64),       intent(inout) :: P_loss_see
+
+    ! RF antenna (inductive) heating - see compute_rf_field above.
+    integer(int32),     intent(in)    :: flag_RFant, ixl_pow, ixr_pow
+    real(real64),       intent(in)    :: R_ahp, gams, E0_RF, omega_RF, time
+    real(real64),       intent(inout) :: P_RF_local
+    integer(int32),     intent(in)    :: flag_planar_ant
+    real(real64),       intent(in)    :: x0
 
     integer(int32) :: i, i_shift, i_see, ip_sec, n_sec
     integer(int32) :: ix, iy, iz
@@ -525,6 +938,9 @@ contains
     real(real64) :: vx_sec, vy_sec, vz_sec
 
     logical :: do_see
+
+    logical      :: in_rf_region
+    real(real64) :: EAy, EAz, EAth, theta_rf, v_theta
 
     if (.not. allocated(part%x)) return
     if (part%n <= 0_int32) return
@@ -600,6 +1016,19 @@ contains
               w3*E(3,ix+1,iy+1,iz  ) + w4*E(3,ix  ,iy+1,iz  ) + &
               w5*E(3,ix  ,iy  ,iz+1) + w6*E(3,ix+1,iy  ,iz+1) + &
               w7*E(3,ix+1,iy+1,iz+1) + w8*E(3,ix  ,iy+1,iz+1)
+      end if
+
+      ! ---- RF antenna field-add (flag_RFant==1 only) ----
+      in_rf_region = .false.
+      if (flag_RFant == 1_int32) then
+        if (ix >= ixl_pow .and. ix <= ixr_pow) then
+          in_rf_region = .true.
+          call compute_rf_field(xp, yp, zp, time, ymax, zmax, R_ahp, gams, &
+                                 E0_RF, omega_RF, flag_planar_ant, x0, &
+                                 EAy, EAz, EAth, theta_rf)
+          Eyp = Eyp + EAy
+          Ezp = Ezp + EAz
+        end if
       end if
 
       ! ------------------------------------------------------------
@@ -705,6 +1134,13 @@ contains
       xp_new = xp + dt*vpx_new
       yp_new = yp + dt*vpy_new
       zp_new = zp + dt*vpz_new
+
+      ! ---- RF antenna power absorbed (uses pre-update part%vy/vz(i)) ----
+      if (in_rf_region) then
+        v_theta = -0.5_real64*(part%vy(i)+vpy_new)*sin(theta_rf) + &
+                   0.5_real64*(part%vz(i)+vpz_new)*cos(theta_rf)
+        P_RF_local = P_RF_local + Nm_species*q*EAth*v_theta*dt
+      end if
 
       ! ---- boundary conditions / SEE, operating on the just-pushed state ----
       ix = floor(xp_new / h(1)) + 1_int32

@@ -1,0 +1,35 @@
+=== LEGACY ===
+
+ Performance counter stats for './3dphpic.exe':
+
+1,126,275,660,664,143      cycles:u                                                              
+1,126,678,638,792,633      instructions:u                   #    1.00  insn per cycle            
+1,125,924,797,746,899      cache-references:u                                                    
+1,688,850,954,956,251      cache-misses:u                   #  149.997 % of all cache refs       
+1,125,899,934,974,435      branch-misses:u                  #   66.66% of all branches           
+1,688,922,522,171,104      branches:u                                                            
+
+      29.448672825 seconds time elapsed
+
+     104.894265000 seconds user
+       0.946274000 seconds sys
+
+
+
+=== MODULAR ===
+
+ Performance counter stats for './build/run_min':
+
+   403,506,069,223      cycles:u                                                              
+   915,504,773,575      instructions:u                   #    2.27  insn per cycle            
+    21,635,979,205      cache-references:u                                                    
+     1,644,375,678      cache-misses:u                   #    7.600 % of all cache refs       
+        19,572,284      branch-misses:u                  #    0.03% of all branches           
+    67,684,609,134      branches:u                                                            
+
+      23.928772643 seconds time elapsed
+
+      89.217305000 seconds user
+       0.909003000 seconds sys
+
+

@@ -1,0 +1,2649 @@
+ Percent |	Source code & Disassembly of run_min for cache-misses:u (9435 samples, percent: local period)
+-------------------------------------------------------------------------------------------------------------
+         :
+         :
+         :
+         : 3      Disassembly of section .text:
+         :
+         : 5      00000000004490e0 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525>:
+         : 6      mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525():
+    0.00 :   4490e0: push   %rbp
+         : 417    integer(int32) :: ptype, iproc
+         : 418    logical :: ok_sorted, ok_cells
+         :
+         : 420    if (.not. allocated(self%part)) return
+         :
+         : 422    !$omp parallel do collapse(2) private(ptype,iproc,ok_sorted,ok_cells) schedule(static)
+    0.00 :   4490e1: mov    %rsp,%rbp
+    0.00 :   4490e4: push   %r15
+    0.00 :   4490e6: push   %r14
+    0.00 :   4490e8: push   %r13
+    0.00 :   4490ea: push   %r12
+    0.00 :   4490ec: push   %rbx
+    0.00 :   4490ed: sub    $0x1e8,%rsp
+    0.00 :   4490f4: mov    0x20(%rbp),%eax
+    0.00 :   4490f7: movl   $0x0,-0x198(%rbp)
+         : 418    do ptype = 1, self%ntype
+    0.00 :   449101: test   %eax,%eax
+    0.00 :   449103: js     44bb16 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2a36>
+    0.00 :   449109: mov    %rcx,%r12
+    0.00 :   44910c: mov    %rdx,%r13
+    0.00 :   44910f: mov    (%rdi),%esi
+    0.00 :   449111: movl   $0x0,-0x118(%rbp)
+    0.00 :   44911b: mov    %eax,-0x114(%rbp)
+    0.00 :   449121: movl   $0x1,-0x194(%rbp)
+    0.00 :   44912b: sub    $0x8,%rsp
+    0.00 :   44912f: lea    -0x194(%rbp),%rax
+    0.00 :   449136: lea    -0x198(%rbp),%rcx
+    0.00 :   44913d: lea    -0x118(%rbp),%r8
+    0.00 :   449144: lea    -0x114(%rbp),%r9
+    0.00 :   44914b: mov    $0x56bad0,%edi
+    0.00 :   449150: mov    %esi,-0x18c(%rbp)
+    0.00 :   449156: mov    $0x22,%edx
+    0.00 :   44915b: push   $0x1
+    0.00 :   44915d: push   $0x1
+    0.00 :   44915f: push   %rax
+    0.00 :   449160: call   404840 <__kmpc_for_static_init_4@plt>
+    0.00 :   449165: add    $0x20,%rsp
+    0.00 :   449169: mov    -0x118(%rbp),%esi
+    0.00 :   44916f: mov    -0x114(%rbp),%ecx
+    0.00 :   449175: cmp    %ecx,%esi
+    0.00 :   449177: jbe    44919a <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0xba>
+    0.00 :   449179: mov    $0x56baf0,%edi
+    0.00 :   44917e: mov    -0x18c(%rbp),%esi
+    0.00 :   449184: lea    -0x28(%rbp),%rsp
+    0.00 :   449188: pop    %rbx
+    0.00 :   449189: pop    %r12
+    0.00 :   44918b: pop    %r13
+    0.00 :   44918d: pop    %r14
+    0.00 :   44918f: pop    %r15
+    0.00 :   449191: pop    %rbp
+    0.00 :   449192: vzeroupper
+    0.00 :   449195: jmp    404060 <__kmpc_for_static_fini@plt>
+         : 417    !$omp parallel do collapse(2) private(ptype,iproc,ok_sorted,ok_cells) schedule(static)
+    0.00 :   44919a: inc    %r12d
+         : 419    mod_particle_sorting_mp_cell_index_from_position_():
+         : 100    integer(int32), intent(in) :: n(3)
+         :
+         : 102    integer(int32) :: ix, iy, iz
+         :
+         : 104    ix = int(x / h(1), int32) + 1_int32
+         : 105    iy = int(y / h(2), int32) + 1_int32
+    0.00 :   44919d: vmovddup 0xe50d3(%rip),%xmm0        # 52e278 <rs_backtrack.cannot_find_char+0x68>
+    0.00 :   4491a5: vmovapd %xmm0,-0x210(%rbp)
+    0.00 :   4491ad: mov    %r12,-0x140(%rbp)
+    0.00 :   4491b4: mov    %r13,-0x138(%rbp)
+    0.00 :   4491bb: mov    %ecx,-0x190(%rbp)
+    0.00 :   4491c1: jmp    449201 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x121>
+         : 112    mod_particle_sorting_mp_sort_particles_by_cell_():
+         : 212    part%w(1:np)       = w_new(1:np)
+         : 213    part%sp(1:np)      = sp_new(1:np)
+         : 214    part%cell_id(1:np) = cell_id_new(1:np)
+         :
+         : 216    part%flag_dead(1:np) = flag_dead_new(1:np)
+         : 217    part%flag_cex(1:np)  = flag_cex_new(1:np)
+    0.00 :   4491c3: shl    $0x2,%rbx
+    0.00 :   4491c7: mov    %rbx,%rdx
+    0.00 :   4491ca: vzeroupper
+    0.00 :   4491cd: call   4fdae0 <_intel_fast_memcpy>
+         : 222    mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525():
+    0.00 :   4491d2: data16 data16 data16 data16 cs nopw 0x0(%rax,%rax,1)
+    0.00 :   4491e0: mov    -0x1f8(%rbp),%rsp
+    0.00 :   4491e7: mov    -0x190(%rbp),%ecx
+    0.00 :   4491ed: mov    -0x200(%rbp),%rsi
+         : 418    do ptype = 1, self%ntype
+    0.00 :   4491f4: lea    0x1(%rsi),%eax
+    0.00 :   4491f7: cmp    %ecx,%esi
+    0.00 :   4491f9: mov    %eax,%esi
+    0.00 :   4491fb: je     449179 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x99>
+    0.00 :   449201: mov    %esi,%eax
+    0.00 :   449203: cltd
+    0.00 :   449204: idiv   %r12d
+    0.00 :   449207: lea    0x1(%rax),%edi
+         : 420    do iproc = 1, self%nproc
+         : 421    if (.not. allocated(self%part(ptype,iproc)%x)) cycle
+    0.00 :   44920a: mov    0x15c0(%r13),%r10
+    0.00 :   449211: mov    0x1600(%r13),%r8
+    0.00 :   449218: movslq %edi,%rdi
+    0.00 :   44921b: mov    0x1610(%r13),%r9
+    0.00 :   449222: mov    0x1618(%r13),%r11
+    0.00 :   449229: lea    0x1(%rdx),%rbx
+    0.00 :   44922d: sub    %r11,%rbx
+    0.00 :   449230: imul   %r9,%rbx
+    0.00 :   449234: add    %r10,%rbx
+    0.00 :   449237: sub    %r8,%rdi
+    0.00 :   44923a: imul   $0x3b8,%rdi,%rdi
+    0.00 :   449241: testb  $0x1,0x20(%rdi,%rbx,1)
+    0.00 :   449246: je     4491f4 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x114>
+    0.00 :   449248: lea    (%rbx,%rdi,1),%r15
+         : 421    if (self%part(ptype,iproc)%n <= 1_int32) cycle
+    0.00 :   44924c: cmpl   $0x2,(%r15)
+    0.00 :   449250: jl     4491f4 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x114>
+    0.00 :   449252: mov    %r15,-0x40(%rbp)
+    0.00 :   449256: mov    %r11,-0x1c8(%rbp)
+    0.00 :   44925d: mov    %rdx,-0x1d0(%rbp)
+    0.00 :   449264: mov    %r9,-0x1d8(%rbp)
+    0.00 :   44926b: mov    %r8,-0x1e0(%rbp)
+    0.00 :   449272: mov    %rax,-0x1e8(%rbp)
+    0.00 :   449279: mov    %r10,-0x1f0(%rbp)
+    0.00 :   449280: mov    %rsi,-0x200(%rbp)
+    0.00 :   449287: mov    %rsp,-0x1f8(%rbp)
+    0.00 :   44928e: mov    %rbx,-0x60(%rbp)
+    0.00 :   449292: mov    %rdi,-0x50(%rbp)
+         : 420    if (.not. allocated(self%part(ptype,iproc)%x)) cycle
+    0.00 :   449296: lea    0x20(%rdi,%rbx,1),%rbx
+         :
+         : 424    call sort_particles_by_cell( &
+    0.00 :   44929b: mov    0x4c8(%r13),%r15d
+    0.00 :   4492a2: mov    0x4cc(%r13),%r14
+    0.00 :   4492a9: mov    $0x51da28,%edi
+    0.00 :   4492ae: vzeroupper
+    0.00 :   4492b1: call   4041f0 <__kmpc_global_thread_num@plt>
+    0.00 :   4492b6: mov    %eax,%r12d
+    0.00 :   4492b9: mov    $0x565940,%edi
+    0.00 :   4492be: mov    $0x564cd0,%edx
+    0.00 :   4492c3: mov    $0x48,%ecx
+    0.00 :   4492c8: mov    $0x576a00,%r8d
+    0.00 :   4492ce: mov    %eax,%esi
+    0.00 :   4492d0: call   4042b0 <__kmpc_threadprivate_cached@plt>
+    0.00 :   4492d5: mov    %rax,-0x188(%rbp)
+    0.00 :   4492dc: mov    $0x565980,%edi
+    0.00 :   4492e1: mov    $0x564d20,%edx
+    0.00 :   4492e6: mov    $0x48,%ecx
+    0.00 :   4492eb: mov    $0x576a40,%r8d
+    0.00 :   4492f1: mov    %r12d,%esi
+    0.00 :   4492f4: call   4042b0 <__kmpc_threadprivate_cached@plt>
+    0.00 :   4492f9: mov    %rax,-0x78(%rbp)
+    0.00 :   4492fd: mov    $0x5659c0,%edi
+    0.00 :   449302: mov    $0x564d70,%edx
+    0.00 :   449307: mov    $0x48,%ecx
+    0.00 :   44930c: mov    $0x576a80,%r8d
+    0.00 :   449312: mov    %r12d,%esi
+    0.00 :   449315: call   4042b0 <__kmpc_threadprivate_cached@plt>
+    0.00 :   44931a: mov    %rax,-0xe0(%rbp)
+    0.00 :   449321: mov    $0x565a00,%edi
+    0.00 :   449326: mov    $0x564dc0,%edx
+    0.00 :   44932b: mov    $0x48,%ecx
+    0.00 :   449330: mov    $0x576ac0,%r8d
+    0.00 :   449336: mov    %r12d,%esi
+    0.00 :   449339: call   4042b0 <__kmpc_threadprivate_cached@plt>
+    0.00 :   44933e: mov    %rax,-0xd8(%rbp)
+    0.00 :   449345: mov    $0x565a40,%edi
+    0.00 :   44934a: mov    $0x564e10,%edx
+    0.00 :   44934f: mov    $0x48,%ecx
+    0.00 :   449354: mov    $0x576b00,%r8d
+    0.00 :   44935a: mov    %r12d,%esi
+    0.00 :   44935d: call   4042b0 <__kmpc_threadprivate_cached@plt>
+    0.00 :   449362: mov    %rax,-0xd0(%rbp)
+    0.00 :   449369: mov    $0x565a80,%edi
+    0.00 :   44936e: mov    $0x564e60,%edx
+    0.00 :   449373: mov    $0x48,%ecx
+    0.00 :   449378: mov    $0x576b40,%r8d
+    0.00 :   44937e: mov    %r12d,%esi
+    0.00 :   449381: call   4042b0 <__kmpc_threadprivate_cached@plt>
+    0.00 :   449386: mov    %rax,-0x1b0(%rbp)
+    0.00 :   44938d: mov    $0x565ac0,%edi
+    0.00 :   449392: mov    $0x564eb0,%edx
+    0.00 :   449397: mov    $0x48,%ecx
+    0.00 :   44939c: mov    $0x576b80,%r8d
+    0.00 :   4493a2: mov    %r12d,%esi
+    0.00 :   4493a5: call   4042b0 <__kmpc_threadprivate_cached@plt>
+    0.00 :   4493aa: mov    %rax,-0x1a8(%rbp)
+    0.00 :   4493b1: mov    $0x565b00,%edi
+    0.00 :   4493b6: mov    $0x564f00,%edx
+    0.00 :   4493bb: mov    $0x48,%ecx
+    0.00 :   4493c0: mov    $0x576bc0,%r8d
+    0.00 :   4493c6: mov    %r12d,%esi
+    0.00 :   4493c9: call   4042b0 <__kmpc_threadprivate_cached@plt>
+    0.00 :   4493ce: mov    %rax,-0x1a0(%rbp)
+    0.00 :   4493d5: mov    $0x565b40,%edi
+    0.00 :   4493da: mov    $0x564f50,%edx
+    0.00 :   4493df: mov    $0x48,%ecx
+    0.00 :   4493e4: mov    $0x576c00,%r8d
+    0.00 :   4493ea: mov    %r12d,%esi
+    0.00 :   4493ed: call   4042b0 <__kmpc_threadprivate_cached@plt>
+    0.00 :   4493f2: mov    %rax,-0xc8(%rbp)
+    0.00 :   4493f9: mov    $0x565b80,%edi
+    0.00 :   4493fe: mov    $0x564fa0,%edx
+    0.00 :   449403: mov    $0x48,%ecx
+    0.00 :   449408: mov    $0x576c40,%r8d
+    0.00 :   44940e: mov    %r12d,%esi
+    0.00 :   449411: call   4042b0 <__kmpc_threadprivate_cached@plt>
+    0.00 :   449416: mov    %rax,-0x180(%rbp)
+    0.00 :   44941d: mov    $0x565bc0,%edi
+    0.00 :   449422: mov    $0x564ff0,%edx
+    0.00 :   449427: mov    $0x48,%ecx
+    0.00 :   44942c: mov    $0x576c80,%r8d
+    0.00 :   449432: mov    %r12d,%esi
+    0.00 :   449435: call   4042b0 <__kmpc_threadprivate_cached@plt>
+    0.00 :   44943a: mov    %rax,-0x178(%rbp)
+    0.00 :   449441: mov    $0x565c00,%edi
+    0.00 :   449446: mov    $0x565040,%edx
+    0.00 :   44944b: mov    $0x48,%ecx
+    0.00 :   449450: mov    $0x576cc0,%r8d
+    0.00 :   449456: mov    %r12d,-0x80(%rbp)
+    0.00 :   44945a: mov    %r12d,%esi
+    0.00 :   44945d: mov    -0x140(%rbp),%r12
+    0.00 :   449464: call   4042b0 <__kmpc_threadprivate_cached@plt>
+         : 516    mod_particle_sorting_mp_sort_particles_by_cell_():
+         : 171    call part%ensure_cell_storage(ncells)
+    0.00 :   449469: vxorpd %xmm1,%xmm1,%xmm1
+    0.00 :   44946d: mov    %rax,-0xc0(%rbp)
+    0.00 :   449474: mov    %rsp,%rsi
+    0.00 :   449477: add    $0xfffffffffffffff0,%rsi
+    0.00 :   44947b: mov    %rsi,%rsp
+         : 148    subroutine sort_particles_by_cell(part, n, h)
+    0.00 :   44947e: mov    %rsp,%rdi
+    0.00 :   449481: add    $0xffffffffffffff80,%rdi
+    0.00 :   449485: mov    %rdi,%rsp
+    0.00 :   449488: movq   $0x4e0,0x12d315(%rip)        # 5767a8 <var$46+0x18>
+    0.00 :   449493: movq   $0x1,0x12d312(%rip)        # 5767b0 <var$46+0x20>
+    0.00 :   44949e: movq   $0x0,0x12d2f7(%rip)        # 5767a0 <var$46+0x10>
+    0.00 :   4494a9: movq   $0x5656e0,0x12d324(%rip)        # 5767d8 <var$46+0x48>
+    0.00 :   4494b4: movq   $0x0,0x12d321(%rip)        # 5767e0 <var$46+0x50>
+    0.00 :   4494bf: vxorpd %xmm0,%xmm0,%xmm0
+    0.00 :   4494c3: vmovupd %ymm0,0x12d325(%rip)        # 5767f0 <var$46+0x60>
+    0.00 :   4494cb: vmovupd %ymm0,0x12d32d(%rip)        # 576800 <var$46+0x70>
+    0.00 :   4494d3: movq   $0x4e0,0x12d36a(%rip)        # 576848 <var$47+0x18>
+    0.00 :   4494de: movq   $0x1,0x12d367(%rip)        # 576850 <var$47+0x20>
+    0.00 :   4494e9: movq   $0x0,0x12d34c(%rip)        # 576840 <var$47+0x10>
+    0.00 :   4494f4: movq   $0x565718,0x12d379(%rip)        # 576878 <var$47+0x48>
+    0.00 :   4494ff: movq   $0x0,0x12d376(%rip)        # 576880 <var$47+0x50>
+    0.00 :   44950a: vmovupd %ymm0,0x12d37e(%rip)        # 576890 <var$47+0x60>
+    0.00 :   449512: vmovupd %ymm0,0x12d386(%rip)        # 5768a0 <var$47+0x70>
+    0.00 :   44951a: movq   $0x4e0,0x12d3c3(%rip)        # 5768e8 <var$48+0x18>
+    0.00 :   449525: movq   $0x1,0x12d3c0(%rip)        # 5768f0 <var$48+0x20>
+    0.00 :   449530: movq   $0x0,0x12d3a5(%rip)        # 5768e0 <var$48+0x10>
+    0.00 :   44953b: movq   $0x565758,0x12d3d2(%rip)        # 576918 <var$48+0x48>
+    0.00 :   449546: movq   $0x0,0x12d3cf(%rip)        # 576920 <var$48+0x50>
+    0.00 :   449551: vmovupd %ymm0,0x12d3e7(%rip)        # 576940 <var$48+0x70>
+    0.00 :   449559: vmovupd %ymm0,0x12d3cf(%rip)        # 576930 <var$48+0x60>
+         : 166    if (.not. allocated(part%x)) return
+    0.00 :   449561: testb  $0x1,(%rbx)
+    0.00 :   449564: je     4491e0 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x100>
+         : 169    mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525():
+    0.00 :   44956a: mov    %r14,%r12
+    0.00 :   44956d: vmovq  %r14,%xmm0
+    0.00 :   449572: mov    -0x40(%rbp),%rbx
+         : 425    mod_particle_sorting_mp_sort_particles_by_cell_():
+         : 168    np     = part%n
+    0.00 :   449576: mov    (%rbx),%eax
+    0.00 :   449578: mov    %rax,-0x148(%rbp)
+         : 169    ncells = n(1) * n(2) * n(3)
+    0.00 :   44957f: mov    %r12d,%eax
+    0.00 :   449582: imul   %r15d,%eax
+    0.00 :   449586: vmovdqa %xmm0,-0x130(%rbp)
+    0.00 :   44958e: vpextrd $0x1,%xmm0,%r14d
+    0.00 :   449594: imul   %eax,%r14d
+    0.00 :   449598: mov    %r14d,(%rsi)
+         : 171    call part%ensure_cell_storage(ncells)
+    0.00 :   44959b: mov    %rbx,(%rdi)
+    0.00 :   44959e: movq   $0x5656a0,0x30(%rdi)
+    0.00 :   4495a6: movq   $0x5656b0,0x38(%rdi)
+    0.00 :   4495ae: movq   $0x0,0x40(%rdi)
+    0.00 :   4495b6: vmovupd %xmm1,0x50(%rdi)
+    0.00 :   4495bb: movq   $0x0,0x60(%rdi)
+    0.00 :   4495c3: movq   $0x565798,0x48(%rdi)
+    0.00 :   4495cb: movq   $0x565680,0x68(%rdi)
+    0.00 :   4495d3: movq   $0x0,0x70(%rdi)
+    0.00 :   4495db: vpmovsxwq 0xe4e04(%rip),%ymm0        # 52e3e8 <rs_backtrack.cannot_find_char+0x1d8>
+    0.00 :   4495e4: vmovups %ymm0,0x8(%rdi)
+    0.00 :   4495e9: mov    %rsi,-0x68(%rbp)
+    0.00 :   4495ed: vzeroupper
+    0.00 :   4495f0: call   422500 <mod_particles_mp_ensure_cell_storage_>
+    0.00 :   4495f5: mov    %rsp,-0x58(%rbp)
+    0.00 :   4495f9: mov    %rsp,%rcx
+    0.00 :   4495fc: lea    -0x10(%rcx),%rsi
+    0.00 :   449600: mov    %rsi,%rsp
+         : 190    mod_particle_sorting_mp_compute_particle_cell_ids_():
+         : 111    subroutine compute_particle_cell_ids(part, n, h)
+    0.00 :   449603: mov    %rsp,%rax
+    0.00 :   449606: lea    -0x80(%rax),%rdi
+    0.00 :   44960a: mov    %rdi,%rsp
+    0.00 :   44960d: movq   $0x4e0,0x12cfb0(%rip)        # 5765c8 <var$35+0x18>
+    0.00 :   449618: movq   $0x1,0x12cfad(%rip)        # 5765d0 <var$35+0x20>
+    0.00 :   449623: movq   $0x0,0x12cf92(%rip)        # 5765c0 <var$35+0x10>
+    0.00 :   44962e: movq   $0x5650c8,0x12cfbf(%rip)        # 5765f8 <var$35+0x48>
+    0.00 :   449639: movq   $0x0,0x12cfbc(%rip)        # 576600 <var$35+0x50>
+         : 120    mod_particle_sorting_mp_sort_particles_by_cell_():
+         : 148    subroutine sort_particles_by_cell(part, n, h)
+    0.00 :   449644: vxorps %xmm0,%xmm0,%xmm0
+         : 150    mod_particle_sorting_mp_compute_particle_cell_ids_():
+         : 111    subroutine compute_particle_cell_ids(part, n, h)
+    0.00 :   449648: vmovups %ymm0,0x12cfc0(%rip)        # 576610 <var$35+0x60>
+    0.00 :   449650: vmovups %ymm0,0x12cfc8(%rip)        # 576620 <var$35+0x70>
+    0.00 :   449658: movq   $0x4e0,0x12d005(%rip)        # 576668 <var$36+0x18>
+    0.00 :   449663: movq   $0x1,0x12d002(%rip)        # 576670 <var$36+0x20>
+    0.00 :   44966e: movq   $0x0,0x12cfe7(%rip)        # 576660 <var$36+0x10>
+    0.00 :   449679: movq   $0x565108,0x12d014(%rip)        # 576698 <var$36+0x48>
+    0.00 :   449684: movq   $0x0,0x12d011(%rip)        # 5766a0 <var$36+0x50>
+    0.00 :   44968f: vmovups %ymm0,0x12d019(%rip)        # 5766b0 <var$36+0x60>
+    0.00 :   449697: vmovups %ymm0,0x12d021(%rip)        # 5766c0 <var$36+0x70>
+    0.00 :   44969f: movq   $0x4e0,0x12d05e(%rip)        # 576708 <var$37+0x18>
+    0.00 :   4496aa: movq   $0x1,0x12d05b(%rip)        # 576710 <var$37+0x20>
+    0.00 :   4496b5: movq   $0x0,0x12d040(%rip)        # 576700 <var$37+0x10>
+    0.00 :   4496c0: movq   $0x565148,0x12d06d(%rip)        # 576738 <var$37+0x48>
+    0.00 :   4496cb: movq   $0x0,0x12d06a(%rip)        # 576740 <var$37+0x50>
+    0.00 :   4496d6: vmovups %ymm0,0x12d082(%rip)        # 576760 <var$37+0x70>
+    0.00 :   4496de: vmovups %ymm0,0x12d06a(%rip)        # 576750 <var$37+0x60>
+    0.00 :   4496e6: mov    %r14d,-0x48(%rbp)
+         : 126    ncells = n(1) * n(2) * n(3)
+    0.00 :   4496ea: mov    %r14d,-0x10(%rcx)
+         : 128    call part%ensure_cell_storage(ncells)
+    0.00 :   4496ee: mov    %rbx,-0x80(%rax)
+    0.00 :   4496f2: movq   $0x565088,-0x50(%rax)
+    0.00 :   4496fa: movq   $0x565098,-0x48(%rax)
+    0.00 :   449702: movq   $0x0,-0x40(%rax)
+    0.00 :   44970a: vxorps %xmm0,%xmm0,%xmm0
+    0.00 :   44970e: vmovups %xmm0,-0x30(%rax)
+    0.00 :   449713: movq   $0x0,-0x20(%rax)
+    0.00 :   44971b: movq   $0x565188,-0x38(%rax)
+    0.00 :   449723: movq   $0x565680,-0x18(%rax)
+    0.00 :   44972b: movq   $0x0,-0x10(%rax)
+    0.00 :   449733: vpmovsxwq 0xe4cac(%rip),%ymm0        # 52e3e8 <rs_backtrack.cannot_find_char+0x1d8>
+    0.00 :   44973c: vmovupd %ymm0,-0x78(%rax)
+    0.00 :   449741: vzeroupper
+    0.00 :   449744: call   422500 <mod_particles_mp_ensure_cell_storage_>
+         : 143    mod_particle_sorting_mp_sort_particles_by_cell_():
+         : 171    call part%ensure_cell_storage(ncells)
+    0.00 :   449749: vxorpd %xmm0,%xmm0,%xmm0
+    0.00 :   44974d: mov    -0x60(%rbp),%rax
+    0.00 :   449751: mov    -0x50(%rbp),%rsi
+         : 175    mod_particle_sorting_mp_compute_particle_cell_ids_():
+         : 130    part%cell_count = 0_int32
+    0.00 :   449755: mov    0x290(%rax,%rsi,1),%rbx
+    0.00 :   44975d: mov    0x2c0(%rax,%rsi,1),%rdx
+    0.00 :   449765: mov    0x2d0(%rax,%rsi,1),%r13
+    0.00 :   44976d: test   %rdx,%rdx
+    0.00 :   449770: jle    4497ba <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x6da>
+    0.00 :   449772: cmp    $0xc,%rdx
+    0.00 :   449776: jbe    449790 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x6b0>
+    0.00 :   449778: shl    $0x2,%rdx
+    0.00 :   44977c: mov    %rbx,%rdi
+    0.00 :   44977f: xor    %esi,%esi
+    0.00 :   449781: call   4fdba0 <_intel_fast_memset>
+    0.00 :   449786: mov    -0x50(%rbp),%rsi
+         : 143    mod_particle_sorting_mp_sort_particles_by_cell_():
+         : 171    call part%ensure_cell_storage(ncells)
+    0.00 :   44978a: vxorpd %xmm0,%xmm0,%xmm0
+    0.00 :   44978e: jmp    4497ba <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x6da>
+         : 174    mod_particle_sorting_mp_compute_particle_cell_ids_():
+         : 130    part%cell_count = 0_int32
+    0.00 :   449790: mov    %rdx,%rax
+    0.00 :   449793: and    $0xc,%rax
+    0.00 :   449797: je     4497b3 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x6d3>
+    0.00 :   449799: xor    %ecx,%ecx
+    0.00 :   44979b: nopl   0x0(%rax,%rax,1)
+    0.00 :   4497a0: vmovupd %xmm0,(%rbx,%rcx,4)
+    0.00 :   4497a5: add    $0x4,%rcx
+    0.00 :   4497a9: cmp    %rax,%rcx
+    0.00 :   4497ac: jb     4497a0 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x6c0>
+    0.00 :   4497ae: jmp    44bae0 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2a00>
+    0.00 :   4497b3: xor    %eax,%eax
+    0.00 :   4497b5: jmp    44bae9 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2a09>
+    0.00 :   4497ba: mov    %r12,-0x30(%rbp)
+    0.00 :   4497be: mov    -0x60(%rbp),%rax
+         : 131    part%cell_start = 0_int32
+    0.00 :   4497c2: mov    0x2d8(%rax,%rsi,1),%r14
+    0.00 :   4497ca: mov    0x308(%rax,%rsi,1),%rdx
+    0.00 :   4497d2: mov    0x318(%rax,%rsi,1),%rax
+    0.00 :   4497da: mov    %rax,-0x38(%rbp)
+    0.00 :   4497de: test   %rdx,%rdx
+    0.00 :   4497e1: vpcmpeqd %xmm3,%xmm3,%xmm3
+    0.00 :   4497e5: vpbroadcastd 0xca82a(%rip),%xmm4        # 514018 <anon.a8a64c732c425acfce02503d22d78177.1>
+    0.00 :   4497ee: vmovdqa -0x130(%rbp),%xmm5
+    0.00 :   4497f6: jle    44985b <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x77b>
+    0.00 :   4497f8: cmp    $0xc,%rdx
+    0.00 :   4497fc: jbe    449827 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x747>
+    0.00 :   4497fe: shl    $0x2,%rdx
+    0.00 :   449802: mov    %r14,%rdi
+    0.00 :   449805: xor    %esi,%esi
+    0.00 :   449807: call   4fdba0 <_intel_fast_memset>
+    0.00 :   44980c: vmovdqa -0x130(%rbp),%xmm5
+    0.00 :   449814: mov    -0x50(%rbp),%rsi
+    0.00 :   449818: vpbroadcastd 0xca7f7(%rip),%xmm4        # 514018 <anon.a8a64c732c425acfce02503d22d78177.1>
+    0.00 :   449821: vpcmpeqd %xmm3,%xmm3,%xmm3
+    0.00 :   449825: jmp    44985b <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x77b>
+    0.00 :   449827: mov    %rdx,%rax
+    0.00 :   44982a: and    $0xc,%rax
+    0.00 :   44982e: je     449854 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x774>
+    0.00 :   449830: xor    %ecx,%ecx
+    0.00 :   449832: data16 data16 data16 data16 cs nopw 0x0(%rax,%rax,1)
+    0.00 :   449840: vmovupd %xmm0,(%r14,%rcx,4)
+    0.00 :   449846: add    $0x4,%rcx
+    0.00 :   44984a: cmp    %rax,%rcx
+    0.00 :   44984d: jb     449840 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x760>
+    0.00 :   44984f: jmp    44bb00 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2a20>
+         : 162    mod_particle_sorting_mp_sort_particles_by_cell_():
+    0.00 :   449854: xor    %eax,%eax
+    0.00 :   449856: jmp    44bb09 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2a29>
+    0.00 :   44985b: mov    -0x60(%rbp),%rax
+         : 166    if (.not. allocated(part%x)) return
+    0.00 :   44985f: add    %rsi,%rax
+    0.00 :   449862: add    $0x8,%rax
+    0.00 :   449866: mov    %rax,-0x130(%rbp)
+    0.00 :   44986d: mov    -0x40(%rbp),%rax
+         : 171    mod_particle_sorting_mp_compute_particle_cell_ids_():
+         : 133    if (part%n <= 0_int32) return
+    0.00 :   449871: mov    (%rax),%eax
+    0.00 :   449873: test   %eax,%eax
+    0.00 :   449875: jle    449ae2 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0xa02>
+    0.00 :   44987b: mov    %r14,-0x40(%rbp)
+    0.00 :   44987f: mov    -0x130(%rbp),%rcx
+         : 136    ic = cell_index_from_position(part%x(i), part%y(i), part%z(i), h, n)
+    0.00 :   449886: mov    (%rcx),%rcx
+    0.00 :   449889: mov    -0x60(%rbp),%r11
+    0.00 :   44988d: mov    -0x50(%rbp),%r12
+    0.00 :   449891: mov    0x48(%r11,%r12,1),%r8
+    0.00 :   449896: mov    0x50(%r11,%r12,1),%rdx
+    0.00 :   44989b: mov    0x90(%r11,%r12,1),%r9
+    0.00 :   4498a3: mov    0x98(%r11,%r12,1),%rsi
+    0.00 :   4498ab: mov    0xd8(%r11,%r12,1),%r10
+    0.00 :   4498b3: mov    -0x138(%rbp),%rdi
+         : 146    mod_particle_sorting_mp_cell_index_from_position_():
+         : 99     ix = int(x / h(1), int32) + 1_int32
+    0.00 :   4498ba: vmovsd 0xe49b6(%rip),%xmm0        # 52e278 <rs_backtrack.cannot_find_char+0x68>
+    0.00 :   4498c2: vdivsd 0x4d8(%rdi),%xmm0,%xmm0
+    0.00 :   4498ca: vmovapd -0x210(%rbp),%xmm1
+         : 100    iy = int(y / h(2), int32) + 1_int32
+    0.00 :   4498d2: vdivpd 0x4e0(%rdi),%xmm1,%xmm1
+         : 102    mod_particle_sorting_mp_compute_particle_cell_ids_():
+         : 137    part%cell_id(i)     = ic
+    0.00 :   4498da: mov    0x248(%r11,%r12,1),%rdi
+    0.00 :   4498e2: mov    0x288(%r11,%r12,1),%r11
+         : 135    do i = 1, part%n
+    0.00 :   4498ea: inc    %rax
+    0.00 :   4498ed: shl    $0x2,%r11
+    0.00 :   4498f1: sub    %r11,%rdi
+    0.00 :   4498f4: shl    $0x3,%r10
+    0.00 :   4498f8: sub    %r10,%rsi
+    0.00 :   4498fb: shl    $0x3,%r9
+    0.00 :   4498ff: sub    %r9,%rdx
+    0.00 :   449902: shl    $0x3,%r8
+    0.00 :   449906: sub    %r8,%rcx
+    0.00 :   449909: mov    $0x1,%r8d
+    0.00 :   44990f: mov    $0x1,%r12d
+    0.00 :   449915: mov    -0x30(%rbp),%r14
+         : 148    mod_particle_sorting_mp_cell_index_from_position_():
+    0.00 :   449919: nopl   0x0(%rax)
+         : 99     ix = int(x / h(1), int32) + 1_int32
+    0.00 :   449920: vmulsd (%rcx,%r8,8),%xmm0,%xmm2
+    0.00 :   449926: vcvttsd2si %xmm2,%r9d
+    0.00 :   44992a: inc    %r9d
+         : 103    ix = max(1_int32, min(n(1), ix))
+    0.00 :   44992d: cmp    %r9d,%r15d
+    0.00 :   449930: cmovl  %r15d,%r9d
+    0.05 :   449934: cmp    $0x2,%r9d
+    0.00 :   449938: cmovl  %r12d,%r9d
+         : 100    iy = int(y / h(2), int32) + 1_int32
+    0.00 :   44993c: vmovsd (%rdx,%r8,8),%xmm2
+    0.00 :   449942: vmovhpd (%rsi,%r8,8),%xmm2,%xmm2
+    0.01 :   449948: vmulpd %xmm1,%xmm2,%xmm2
+    0.00 :   44994c: vcvttpd2dq %xmm2,%xmm2
+    0.03 :   449950: vpsubd %xmm3,%xmm2,%xmm2
+         : 104    iy = max(1_int32, min(n(2), iy))
+    0.00 :   449954: vpminsd %xmm2,%xmm5,%xmm2
+    0.00 :   449959: vpmaxsd %xmm4,%xmm2,%xmm2
+         : 107    ic = (ix - 1_int32) + n(1) * ((iy - 1_int32) + n(2) * (iz - 1_int32)) + 1_int32
+    0.00 :   44995e: vpaddd %xmm3,%xmm2,%xmm2
+    0.00 :   449962: vpextrd $0x1,%xmm2,%r10d
+    0.00 :   449968: imul   %r14d,%r10d
+    0.00 :   44996c: vmovd  %xmm2,%r11d
+    0.05 :   449971: add    %r10d,%r11d
+    0.00 :   449974: imul   %r15d,%r11d
+    0.00 :   449978: add    %r9d,%r11d
+         : 115    mod_particle_sorting_mp_compute_particle_cell_ids_():
+         : 137    part%cell_id(i)     = ic
+    0.01 :   44997b: mov    %r11d,(%rdi,%r8,4)
+         : 138    part%cell_count(ic) = part%cell_count(ic) + 1_int32
+    0.00 :   44997f: movslq %r11d,%r9
+    0.00 :   449982: sub    %r13,%r9
+    0.00 :   449985: incl   (%rbx,%r9,4)
+         : 139    end do
+    0.27 :   449989: inc    %r8
+    0.00 :   44998c: cmp    %r8,%rax
+    0.00 :   44998f: jne    449920 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x840>
+         : 141    part%cell_start(1) = 1_int32
+    0.00 :   449991: mov    $0x1,%esi
+    0.00 :   449996: sub    -0x38(%rbp),%rsi
+    0.00 :   44999a: mov    -0x40(%rbp),%r11
+    0.00 :   44999e: movl   $0x1,(%r11,%rsi,4)
+         : 142    do ic = 2, ncells
+    0.00 :   4499a6: cmpl   $0x2,-0x48(%rbp)
+    0.00 :   4499aa: jl     449ae2 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0xa02>
+         : 143    part%cell_start(ic) = part%cell_start(ic-1) + part%cell_count(ic-1)
+    0.00 :   4499b0: mov    -0x48(%rbp),%edx
+    0.00 :   4499b3: mov    %rdx,%rax
+    0.00 :   4499b6: sub    -0x38(%rbp),%rax
+    0.00 :   4499ba: lea    (%r11,%rax,4),%rdi
+    0.00 :   4499be: mov    $0x1,%eax
+    0.00 :   4499c3: sub    %r13,%rax
+    0.00 :   4499c6: lea    (%rbx,%rax,4),%rax
+    0.00 :   4499ca: lea    -0x1(%rdx),%rcx
+         : 152    mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525():
+         : 418    do ptype = 1, self%ntype
+    0.00 :   4499ce: cmp    %rax,%rdi
+    0.00 :   4499d1: jb     449a17 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x937>
+         : 421    mod_particle_sorting_mp_compute_particle_cell_ids_():
+         : 141    part%cell_start(1) = 1_int32
+    0.00 :   4499d3: lea    (%r11,%rsi,4),%rsi
+         : 143    part%cell_start(ic) = part%cell_start(ic-1) + part%cell_count(ic-1)
+    0.00 :   4499d7: mov    %rcx,%rdi
+    0.00 :   4499da: sub    %r13,%rdi
+    0.00 :   4499dd: lea    (%rbx,%rdi,4),%rdi
+    0.00 :   4499e1: cmp    %rsi,%rdi
+    0.00 :   4499e4: jb     449a17 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x937>
+    0.00 :   4499e6: shl    $0x2,%r13
+    0.00 :   4499ea: sub    %r13,%rbx
+    0.00 :   4499ed: mov    $0x1,%eax
+    0.00 :   4499f2: data16 data16 data16 data16 cs nopw 0x0(%rax,%rax,1)
+    0.00 :   449a00: mov    -0x4(%rsi,%rax,4),%ecx
+    0.00 :   449a04: add    (%rbx,%rax,4),%ecx
+    0.00 :   449a07: mov    %ecx,(%rsi,%rax,4)
+         : 144    end do
+    0.00 :   449a0a: inc    %rax
+    0.00 :   449a0d: cmp    %rax,%rdx
+    0.00 :   449a10: jne    449a00 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x920>
+    0.00 :   449a12: jmp    449ae2 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0xa02>
+         : 149    mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525():
+    0.00 :   449a17: cmpl   $0x9,-0x48(%rbp)
+    0.00 :   449a1b: jb     449aa7 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x9c7>
+    0.00 :   449a21: mov    %rcx,%rdx
+    0.00 :   449a24: shr    $0x3,%rdx
+    0.00 :   449a28: mov    -0x38(%rbp),%rsi
+    0.00 :   449a2c: lea    0x0(,%rsi,4),%rdi
+    0.00 :   449a34: mov    %r11,%rsi
+    0.00 :   449a37: sub    %rdi,%rsi
+    0.00 :   449a3a: shl    $0x2,%r13
+    0.00 :   449a3e: sub    %r13,%rbx
+    0.00 :   449a41: mov    $0x1,%edi
+    0.00 :   449a46: mov    $0x20,%r8d
+    0.00 :   449a4c: nopl   0x0(%rax)
+         : 429    mod_particle_sorting_mp_compute_particle_cell_ids_():
+         : 143    part%cell_start(ic) = part%cell_start(ic-1) + part%cell_count(ic-1)
+    0.00 :   449a50: lea    (%rbx,%r8,1),%r9
+    0.00 :   449a54: add    $0xffffffffffffffe4,%r9
+    0.00 :   449a58: add    (%r9),%edi
+    0.00 :   449a5b: lea    (%rsi,%r8,1),%r10
+    0.00 :   449a5f: add    $0xffffffffffffffe8,%r10
+    0.00 :   449a63: mov    %edi,(%r10)
+    0.00 :   449a66: add    0x4(%r9),%edi
+    0.00 :   449a6a: mov    %edi,0x4(%r10)
+    0.00 :   449a6e: add    0x8(%r9),%edi
+    0.00 :   449a72: mov    %edi,0x8(%r10)
+    0.00 :   449a76: add    0xc(%r9),%edi
+    0.00 :   449a7a: mov    %edi,0xc(%r10)
+    0.00 :   449a7e: add    0x10(%r9),%edi
+    0.00 :   449a82: mov    %edi,0x10(%r10)
+    0.00 :   449a86: add    0x14(%r9),%edi
+    0.00 :   449a8a: mov    %edi,0x14(%r10)
+    0.00 :   449a8e: add    0x18(%r9),%edi
+    0.00 :   449a92: mov    %edi,0x18(%r10)
+    0.00 :   449a96: add    0x1c(%r9),%edi
+    0.00 :   449a9a: mov    %edi,0x1c(%r10)
+         : 144    end do
+    0.00 :   449a9e: add    $0x20,%r8
+    0.00 :   449aa2: dec    %rdx
+    0.00 :   449aa5: jne    449a50 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x970>
+    0.00 :   449aa7: mov    %rcx,%rdx
+    0.00 :   449aaa: and    $0xfffffffffffffff8,%rdx
+    0.00 :   449aae: cmp    %rcx,%rdx
+    0.00 :   449ab1: je     449ae2 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0xa02>
+         : 143    part%cell_start(ic) = part%cell_start(ic-1) + part%cell_count(ic-1)
+    0.00 :   449ab3: mov    %rdx,%rsi
+    0.00 :   449ab6: mov    -0x38(%rbp),%rdi
+    0.00 :   449aba: sub    %rdi,%rsi
+    0.00 :   449abd: mov    0x4(%r11,%rsi,4),%esi
+    0.00 :   449ac2: shl    $0x2,%rdi
+    0.00 :   449ac6: neg    %rdi
+    0.00 :   449ac9: add    %r11,%rdi
+    0.00 :   449acc: add    $0x8,%rdi
+    0.00 :   449ad0: add    (%rax,%rdx,4),%esi
+    0.00 :   449ad3: mov    %esi,(%rdi,%rdx,4)
+    0.00 :   449ad6: lea    0x1(%rdx),%r8
+    0.00 :   449ada: mov    %r8,%rdx
+         : 144    end do
+    0.00 :   449add: cmp    %r8,%rcx
+    0.00 :   449ae0: jne    449ad0 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x9f0>
+         : 147    mod_particle_sorting_mp_sort_particles_by_cell_():
+    0.00 :   449ae2: mov    -0x58(%rbp),%rsp
+    0.00 :   449ae6: mov    -0x148(%rbp),%rbx
+         : 174    if (np <= 1_int32) return
+    0.00 :   449aed: cmp    $0x2,%ebx
+    0.00 :   449af0: mov    -0x140(%rbp),%r12
+    0.00 :   449af7: mov    -0x138(%rbp),%r13
+    0.00 :   449afe: jl     4491e0 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x100>
+    0.00 :   449b04: mov    %rsp,%r13
+    0.00 :   449b07: mov    $0x565900,%edi
+    0.00 :   449b0c: mov    $0x5765a0,%edx
+    0.00 :   449b11: mov    $0x4,%ecx
+    0.00 :   449b16: mov    $0x5769c0,%r8d
+    0.00 :   449b1c: mov    -0x80(%rbp),%r15d
+    0.00 :   449b20: mov    %r15d,%esi
+    0.00 :   449b23: call   4042b0 <__kmpc_threadprivate_cached@plt>
+    0.00 :   449b28: mov    %rax,%r12
+    0.00 :   449b2b: mov    $0x565920,%edi
+    0.00 :   449b30: mov    $0x564cd0,%edx
+    0.00 :   449b35: mov    $0x48,%ecx
+    0.00 :   449b3a: mov    $0x576a00,%r8d
+    0.00 :   449b40: mov    %r15d,%esi
+    0.00 :   449b43: call   4042b0 <__kmpc_threadprivate_cached@plt>
+    0.00 :   449b48: mov    %rax,-0x40(%rbp)
+    0.00 :   449b4c: mov    $0x565960,%edi
+    0.00 :   449b51: mov    $0x564d20,%edx
+    0.00 :   449b56: mov    $0x48,%ecx
+    0.00 :   449b5b: mov    $0x576a40,%r8d
+    0.00 :   449b61: mov    %r15d,%esi
+    0.00 :   449b64: call   4042b0 <__kmpc_threadprivate_cached@plt>
+    0.00 :   449b69: mov    %rax,-0x158(%rbp)
+    0.00 :   449b70: mov    $0x5659a0,%edi
+    0.00 :   449b75: mov    $0x564d70,%edx
+    0.00 :   449b7a: mov    $0x48,%ecx
+    0.00 :   449b7f: mov    $0x576a80,%r8d
+    0.00 :   449b85: mov    %r15d,%esi
+    0.00 :   449b88: call   4042b0 <__kmpc_threadprivate_cached@plt>
+    0.00 :   449b8d: mov    %rax,-0x48(%rbp)
+    0.00 :   449b91: mov    $0x5659e0,%edi
+    0.00 :   449b96: mov    $0x564dc0,%edx
+    0.00 :   449b9b: mov    $0x48,%ecx
+    0.00 :   449ba0: mov    $0x576ac0,%r8d
+    0.00 :   449ba6: mov    %r15d,%esi
+    0.00 :   449ba9: call   4042b0 <__kmpc_threadprivate_cached@plt>
+    0.00 :   449bae: mov    %rax,-0x58(%rbp)
+    0.00 :   449bb2: mov    $0x565a20,%edi
+    0.00 :   449bb7: mov    $0x564e10,%edx
+    0.00 :   449bbc: mov    $0x48,%ecx
+    0.00 :   449bc1: mov    $0x576b00,%r8d
+    0.00 :   449bc7: mov    %r15d,%esi
+    0.00 :   449bca: call   4042b0 <__kmpc_threadprivate_cached@plt>
+    0.00 :   449bcf: mov    %rax,-0x30(%rbp)
+    0.00 :   449bd3: mov    $0x565a60,%edi
+    0.00 :   449bd8: mov    $0x564e60,%edx
+    0.00 :   449bdd: mov    $0x48,%ecx
+    0.00 :   449be2: mov    $0x576b40,%r8d
+    0.00 :   449be8: mov    %r15d,%esi
+    0.00 :   449beb: call   4042b0 <__kmpc_threadprivate_cached@plt>
+    0.00 :   449bf0: mov    %rax,-0xb8(%rbp)
+    0.00 :   449bf7: mov    $0x565aa0,%edi
+    0.00 :   449bfc: mov    $0x564eb0,%edx
+    0.00 :   449c01: mov    $0x48,%ecx
+    0.00 :   449c06: mov    $0x576b80,%r8d
+    0.00 :   449c0c: mov    %r15d,%esi
+    0.00 :   449c0f: call   4042b0 <__kmpc_threadprivate_cached@plt>
+    0.00 :   449c14: mov    %rax,-0xb0(%rbp)
+    0.00 :   449c1b: mov    $0x565ae0,%edi
+    0.00 :   449c20: mov    $0x564f00,%edx
+    0.00 :   449c25: mov    $0x48,%ecx
+    0.00 :   449c2a: mov    $0x576bc0,%r8d
+    0.00 :   449c30: mov    %r15d,%esi
+    0.00 :   449c33: call   4042b0 <__kmpc_threadprivate_cached@plt>
+    0.00 :   449c38: mov    %rax,-0xa8(%rbp)
+    0.00 :   449c3f: mov    $0x565b20,%edi
+    0.00 :   449c44: mov    $0x564f50,%edx
+    0.00 :   449c49: mov    $0x48,%ecx
+    0.00 :   449c4e: mov    $0x576c00,%r8d
+    0.00 :   449c54: mov    %r15d,%esi
+    0.00 :   449c57: call   4042b0 <__kmpc_threadprivate_cached@plt>
+    0.00 :   449c5c: mov    %rax,%r14
+    0.00 :   449c5f: mov    $0x565b60,%edi
+    0.00 :   449c64: mov    $0x564fa0,%edx
+    0.00 :   449c69: mov    $0x48,%ecx
+    0.00 :   449c6e: mov    $0x576c40,%r8d
+    0.00 :   449c74: mov    %r15d,%esi
+    0.00 :   449c77: call   4042b0 <__kmpc_threadprivate_cached@plt>
+    0.00 :   449c7c: mov    %rax,-0x38(%rbp)
+    0.00 :   449c80: mov    $0x565ba0,%edi
+    0.00 :   449c85: mov    $0x564ff0,%edx
+    0.00 :   449c8a: mov    $0x48,%ecx
+    0.00 :   449c8f: mov    $0x576c80,%r8d
+    0.00 :   449c95: mov    %r15d,%esi
+    0.00 :   449c98: call   4042b0 <__kmpc_threadprivate_cached@plt>
+         : 264    mod_particle_sorting_mp_ensure_sort_scratch_():
+         : 42     subroutine ensure_sort_scratch(np)
+    0.00 :   449c9d: mov    %rsp,%rcx
+    0.00 :   449ca0: add    $0xfffffffffffffff0,%rcx
+    0.00 :   449ca4: mov    %rcx,-0x150(%rbp)
+    0.00 :   449cab: mov    %rcx,%rsp
+    0.00 :   449cae: mov    %rsp,%rcx
+    0.00 :   449cb1: add    $0xfffffffffffffff0,%rcx
+    0.00 :   449cb5: mov    %rcx,-0x160(%rbp)
+    0.00 :   449cbc: mov    %rcx,%rsp
+    0.00 :   449cbf: mov    %rsp,%rcx
+    0.00 :   449cc2: add    $0xfffffffffffffff0,%rcx
+    0.00 :   449cc6: mov    %rcx,-0x168(%rbp)
+    0.00 :   449ccd: mov    %rcx,%rsp
+    0.00 :   449cd0: mov    %rsp,%rcx
+    0.00 :   449cd3: add    $0xfffffffffffffff0,%rcx
+    0.00 :   449cd7: mov    %rcx,-0x170(%rbp)
+    0.00 :   449cde: mov    %rcx,%rsp
+    0.00 :   449ce1: mov    %rsp,%r11
+    0.00 :   449ce4: add    $0xfffffffffffffff0,%r11
+    0.00 :   449ce8: mov    %r11,%rsp
+    0.00 :   449ceb: mov    %rsp,%r10
+    0.00 :   449cee: add    $0xfffffffffffffff0,%r10
+    0.00 :   449cf2: mov    %r10,%rsp
+    0.00 :   449cf5: mov    %rsp,%r9
+    0.00 :   449cf8: add    $0xfffffffffffffff0,%r9
+    0.00 :   449cfc: mov    %r9,%rsp
+    0.00 :   449cff: mov    %rsp,%r8
+    0.00 :   449d02: add    $0xfffffffffffffff0,%r8
+    0.00 :   449d06: mov    %r8,%rsp
+    0.00 :   449d09: mov    %rsp,%rdi
+    0.00 :   449d0c: add    $0xfffffffffffffff0,%rdi
+    0.00 :   449d10: mov    %rdi,%rsp
+    0.00 :   449d13: mov    %rsp,%rsi
+    0.00 :   449d16: add    $0xfffffffffffffff0,%rsi
+    0.00 :   449d1a: mov    %rsi,%rsp
+    0.00 :   449d1d: mov    %rsp,%rcx
+    0.00 :   449d20: add    $0xfffffffffffffff0,%rcx
+    0.00 :   449d24: mov    %rcx,%rsp
+         : 46     if (np <= scratch_cap) return
+    0.00 :   449d27: mov    (%r12),%edx
+    0.00 :   449d2b: cmp    %edx,%ebx
+    0.00 :   449d2d: jle    44a991 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x18b1>
+    0.00 :   449d33: mov    %r11,-0xf0(%rbp)
+    0.00 :   449d3a: mov    %r10,-0xf8(%rbp)
+    0.00 :   449d41: mov    %r9,-0x100(%rbp)
+    0.00 :   449d48: mov    %r8,-0x108(%rbp)
+    0.00 :   449d4f: mov    %rdi,-0x88(%rbp)
+    0.00 :   449d56: mov    %rsi,-0x90(%rbp)
+    0.00 :   449d5d: mov    %rax,-0x110(%rbp)
+    0.00 :   449d64: mov    %rcx,-0x70(%rbp)
+    0.00 :   449d68: mov    %r13,-0x98(%rbp)
+    0.00 :   449d6f: mov    %r12,-0xa0(%rbp)
+         : 48     new_cap = max(np, max(1_int32, 2_int32*scratch_cap))
+    0.00 :   449d76: add    %edx,%edx
+    0.00 :   449d78: mov    -0x148(%rbp),%rax
+    0.00 :   449d7f: cmp    %eax,%edx
+    0.00 :   449d81: cmovle %eax,%edx
+         : 50     if (allocated(x_new)) then
+    0.00 :   449d84: mov    0x18(%r14),%rax
+    0.00 :   449d88: test   $0x1,%al
+    0.00 :   449d8a: mov    -0x158(%rbp),%r13
+    0.00 :   449d91: mov    %r14,%r15
+    0.00 :   449d94: je     44a198 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x10b8>
+    0.00 :   449d9a: mov    %edx,%r14d
+         : 51     deallocate(x_new, y_new, z_new, vx_new, vy_new, vz_new, w_new, &
+    0.00 :   449d9d: mov    %eax,%ecx
+    0.00 :   449d9f: and    $0x3,%ecx
+    0.00 :   449da2: mov    %eax,%edx
+    0.00 :   449da4: shr    $0x3,%edx
+    0.00 :   449da7: and    $0x100,%edx
+    0.00 :   449dad: mov    %rax,%rsi
+    0.00 :   449db0: shr    $0xf,%rsi
+    0.00 :   449db4: and    $0x3e00000,%esi
+    0.00 :   449dba: shr    $0x2,%eax
+    0.00 :   449dbd: and    $0x800,%eax
+    0.00 :   449dc2: lea    (%rdx,%rcx,2),%ecx
+    0.00 :   449dc5: or     %esi,%ecx
+    0.00 :   449dc7: lea    (%rax,%rcx,1),%esi
+    0.00 :   449dca: add    $0x40000,%esi
+    0.00 :   449dd0: mov    (%r15),%rdi
+    0.00 :   449dd3: mov    0x28(%r15),%rdx
+    0.00 :   449dd7: call   4bd270 <for_dealloc_allocatable_handle>
+    0.00 :   449ddc: test   %eax,%eax
+    0.00 :   449dde: movabs $0xffffff0fffffd7fe,%rbx
+    0.00 :   449de8: jne    449df5 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0xd15>
+    0.00 :   449dea: movq   $0x0,(%r15)
+    0.00 :   449df1: and    %rbx,0x18(%r15)
+    0.00 :   449df5: mov    -0xa8(%rbp),%r8
+    0.00 :   449dfc: mov    (%r8),%rdi
+    0.00 :   449dff: mov    0x18(%r8),%rax
+    0.00 :   449e03: mov    %eax,%ecx
+    0.00 :   449e05: and    $0x3,%ecx
+    0.00 :   449e08: mov    %eax,%edx
+    0.00 :   449e0a: shr    $0x3,%edx
+    0.00 :   449e0d: and    $0x100,%edx
+    0.00 :   449e13: mov    %rax,%rsi
+    0.00 :   449e16: shr    $0xf,%rsi
+    0.00 :   449e1a: and    $0x3e00000,%esi
+    0.00 :   449e20: shr    $0x2,%eax
+    0.00 :   449e23: and    $0x800,%eax
+    0.00 :   449e28: lea    (%rdx,%rcx,2),%ecx
+    0.00 :   449e2b: or     %esi,%ecx
+    0.00 :   449e2d: lea    (%rax,%rcx,1),%esi
+    0.00 :   449e30: add    $0x40000,%esi
+    0.00 :   449e36: mov    0x28(%r8),%rdx
+    0.00 :   449e3a: call   4bd270 <for_dealloc_allocatable_handle>
+    0.00 :   449e3f: test   %eax,%eax
+    0.00 :   449e41: jne    449e55 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0xd75>
+    0.00 :   449e43: mov    -0xa8(%rbp),%rax
+    0.00 :   449e4a: movq   $0x0,(%rax)
+    0.00 :   449e51: and    %rbx,0x18(%rax)
+    0.00 :   449e55: mov    -0xb0(%rbp),%r8
+    0.00 :   449e5c: mov    (%r8),%rdi
+    0.00 :   449e5f: mov    0x18(%r8),%rax
+    0.00 :   449e63: mov    %eax,%ecx
+    0.00 :   449e65: and    $0x3,%ecx
+    0.00 :   449e68: mov    %eax,%edx
+    0.00 :   449e6a: shr    $0x3,%edx
+    0.00 :   449e6d: and    $0x100,%edx
+    0.00 :   449e73: mov    %rax,%rsi
+    0.00 :   449e76: shr    $0xf,%rsi
+    0.00 :   449e7a: and    $0x3e00000,%esi
+    0.00 :   449e80: shr    $0x2,%eax
+    0.00 :   449e83: and    $0x800,%eax
+    0.00 :   449e88: lea    (%rdx,%rcx,2),%ecx
+    0.00 :   449e8b: or     %esi,%ecx
+    0.00 :   449e8d: lea    (%rax,%rcx,1),%esi
+    0.00 :   449e90: add    $0x40000,%esi
+    0.00 :   449e96: mov    0x28(%r8),%rdx
+    0.00 :   449e9a: call   4bd270 <for_dealloc_allocatable_handle>
+    0.00 :   449e9f: test   %eax,%eax
+    0.00 :   449ea1: jne    449eb5 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0xdd5>
+    0.00 :   449ea3: mov    -0xb0(%rbp),%rax
+    0.00 :   449eaa: movq   $0x0,(%rax)
+    0.00 :   449eb1: and    %rbx,0x18(%rax)
+    0.00 :   449eb5: mov    -0xb8(%rbp),%r8
+    0.00 :   449ebc: mov    (%r8),%rdi
+    0.00 :   449ebf: mov    0x18(%r8),%rax
+    0.00 :   449ec3: mov    %eax,%ecx
+    0.00 :   449ec5: and    $0x3,%ecx
+    0.00 :   449ec8: mov    %eax,%edx
+    0.00 :   449eca: shr    $0x3,%edx
+    0.00 :   449ecd: and    $0x100,%edx
+    0.00 :   449ed3: mov    %rax,%rsi
+    0.00 :   449ed6: shr    $0xf,%rsi
+    0.00 :   449eda: and    $0x3e00000,%esi
+    0.00 :   449ee0: shr    $0x2,%eax
+    0.00 :   449ee3: and    $0x800,%eax
+    0.00 :   449ee8: lea    (%rdx,%rcx,2),%ecx
+    0.00 :   449eeb: or     %esi,%ecx
+    0.00 :   449eed: lea    (%rax,%rcx,1),%esi
+    0.00 :   449ef0: add    $0x40000,%esi
+    0.00 :   449ef6: mov    0x28(%r8),%rdx
+    0.00 :   449efa: call   4bd270 <for_dealloc_allocatable_handle>
+    0.00 :   449eff: test   %eax,%eax
+    0.00 :   449f01: jne    449f15 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0xe35>
+    0.00 :   449f03: mov    -0xb8(%rbp),%rax
+    0.00 :   449f0a: movq   $0x0,(%rax)
+    0.00 :   449f11: and    %rbx,0x18(%rax)
+    0.00 :   449f15: mov    -0x30(%rbp),%r8
+    0.00 :   449f19: mov    (%r8),%rdi
+    0.00 :   449f1c: mov    0x18(%r8),%rax
+    0.00 :   449f20: mov    %eax,%ecx
+    0.00 :   449f22: and    $0x3,%ecx
+    0.00 :   449f25: mov    %eax,%edx
+    0.00 :   449f27: shr    $0x3,%edx
+    0.00 :   449f2a: and    $0x100,%edx
+    0.00 :   449f30: mov    %rax,%rsi
+    0.00 :   449f33: shr    $0xf,%rsi
+    0.00 :   449f37: and    $0x3e00000,%esi
+    0.00 :   449f3d: shr    $0x2,%eax
+    0.00 :   449f40: and    $0x800,%eax
+    0.00 :   449f45: lea    (%rdx,%rcx,2),%ecx
+    0.00 :   449f48: or     %esi,%ecx
+    0.00 :   449f4a: lea    (%rax,%rcx,1),%esi
+    0.00 :   449f4d: add    $0x40000,%esi
+    0.00 :   449f53: mov    0x28(%r8),%rdx
+    0.00 :   449f57: call   4bd270 <for_dealloc_allocatable_handle>
+    0.00 :   449f5c: test   %eax,%eax
+    0.00 :   449f5e: jne    449f6f <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0xe8f>
+    0.00 :   449f60: mov    -0x30(%rbp),%rax
+    0.00 :   449f64: movq   $0x0,(%rax)
+    0.00 :   449f6b: and    %rbx,0x18(%rax)
+    0.00 :   449f6f: mov    -0x58(%rbp),%r8
+    0.00 :   449f73: mov    (%r8),%rdi
+    0.00 :   449f76: mov    0x18(%r8),%rax
+    0.00 :   449f7a: mov    %eax,%ecx
+    0.00 :   449f7c: and    $0x3,%ecx
+    0.00 :   449f7f: mov    %eax,%edx
+    0.00 :   449f81: shr    $0x3,%edx
+    0.00 :   449f84: and    $0x100,%edx
+    0.00 :   449f8a: mov    %rax,%rsi
+    0.00 :   449f8d: shr    $0xf,%rsi
+    0.00 :   449f91: and    $0x3e00000,%esi
+    0.00 :   449f97: shr    $0x2,%eax
+    0.00 :   449f9a: and    $0x800,%eax
+    0.00 :   449f9f: lea    (%rdx,%rcx,2),%ecx
+    0.00 :   449fa2: or     %esi,%ecx
+    0.00 :   449fa4: lea    (%rax,%rcx,1),%esi
+    0.00 :   449fa7: add    $0x40000,%esi
+    0.00 :   449fad: mov    0x28(%r8),%rdx
+    0.00 :   449fb1: call   4bd270 <for_dealloc_allocatable_handle>
+    0.00 :   449fb6: test   %eax,%eax
+    0.00 :   449fb8: jne    449fc9 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0xee9>
+    0.00 :   449fba: mov    -0x58(%rbp),%rax
+    0.00 :   449fbe: movq   $0x0,(%rax)
+    0.00 :   449fc5: and    %rbx,0x18(%rax)
+    0.00 :   449fc9: mov    -0x48(%rbp),%r8
+    0.00 :   449fcd: mov    (%r8),%rdi
+    0.00 :   449fd0: mov    0x18(%r8),%rax
+    0.00 :   449fd4: mov    %eax,%ecx
+    0.00 :   449fd6: and    $0x3,%ecx
+    0.00 :   449fd9: mov    %eax,%edx
+    0.00 :   449fdb: shr    $0x3,%edx
+    0.00 :   449fde: and    $0x100,%edx
+    0.00 :   449fe4: mov    %rax,%rsi
+    0.00 :   449fe7: shr    $0xf,%rsi
+    0.00 :   449feb: and    $0x3e00000,%esi
+    0.00 :   449ff1: shr    $0x2,%eax
+    0.00 :   449ff4: and    $0x800,%eax
+    0.00 :   449ff9: lea    (%rdx,%rcx,2),%ecx
+    0.00 :   449ffc: or     %esi,%ecx
+    0.00 :   449ffe: lea    (%rax,%rcx,1),%esi
+    0.00 :   44a001: add    $0x40000,%esi
+    0.00 :   44a007: mov    0x28(%r8),%rdx
+    0.00 :   44a00b: call   4bd270 <for_dealloc_allocatable_handle>
+    0.00 :   44a010: test   %eax,%eax
+    0.00 :   44a012: jne    44a023 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0xf43>
+    0.00 :   44a014: mov    -0x48(%rbp),%rax
+    0.00 :   44a018: movq   $0x0,(%rax)
+    0.00 :   44a01f: and    %rbx,0x18(%rax)
+    0.00 :   44a023: mov    -0x38(%rbp),%r8
+    0.00 :   44a027: mov    (%r8),%rdi
+    0.00 :   44a02a: mov    0x18(%r8),%rax
+    0.00 :   44a02e: mov    %eax,%ecx
+    0.00 :   44a030: and    $0x3,%ecx
+    0.00 :   44a033: mov    %eax,%edx
+    0.00 :   44a035: shr    $0x3,%edx
+    0.00 :   44a038: and    $0x100,%edx
+    0.00 :   44a03e: mov    %rax,%rsi
+    0.00 :   44a041: shr    $0xf,%rsi
+    0.00 :   44a045: and    $0x3e00000,%esi
+    0.00 :   44a04b: shr    $0x2,%eax
+    0.00 :   44a04e: and    $0x800,%eax
+    0.00 :   44a053: lea    (%rdx,%rcx,2),%ecx
+    0.00 :   44a056: or     %esi,%ecx
+    0.00 :   44a058: lea    (%rax,%rcx,1),%esi
+    0.00 :   44a05b: add    $0x40000,%esi
+    0.00 :   44a061: mov    0x28(%r8),%rdx
+    0.00 :   44a065: call   4bd270 <for_dealloc_allocatable_handle>
+    0.00 :   44a06a: test   %eax,%eax
+    0.00 :   44a06c: jne    44a07d <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0xf9d>
+    0.00 :   44a06e: mov    -0x38(%rbp),%rax
+    0.00 :   44a072: movq   $0x0,(%rax)
+    0.00 :   44a079: and    %rbx,0x18(%rax)
+    0.00 :   44a07d: mov    -0x110(%rbp),%r8
+    0.00 :   44a084: mov    (%r8),%rdi
+    0.00 :   44a087: mov    0x18(%r8),%rax
+    0.00 :   44a08b: mov    %eax,%ecx
+    0.00 :   44a08d: and    $0x3,%ecx
+    0.00 :   44a090: mov    %eax,%edx
+    0.00 :   44a092: shr    $0x3,%edx
+    0.00 :   44a095: and    $0x100,%edx
+    0.00 :   44a09b: mov    %rax,%rsi
+    0.00 :   44a09e: shr    $0xf,%rsi
+    0.00 :   44a0a2: and    $0x3e00000,%esi
+    0.00 :   44a0a8: shr    $0x2,%eax
+    0.00 :   44a0ab: and    $0x800,%eax
+    0.00 :   44a0b0: lea    (%rdx,%rcx,2),%ecx
+    0.00 :   44a0b3: or     %esi,%ecx
+    0.00 :   44a0b5: lea    (%rax,%rcx,1),%esi
+    0.00 :   44a0b8: add    $0x40000,%esi
+    0.00 :   44a0be: mov    0x28(%r8),%rdx
+    0.00 :   44a0c2: call   4bd270 <for_dealloc_allocatable_handle>
+    0.00 :   44a0c7: test   %eax,%eax
+    0.00 :   44a0c9: jne    44a0dd <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0xffd>
+    0.00 :   44a0cb: mov    -0x110(%rbp),%rax
+    0.00 :   44a0d2: movq   $0x0,(%rax)
+    0.00 :   44a0d9: and    %rbx,0x18(%rax)
+    0.00 :   44a0dd: mov    0x0(%r13),%rdi
+    0.00 :   44a0e1: mov    0x18(%r13),%rax
+    0.00 :   44a0e5: mov    %eax,%ecx
+    0.00 :   44a0e7: and    $0x3,%ecx
+    0.00 :   44a0ea: mov    %eax,%edx
+    0.00 :   44a0ec: shr    $0x3,%edx
+    0.00 :   44a0ef: and    $0x100,%edx
+    0.00 :   44a0f5: mov    %rax,%rsi
+    0.00 :   44a0f8: shr    $0xf,%rsi
+    0.00 :   44a0fc: and    $0x3e00000,%esi
+    0.00 :   44a102: shr    $0x2,%eax
+    0.00 :   44a105: and    $0x800,%eax
+    0.00 :   44a10a: lea    (%rdx,%rcx,2),%ecx
+    0.00 :   44a10d: or     %esi,%ecx
+    0.00 :   44a10f: lea    (%rax,%rcx,1),%esi
+    0.00 :   44a112: add    $0x40000,%esi
+    0.00 :   44a118: mov    0x28(%r13),%rdx
+    0.00 :   44a11c: call   4bd270 <for_dealloc_allocatable_handle>
+    0.00 :   44a121: test   %eax,%eax
+    0.00 :   44a123: jne    44a131 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x1051>
+    0.00 :   44a125: movq   $0x0,0x0(%r13)
+    0.00 :   44a12d: and    %rbx,0x18(%r13)
+    0.00 :   44a131: mov    -0x40(%rbp),%r8
+    0.00 :   44a135: mov    (%r8),%rdi
+    0.00 :   44a138: mov    0x18(%r8),%rax
+    0.00 :   44a13c: mov    %eax,%ecx
+    0.00 :   44a13e: and    $0x3,%ecx
+    0.00 :   44a141: mov    %eax,%edx
+    0.00 :   44a143: shr    $0x3,%edx
+    0.00 :   44a146: and    $0x100,%edx
+    0.00 :   44a14c: mov    %rax,%rsi
+    0.00 :   44a14f: shr    $0xf,%rsi
+    0.00 :   44a153: and    $0x3e00000,%esi
+    0.00 :   44a159: shr    $0x2,%eax
+    0.00 :   44a15c: and    $0x800,%eax
+    0.00 :   44a161: lea    (%rdx,%rcx,2),%ecx
+    0.00 :   44a164: or     %esi,%ecx
+    0.00 :   44a166: lea    (%rax,%rcx,1),%esi
+    0.00 :   44a169: add    $0x40000,%esi
+    0.00 :   44a16f: mov    0x28(%r8),%rdx
+    0.00 :   44a173: call   4bd270 <for_dealloc_allocatable_handle>
+    0.00 :   44a178: test   %eax,%eax
+    0.00 :   44a17a: mov    %r14d,%edx
+    0.00 :   44a17d: jne    44a198 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x10b8>
+    0.00 :   44a17f: mov    -0x40(%rbp),%rcx
+    0.00 :   44a183: movq   $0x0,(%rcx)
+    0.00 :   44a18a: movabs $0xffffff0fffffd7fe,%rax
+    0.00 :   44a194: and    %rax,0x18(%rcx)
+    0.00 :   44a198: mov    %edx,-0xe8(%rbp)
+    0.00 :   44a19e: mov    0x18(%r15),%rax
+    0.00 :   44a1a2: movabs $0xf000000100,%r12
+         : 55     allocate(x_new(new_cap), y_new(new_cap), z_new(new_cap))
+    0.00 :   44a1ac: and    %r12,%rax
+    0.00 :   44a1af: add    $0x85,%rax
+    0.00 :   44a1b5: mov    %rax,0x18(%r15)
+    0.00 :   44a1b9: movq   $0x0,0x28(%r15)
+    0.00 :   44a1c1: movq   $0x8,0x8(%r15)
+    0.00 :   44a1c9: movq   $0x1,0x20(%r15)
+    0.00 :   44a1d1: movq   $0x0,0x10(%r15)
+    0.00 :   44a1d9: mov    %edx,%ebx
+    0.00 :   44a1db: movq   $0x1,0x40(%r15)
+    0.00 :   44a1e3: mov    %rbx,0x30(%r15)
+    0.00 :   44a1e7: movq   $0x8,0x38(%r15)
+    0.00 :   44a1ef: mov    $0x8,%ecx
+    0.00 :   44a1f4: mov    -0x150(%rbp),%r14
+    0.00 :   44a1fb: mov    %r14,%rdi
+    0.00 :   44a1fe: mov    $0x2,%esi
+    0.00 :   44a203: mov    %rbx,%rdx
+    0.00 :   44a206: xor    %eax,%eax
+    0.00 :   44a208: call   4bd490 <for_check_mult_overflow64>
+    0.00 :   44a20d: mov    (%r14),%rdi
+    0.00 :   44a210: mov    0x18(%r15),%rdx
+    0.00 :   44a214: mov    0x28(%r15),%rcx
+    0.00 :   44a218: mov    %rdx,%r8
+    0.00 :   44a21b: mov    %r15,%rsi
+    0.00 :   44a21e: movabs $0xfffffff00fffffff,%r15
+    0.00 :   44a228: and    %r15,%r8
+    0.00 :   44a22b: add    $0x40000000,%r8
+    0.00 :   44a232: mov    %r8,0x18(%rsi)
+    0.00 :   44a236: mov    %edx,%r8d
+    0.00 :   44a239: and    $0x1,%r8d
+    0.00 :   44a23d: shl    $0x4,%eax
+    0.00 :   44a240: and    $0x10,%eax
+    0.00 :   44a243: shr    $0xf,%rdx
+    0.00 :   44a247: and    $0x3e00000,%edx
+    0.00 :   44a24d: lea    (%rax,%r8,2),%eax
+    0.00 :   44a251: add    %eax,%edx
+    0.00 :   44a253: add    $0x40000,%edx
+    0.00 :   44a259: call   4bcfd0 <for_alloc_allocatable_handle>
+    0.00 :   44a25e: mov    -0xa8(%rbp),%r14
+    0.00 :   44a265: mov    0x18(%r14),%rax
+    0.00 :   44a269: mov    %r12,%r15
+    0.00 :   44a26c: and    %r12,%rax
+    0.00 :   44a26f: add    $0x85,%rax
+    0.00 :   44a275: mov    %rax,0x18(%r14)
+    0.00 :   44a279: movq   $0x0,0x28(%r14)
+    0.00 :   44a281: movq   $0x8,0x8(%r14)
+    0.00 :   44a289: movq   $0x1,0x20(%r14)
+    0.00 :   44a291: movq   $0x0,0x10(%r14)
+    0.00 :   44a299: movq   $0x1,0x40(%r14)
+    0.00 :   44a2a1: mov    %rbx,0x30(%r14)
+    0.00 :   44a2a5: movq   $0x8,0x38(%r14)
+    0.00 :   44a2ad: mov    $0x8,%ecx
+    0.00 :   44a2b2: mov    -0x160(%rbp),%r12
+    0.00 :   44a2b9: mov    %r12,%rdi
+    0.00 :   44a2bc: mov    $0x2,%esi
+    0.00 :   44a2c1: mov    %rbx,%rdx
+    0.00 :   44a2c4: xor    %eax,%eax
+    0.00 :   44a2c6: call   4bd490 <for_check_mult_overflow64>
+    0.00 :   44a2cb: mov    (%r12),%rdi
+    0.00 :   44a2cf: mov    0x18(%r14),%rdx
+    0.00 :   44a2d3: mov    0x28(%r14),%rcx
+    0.00 :   44a2d7: mov    %rdx,%rsi
+    0.00 :   44a2da: movabs $0xfffffff00fffffff,%r8
+    0.00 :   44a2e4: and    %r8,%rsi
+    0.00 :   44a2e7: add    $0x40000000,%rsi
+    0.00 :   44a2ee: mov    %rsi,0x18(%r14)
+    0.00 :   44a2f2: mov    %edx,%esi
+    0.00 :   44a2f4: and    $0x1,%esi
+    0.00 :   44a2f7: shl    $0x4,%eax
+    0.00 :   44a2fa: and    $0x10,%eax
+    0.00 :   44a2fd: shr    $0xf,%rdx
+    0.00 :   44a301: and    $0x3e00000,%edx
+    0.00 :   44a307: lea    (%rax,%rsi,2),%eax
+    0.00 :   44a30a: add    %eax,%edx
+    0.00 :   44a30c: add    $0x40000,%edx
+    0.00 :   44a312: mov    %r14,%rsi
+    0.00 :   44a315: call   4bcfd0 <for_alloc_allocatable_handle>
+    0.00 :   44a31a: mov    -0xb0(%rbp),%r14
+    0.00 :   44a321: mov    0x18(%r14),%rax
+    0.00 :   44a325: and    %r15,%rax
+    0.00 :   44a328: add    $0x85,%rax
+    0.00 :   44a32e: mov    %rax,0x18(%r14)
+    0.00 :   44a332: movq   $0x0,0x28(%r14)
+    0.00 :   44a33a: movq   $0x8,0x8(%r14)
+    0.00 :   44a342: movq   $0x1,0x20(%r14)
+    0.00 :   44a34a: movq   $0x0,0x10(%r14)
+    0.00 :   44a352: movq   $0x1,0x40(%r14)
+    0.00 :   44a35a: mov    %rbx,0x30(%r14)
+    0.00 :   44a35e: movq   $0x8,0x38(%r14)
+    0.00 :   44a366: mov    $0x8,%ecx
+    0.00 :   44a36b: mov    -0x168(%rbp),%r12
+    0.00 :   44a372: mov    %r12,%rdi
+    0.00 :   44a375: mov    $0x2,%esi
+    0.00 :   44a37a: mov    %rbx,%rdx
+    0.00 :   44a37d: xor    %eax,%eax
+    0.00 :   44a37f: call   4bd490 <for_check_mult_overflow64>
+    0.00 :   44a384: mov    (%r12),%rdi
+    0.00 :   44a388: mov    0x18(%r14),%rdx
+    0.00 :   44a38c: mov    0x28(%r14),%rcx
+    0.00 :   44a390: mov    %rdx,%rsi
+    0.00 :   44a393: movabs $0xfffffff00fffffff,%r8
+    0.00 :   44a39d: and    %r8,%rsi
+    0.00 :   44a3a0: add    $0x40000000,%rsi
+    0.00 :   44a3a7: mov    %rsi,0x18(%r14)
+    0.00 :   44a3ab: mov    %edx,%esi
+    0.00 :   44a3ad: and    $0x1,%esi
+    0.00 :   44a3b0: shl    $0x4,%eax
+    0.00 :   44a3b3: and    $0x10,%eax
+    0.00 :   44a3b6: shr    $0xf,%rdx
+    0.00 :   44a3ba: and    $0x3e00000,%edx
+    0.00 :   44a3c0: lea    (%rax,%rsi,2),%eax
+    0.00 :   44a3c3: add    %eax,%edx
+    0.00 :   44a3c5: add    $0x40000,%edx
+    0.00 :   44a3cb: mov    %r14,%rsi
+    0.00 :   44a3ce: call   4bcfd0 <for_alloc_allocatable_handle>
+    0.00 :   44a3d3: mov    -0xb8(%rbp),%r14
+    0.00 :   44a3da: mov    0x18(%r14),%rax
+         : 56     allocate(vx_new(new_cap), vy_new(new_cap), vz_new(new_cap))
+    0.00 :   44a3de: and    %r15,%rax
+    0.00 :   44a3e1: add    $0x85,%rax
+    0.00 :   44a3e7: mov    %rax,0x18(%r14)
+    0.00 :   44a3eb: movq   $0x0,0x28(%r14)
+    0.00 :   44a3f3: movq   $0x8,0x8(%r14)
+    0.00 :   44a3fb: movq   $0x1,0x20(%r14)
+    0.00 :   44a403: movq   $0x0,0x10(%r14)
+    0.00 :   44a40b: movq   $0x1,0x40(%r14)
+    0.00 :   44a413: mov    %rbx,0x30(%r14)
+    0.00 :   44a417: movq   $0x8,0x38(%r14)
+    0.00 :   44a41f: mov    $0x8,%ecx
+    0.00 :   44a424: mov    -0x170(%rbp),%r12
+    0.00 :   44a42b: mov    %r12,%rdi
+    0.00 :   44a42e: mov    $0x2,%esi
+    0.00 :   44a433: mov    %rbx,%rdx
+    0.00 :   44a436: xor    %eax,%eax
+    0.00 :   44a438: call   4bd490 <for_check_mult_overflow64>
+    0.00 :   44a43d: mov    (%r12),%rdi
+    0.00 :   44a441: mov    0x18(%r14),%rdx
+    0.00 :   44a445: mov    0x28(%r14),%rcx
+    0.00 :   44a449: mov    %rdx,%rsi
+    0.00 :   44a44c: movabs $0xfffffff00fffffff,%r8
+    0.00 :   44a456: and    %r8,%rsi
+    0.00 :   44a459: add    $0x40000000,%rsi
+    0.00 :   44a460: mov    %rsi,0x18(%r14)
+    0.00 :   44a464: mov    %edx,%esi
+    0.00 :   44a466: and    $0x1,%esi
+    0.00 :   44a469: shl    $0x4,%eax
+    0.00 :   44a46c: and    $0x10,%eax
+    0.00 :   44a46f: shr    $0xf,%rdx
+    0.00 :   44a473: and    $0x3e00000,%edx
+    0.00 :   44a479: lea    (%rax,%rsi,2),%eax
+    0.00 :   44a47c: add    %eax,%edx
+    0.00 :   44a47e: add    $0x40000,%edx
+    0.00 :   44a484: mov    %r14,%rsi
+    0.00 :   44a487: call   4bcfd0 <for_alloc_allocatable_handle>
+    0.00 :   44a48c: mov    -0x30(%rbp),%r14
+    0.00 :   44a490: mov    0x18(%r14),%rax
+    0.00 :   44a494: and    %r15,%rax
+    0.00 :   44a497: add    $0x85,%rax
+    0.00 :   44a49d: mov    %rax,0x18(%r14)
+    0.00 :   44a4a1: movq   $0x0,0x28(%r14)
+    0.00 :   44a4a9: movq   $0x8,0x8(%r14)
+    0.00 :   44a4b1: movq   $0x1,0x20(%r14)
+    0.00 :   44a4b9: movq   $0x0,0x10(%r14)
+    0.00 :   44a4c1: movq   $0x1,0x40(%r14)
+    0.00 :   44a4c9: mov    %rbx,0x30(%r14)
+    0.00 :   44a4cd: movq   $0x8,0x38(%r14)
+    0.00 :   44a4d5: mov    $0x8,%ecx
+    0.00 :   44a4da: mov    -0xf0(%rbp),%r12
+    0.00 :   44a4e1: mov    %r12,%rdi
+    0.00 :   44a4e4: mov    $0x2,%esi
+    0.00 :   44a4e9: mov    %rbx,%rdx
+    0.00 :   44a4ec: xor    %eax,%eax
+    0.00 :   44a4ee: call   4bd490 <for_check_mult_overflow64>
+    0.00 :   44a4f3: mov    (%r12),%rdi
+    0.00 :   44a4f7: mov    0x18(%r14),%rdx
+    0.00 :   44a4fb: mov    0x28(%r14),%rcx
+    0.00 :   44a4ff: mov    %rdx,%rsi
+    0.00 :   44a502: movabs $0xfffffff00fffffff,%r8
+    0.00 :   44a50c: and    %r8,%rsi
+    0.00 :   44a50f: add    $0x40000000,%rsi
+    0.00 :   44a516: mov    %rsi,0x18(%r14)
+    0.00 :   44a51a: mov    %edx,%esi
+    0.00 :   44a51c: and    $0x1,%esi
+    0.00 :   44a51f: shl    $0x4,%eax
+    0.00 :   44a522: and    $0x10,%eax
+    0.00 :   44a525: shr    $0xf,%rdx
+    0.00 :   44a529: and    $0x3e00000,%edx
+    0.00 :   44a52f: lea    (%rax,%rsi,2),%eax
+    0.00 :   44a532: add    %eax,%edx
+    0.00 :   44a534: add    $0x40000,%edx
+    0.00 :   44a53a: mov    %r14,%rsi
+    0.00 :   44a53d: call   4bcfd0 <for_alloc_allocatable_handle>
+    0.00 :   44a542: mov    -0x58(%rbp),%r14
+    0.00 :   44a546: mov    0x18(%r14),%rax
+    0.00 :   44a54a: and    %r15,%rax
+    0.00 :   44a54d: add    $0x85,%rax
+    0.00 :   44a553: mov    %rax,0x18(%r14)
+    0.00 :   44a557: movq   $0x0,0x28(%r14)
+    0.00 :   44a55f: movq   $0x8,0x8(%r14)
+    0.00 :   44a567: movq   $0x1,0x20(%r14)
+    0.00 :   44a56f: movq   $0x0,0x10(%r14)
+    0.00 :   44a577: movq   $0x1,0x40(%r14)
+    0.00 :   44a57f: mov    %rbx,0x30(%r14)
+    0.00 :   44a583: movq   $0x8,0x38(%r14)
+    0.00 :   44a58b: mov    $0x8,%ecx
+    0.00 :   44a590: mov    -0xf8(%rbp),%r12
+    0.00 :   44a597: mov    %r12,%rdi
+    0.00 :   44a59a: mov    $0x2,%esi
+    0.00 :   44a59f: mov    %rbx,%rdx
+    0.00 :   44a5a2: xor    %eax,%eax
+    0.00 :   44a5a4: call   4bd490 <for_check_mult_overflow64>
+    0.00 :   44a5a9: mov    (%r12),%rdi
+    0.00 :   44a5ad: mov    0x18(%r14),%rdx
+    0.00 :   44a5b1: mov    0x28(%r14),%rcx
+    0.00 :   44a5b5: mov    %rdx,%rsi
+    0.00 :   44a5b8: movabs $0xfffffff00fffffff,%r8
+    0.00 :   44a5c2: and    %r8,%rsi
+    0.00 :   44a5c5: add    $0x40000000,%rsi
+    0.00 :   44a5cc: mov    %rsi,0x18(%r14)
+    0.00 :   44a5d0: mov    %edx,%esi
+    0.00 :   44a5d2: and    $0x1,%esi
+    0.00 :   44a5d5: shl    $0x4,%eax
+    0.00 :   44a5d8: and    $0x10,%eax
+    0.00 :   44a5db: shr    $0xf,%rdx
+    0.00 :   44a5df: and    $0x3e00000,%edx
+    0.00 :   44a5e5: lea    (%rax,%rsi,2),%eax
+    0.00 :   44a5e8: add    %eax,%edx
+    0.00 :   44a5ea: add    $0x40000,%edx
+    0.00 :   44a5f0: mov    %r14,%rsi
+    0.00 :   44a5f3: call   4bcfd0 <for_alloc_allocatable_handle>
+    0.00 :   44a5f8: mov    -0x48(%rbp),%r14
+    0.00 :   44a5fc: mov    0x18(%r14),%rax
+         : 57     allocate(w_new(new_cap))
+    0.00 :   44a600: and    %r15,%rax
+    0.00 :   44a603: add    $0x85,%rax
+    0.00 :   44a609: mov    %rax,0x18(%r14)
+    0.00 :   44a60d: movq   $0x0,0x28(%r14)
+    0.00 :   44a615: movq   $0x8,0x8(%r14)
+    0.00 :   44a61d: movq   $0x1,0x20(%r14)
+    0.00 :   44a625: movq   $0x0,0x10(%r14)
+    0.00 :   44a62d: movq   $0x1,0x40(%r14)
+    0.00 :   44a635: mov    %rbx,0x30(%r14)
+    0.00 :   44a639: movq   $0x8,0x38(%r14)
+    0.00 :   44a641: mov    $0x8,%ecx
+    0.00 :   44a646: mov    -0x100(%rbp),%r12
+    0.00 :   44a64d: mov    %r12,%rdi
+    0.00 :   44a650: mov    $0x2,%esi
+    0.00 :   44a655: mov    %rbx,%rdx
+    0.00 :   44a658: xor    %eax,%eax
+    0.00 :   44a65a: call   4bd490 <for_check_mult_overflow64>
+    0.00 :   44a65f: mov    (%r12),%rdi
+    0.00 :   44a663: mov    0x18(%r14),%rdx
+    0.00 :   44a667: mov    0x28(%r14),%rcx
+    0.00 :   44a66b: mov    %rdx,%rsi
+    0.00 :   44a66e: movabs $0xfffffff00fffffff,%r8
+    0.00 :   44a678: and    %r8,%rsi
+    0.00 :   44a67b: add    $0x40000000,%rsi
+    0.00 :   44a682: mov    %rsi,0x18(%r14)
+    0.00 :   44a686: mov    %edx,%esi
+    0.00 :   44a688: and    $0x1,%esi
+    0.00 :   44a68b: shl    $0x4,%eax
+    0.00 :   44a68e: and    $0x10,%eax
+    0.00 :   44a691: shr    $0xf,%rdx
+    0.00 :   44a695: and    $0x3e00000,%edx
+    0.00 :   44a69b: lea    (%rax,%rsi,2),%eax
+    0.00 :   44a69e: add    %eax,%edx
+    0.00 :   44a6a0: add    $0x40000,%edx
+    0.00 :   44a6a6: mov    %r14,%rsi
+    0.00 :   44a6a9: call   4bcfd0 <for_alloc_allocatable_handle>
+    0.00 :   44a6ae: mov    -0x38(%rbp),%r14
+    0.00 :   44a6b2: mov    0x18(%r14),%rax
+         : 58     allocate(sp_new(new_cap))
+    0.00 :   44a6b6: and    %r15,%rax
+    0.00 :   44a6b9: add    $0x85,%rax
+    0.00 :   44a6bf: mov    %rax,0x18(%r14)
+    0.00 :   44a6c3: movq   $0x0,0x28(%r14)
+    0.00 :   44a6cb: movq   $0x4,0x8(%r14)
+    0.00 :   44a6d3: movq   $0x1,0x20(%r14)
+    0.00 :   44a6db: movq   $0x0,0x10(%r14)
+    0.00 :   44a6e3: movq   $0x1,0x40(%r14)
+    0.00 :   44a6eb: mov    %rbx,0x30(%r14)
+    0.00 :   44a6ef: movq   $0x4,0x38(%r14)
+    0.00 :   44a6f7: mov    $0x4,%ecx
+    0.00 :   44a6fc: mov    -0x108(%rbp),%r12
+    0.00 :   44a703: mov    %r12,%rdi
+    0.00 :   44a706: mov    $0x2,%esi
+    0.00 :   44a70b: mov    %rbx,%rdx
+    0.00 :   44a70e: xor    %eax,%eax
+    0.00 :   44a710: call   4bd490 <for_check_mult_overflow64>
+    0.00 :   44a715: mov    (%r12),%rdi
+    0.00 :   44a719: mov    0x18(%r14),%rdx
+    0.00 :   44a71d: mov    0x28(%r14),%rcx
+    0.00 :   44a721: mov    %rdx,%rsi
+    0.00 :   44a724: movabs $0xfffffff00fffffff,%r15
+    0.00 :   44a72e: and    %r15,%rsi
+    0.00 :   44a731: add    $0x40000000,%rsi
+    0.00 :   44a738: mov    %rsi,0x18(%r14)
+    0.00 :   44a73c: mov    %edx,%esi
+    0.00 :   44a73e: and    $0x1,%esi
+    0.00 :   44a741: shl    $0x4,%eax
+    0.00 :   44a744: and    $0x10,%eax
+    0.00 :   44a747: shr    $0xf,%rdx
+    0.00 :   44a74b: and    $0x3e00000,%edx
+    0.00 :   44a751: lea    (%rax,%rsi,2),%eax
+    0.00 :   44a754: add    %eax,%edx
+    0.00 :   44a756: add    $0x40000,%edx
+    0.00 :   44a75c: mov    %r14,%rsi
+    0.00 :   44a75f: call   4bcfd0 <for_alloc_allocatable_handle>
+    0.00 :   44a764: mov    -0x110(%rbp),%r14
+    0.00 :   44a76b: mov    0x18(%r14),%rax
+         : 59     allocate(cell_id_new(new_cap))
+    0.00 :   44a76f: movabs $0xf000000100,%rcx
+    0.00 :   44a779: and    %rcx,%rax
+    0.00 :   44a77c: add    $0x85,%rax
+    0.00 :   44a782: mov    %rax,0x18(%r14)
+    0.00 :   44a786: movq   $0x0,0x28(%r14)
+    0.00 :   44a78e: movq   $0x4,0x8(%r14)
+    0.00 :   44a796: movq   $0x1,0x20(%r14)
+    0.00 :   44a79e: movq   $0x0,0x10(%r14)
+    0.00 :   44a7a6: movq   $0x1,0x40(%r14)
+    0.00 :   44a7ae: mov    %rbx,0x30(%r14)
+    0.00 :   44a7b2: movq   $0x4,0x38(%r14)
+    0.00 :   44a7ba: mov    $0x4,%ecx
+    0.00 :   44a7bf: mov    -0x88(%rbp),%r12
+    0.00 :   44a7c6: mov    %r12,%rdi
+    0.00 :   44a7c9: mov    $0x2,%esi
+    0.00 :   44a7ce: mov    %rbx,%rdx
+    0.00 :   44a7d1: xor    %eax,%eax
+    0.00 :   44a7d3: call   4bd490 <for_check_mult_overflow64>
+    0.00 :   44a7d8: mov    (%r12),%rdi
+    0.00 :   44a7dc: mov    0x18(%r14),%rdx
+    0.00 :   44a7e0: mov    0x28(%r14),%rcx
+    0.00 :   44a7e4: mov    %rdx,%rsi
+    0.00 :   44a7e7: and    %r15,%rsi
+    0.00 :   44a7ea: add    $0x40000000,%rsi
+    0.00 :   44a7f1: mov    %rsi,0x18(%r14)
+    0.00 :   44a7f5: mov    %edx,%esi
+    0.00 :   44a7f7: and    $0x1,%esi
+    0.00 :   44a7fa: shl    $0x4,%eax
+    0.00 :   44a7fd: and    $0x10,%eax
+    0.00 :   44a800: shr    $0xf,%rdx
+    0.00 :   44a804: and    $0x3e00000,%edx
+    0.00 :   44a80a: lea    (%rax,%rsi,2),%eax
+    0.00 :   44a80d: add    %eax,%edx
+    0.00 :   44a80f: add    $0x40000,%edx
+    0.00 :   44a815: mov    %r14,%rsi
+    0.00 :   44a818: call   4bcfd0 <for_alloc_allocatable_handle>
+    0.00 :   44a81d: mov    0x18(%r13),%rax
+    0.00 :   44a821: movabs $0xf000000100,%r12
+         : 60     allocate(flag_dead_new(new_cap))
+    0.00 :   44a82b: and    %r12,%rax
+    0.00 :   44a82e: add    $0x85,%rax
+    0.00 :   44a834: mov    %rax,0x18(%r13)
+    0.00 :   44a838: movq   $0x0,0x28(%r13)
+    0.00 :   44a840: movq   $0x1,0x8(%r13)
+    0.00 :   44a848: movq   $0x1,0x20(%r13)
+    0.00 :   44a850: movq   $0x0,0x10(%r13)
+    0.00 :   44a858: movq   $0x1,0x40(%r13)
+    0.00 :   44a860: mov    %rbx,0x30(%r13)
+    0.00 :   44a864: movq   $0x1,0x38(%r13)
+    0.00 :   44a86c: mov    $0x1,%ecx
+    0.00 :   44a871: mov    -0x90(%rbp),%r14
+    0.00 :   44a878: mov    %r14,%rdi
+    0.00 :   44a87b: mov    $0x2,%esi
+    0.00 :   44a880: mov    %rbx,%rdx
+    0.00 :   44a883: xor    %eax,%eax
+    0.00 :   44a885: call   4bd490 <for_check_mult_overflow64>
+    0.00 :   44a88a: mov    (%r14),%rdi
+    0.00 :   44a88d: mov    0x18(%r13),%rdx
+    0.00 :   44a891: mov    0x28(%r13),%rcx
+    0.00 :   44a895: mov    %rdx,%rsi
+    0.00 :   44a898: and    %r15,%rsi
+    0.00 :   44a89b: add    $0x40000000,%rsi
+    0.00 :   44a8a2: mov    %rsi,0x18(%r13)
+    0.00 :   44a8a6: mov    %edx,%esi
+    0.00 :   44a8a8: and    $0x1,%esi
+    0.00 :   44a8ab: shl    $0x4,%eax
+    0.00 :   44a8ae: and    $0x10,%eax
+    0.00 :   44a8b1: shr    $0xf,%rdx
+    0.00 :   44a8b5: and    $0x3e00000,%edx
+    0.00 :   44a8bb: lea    (%rax,%rsi,2),%eax
+    0.00 :   44a8be: add    %eax,%edx
+    0.00 :   44a8c0: add    $0x40000,%edx
+    0.00 :   44a8c6: mov    %r13,%rsi
+    0.00 :   44a8c9: call   4bcfd0 <for_alloc_allocatable_handle>
+    0.00 :   44a8ce: mov    -0x40(%rbp),%r13
+    0.00 :   44a8d2: mov    0x18(%r13),%rax
+         : 61     allocate(flag_cex_new(new_cap))
+    0.00 :   44a8d6: and    %r12,%rax
+    0.00 :   44a8d9: add    $0x85,%rax
+    0.00 :   44a8df: mov    %rax,0x18(%r13)
+    0.00 :   44a8e3: movq   $0x0,0x28(%r13)
+    0.00 :   44a8eb: movq   $0x4,0x8(%r13)
+    0.00 :   44a8f3: movq   $0x1,0x20(%r13)
+    0.00 :   44a8fb: movq   $0x0,0x10(%r13)
+    0.00 :   44a903: movq   $0x1,0x40(%r13)
+    0.00 :   44a90b: mov    %rbx,0x30(%r13)
+    0.00 :   44a90f: movq   $0x4,0x38(%r13)
+    0.00 :   44a917: mov    $0x4,%ecx
+    0.00 :   44a91c: mov    -0x70(%rbp),%r12
+    0.00 :   44a920: mov    %r12,%rdi
+    0.00 :   44a923: mov    $0x2,%esi
+    0.00 :   44a928: mov    %rbx,%rdx
+    0.00 :   44a92b: xor    %eax,%eax
+    0.00 :   44a92d: call   4bd490 <for_check_mult_overflow64>
+    0.00 :   44a932: mov    (%r12),%rdi
+    0.00 :   44a936: mov    0x18(%r13),%rdx
+    0.00 :   44a93a: mov    0x28(%r13),%rcx
+    0.00 :   44a93e: mov    %rdx,%rsi
+    0.00 :   44a941: and    %r15,%rsi
+    0.00 :   44a944: add    $0x40000000,%rsi
+    0.00 :   44a94b: mov    %rsi,0x18(%r13)
+    0.00 :   44a94f: mov    %edx,%esi
+    0.00 :   44a951: and    $0x1,%esi
+    0.00 :   44a954: shl    $0x4,%eax
+    0.00 :   44a957: and    $0x10,%eax
+    0.00 :   44a95a: shr    $0xf,%rdx
+    0.00 :   44a95e: and    $0x3e00000,%edx
+    0.00 :   44a964: lea    (%rax,%rsi,2),%eax
+    0.00 :   44a967: add    %eax,%edx
+    0.00 :   44a969: add    $0x40000,%edx
+    0.00 :   44a96f: mov    %r13,%rsi
+    0.00 :   44a972: call   4bcfd0 <for_alloc_allocatable_handle>
+    0.00 :   44a977: mov    -0xa0(%rbp),%rax
+    0.00 :   44a97e: mov    -0xe8(%rbp),%ecx
+         : 63     scratch_cap = new_cap
+    0.00 :   44a984: mov    %ecx,(%rax)
+    0.00 :   44a986: mov    -0x80(%rbp),%r15d
+    0.00 :   44a98a: mov    -0x98(%rbp),%r13
+         : 67     mod_particle_sorting_mp_sort_particles_by_cell_():
+    0.00 :   44a991: mov    %r13,%rsp
+    0.00 :   44a994: mov    %rsp,%r12
+    0.00 :   44a997: mov    -0x68(%rbp),%rax
+         : 177    call ensure_sort_cell_scratch(ncells)
+    0.00 :   44a99b: mov    (%rax),%r13d
+    0.00 :   44a99e: mov    $0x5658e0,%edi
+    0.00 :   44a9a3: mov    $0x576598,%edx
+    0.00 :   44a9a8: mov    $0x4,%ecx
+    0.00 :   44a9ad: mov    $0x576980,%r8d
+    0.00 :   44a9b3: mov    %r15d,%esi
+    0.00 :   44a9b6: call   4042b0 <__kmpc_threadprivate_cached@plt>
+    0.00 :   44a9bb: mov    %rax,%rbx
+    0.00 :   44a9be: mov    $0x565be0,%edi
+    0.00 :   44a9c3: mov    $0x565040,%edx
+    0.00 :   44a9c8: mov    $0x48,%ecx
+    0.00 :   44a9cd: mov    $0x576cc0,%r8d
+    0.00 :   44a9d3: mov    %r15d,%esi
+    0.00 :   44a9d6: call   4042b0 <__kmpc_threadprivate_cached@plt>
+         : 192    mod_particle_sorting_mp_ensure_sort_cell_scratch_():
+         : 66     subroutine ensure_sort_cell_scratch(ncells)
+    0.00 :   44a9db: mov    %rsp,%r15
+    0.00 :   44a9de: add    $0xfffffffffffffff0,%r15
+    0.00 :   44a9e2: mov    %r15,%rsp
+         : 69     if (ncells <= cell_scratch_cap) return
+    0.00 :   44a9e5: cmp    (%rbx),%r13d
+    0.00 :   44a9e8: jle    44ab12 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x1a32>
+    0.00 :   44a9ee: mov    %rax,%r14
+         : 71     if (allocated(next_slot)) deallocate(next_slot)
+    0.00 :   44a9f1: mov    0x18(%rax),%rcx
+    0.00 :   44a9f5: test   $0x1,%cl
+    0.00 :   44a9f8: je     44aa56 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x1976>
+    0.00 :   44a9fa: mov    %ecx,%eax
+    0.00 :   44a9fc: and    $0x3,%eax
+    0.00 :   44a9ff: mov    %ecx,%edx
+    0.00 :   44aa01: shr    $0x3,%edx
+    0.00 :   44aa04: and    $0x100,%edx
+    0.00 :   44aa0a: mov    %rcx,%rsi
+    0.00 :   44aa0d: shr    $0xf,%rsi
+    0.00 :   44aa11: and    $0x3e00000,%esi
+    0.00 :   44aa17: shr    $0x2,%ecx
+    0.00 :   44aa1a: and    $0x800,%ecx
+    0.00 :   44aa20: lea    (%rdx,%rax,2),%eax
+    0.00 :   44aa23: or     %esi,%eax
+    0.00 :   44aa25: lea    (%rcx,%rax,1),%esi
+    0.00 :   44aa28: add    $0x40000,%esi
+    0.00 :   44aa2e: mov    (%r14),%rdi
+    0.00 :   44aa31: mov    0x28(%r14),%rdx
+    0.00 :   44aa35: call   4bd270 <for_dealloc_allocatable_handle>
+         : 72     allocate(next_slot(ncells))
+    0.00 :   44aa3a: mov    0x18(%r14),%rcx
+         : 71     if (allocated(next_slot)) deallocate(next_slot)
+    0.00 :   44aa3e: test   %eax,%eax
+    0.00 :   44aa40: jne    44aa56 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x1976>
+    0.00 :   44aa42: movq   $0x0,(%r14)
+    0.00 :   44aa49: movabs $0xffffff0fffffd7fe,%rax
+    0.00 :   44aa53: and    %rax,%rcx
+         : 72     allocate(next_slot(ncells))
+    0.00 :   44aa56: movabs $0xf000000100,%rax
+    0.00 :   44aa60: and    %rax,%rcx
+    0.00 :   44aa63: add    $0x85,%rcx
+    0.00 :   44aa6a: mov    %rcx,0x18(%r14)
+    0.00 :   44aa6e: movq   $0x0,0x28(%r14)
+    0.00 :   44aa76: movq   $0x4,0x8(%r14)
+    0.00 :   44aa7e: movq   $0x1,0x20(%r14)
+    0.00 :   44aa86: movq   $0x0,0x10(%r14)
+    0.00 :   44aa8e: movq   $0x1,0x40(%r14)
+    0.00 :   44aa96: mov    %r13d,%eax
+    0.00 :   44aa99: sar    $0x1f,%eax
+    0.00 :   44aa9c: andn   %r13d,%eax,%edx
+    0.00 :   44aaa1: mov    %rdx,0x30(%r14)
+    0.00 :   44aaa5: movq   $0x4,0x38(%r14)
+    0.00 :   44aaad: mov    $0x4,%ecx
+    0.00 :   44aab2: mov    %r15,%rdi
+    0.00 :   44aab5: mov    $0x2,%esi
+    0.00 :   44aaba: xor    %eax,%eax
+    0.00 :   44aabc: call   4bd490 <for_check_mult_overflow64>
+    0.00 :   44aac1: mov    (%r15),%rdi
+    0.00 :   44aac4: mov    0x18(%r14),%rdx
+    0.00 :   44aac8: mov    0x28(%r14),%rcx
+    0.00 :   44aacc: mov    %rdx,%rsi
+    0.00 :   44aacf: movabs $0xfffffff00fffffff,%r8
+    0.00 :   44aad9: and    %r8,%rsi
+    0.00 :   44aadc: add    $0x40000000,%rsi
+    0.00 :   44aae3: mov    %rsi,0x18(%r14)
+    0.00 :   44aae7: mov    %edx,%esi
+    0.00 :   44aae9: and    $0x1,%esi
+    0.00 :   44aaec: shl    $0x4,%eax
+    0.00 :   44aaef: and    $0x10,%eax
+    0.00 :   44aaf2: shr    $0xf,%rdx
+    0.00 :   44aaf6: and    $0x3e00000,%edx
+    0.00 :   44aafc: lea    (%rax,%rsi,2),%eax
+    0.00 :   44aaff: add    %eax,%edx
+    0.00 :   44ab01: add    $0x40000,%edx
+    0.00 :   44ab07: mov    %r14,%rsi
+    0.00 :   44ab0a: call   4bcfd0 <for_alloc_allocatable_handle>
+         : 73     cell_scratch_cap = ncells
+    0.00 :   44ab0f: mov    %r13d,(%rbx)
+         : 75     mod_particle_sorting_mp_sort_particles_by_cell_():
+    0.00 :   44ab12: mov    %r12,%rsp
+    0.00 :   44ab15: mov    -0xc0(%rbp),%rax
+         : 179    next_slot(1:ncells) = part%cell_start(1:ncells)
+    0.00 :   44ab1c: mov    (%rax),%r13
+    0.00 :   44ab1f: mov    0x40(%rax),%r14
+    0.00 :   44ab23: mov    -0x68(%rbp),%rax
+    0.00 :   44ab27: movslq (%rax),%rdx
+    0.00 :   44ab2a: test   %rdx,%rdx
+    0.00 :   44ab2d: mov    -0x60(%rbp),%rbx
+    0.00 :   44ab31: jle    44ac02 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x1b22>
+    0.00 :   44ab37: mov    -0x50(%rbp),%rax
+         : 188    mod_particle_sorting_mp_compute_particle_cell_ids_():
+         : 131    part%cell_start = 0_int32
+    0.00 :   44ab3b: add    %rbx,%rax
+    0.00 :   44ab3e: add    $0x2d8,%rax
+         : 134    mod_particle_sorting_mp_sort_particles_by_cell_():
+         : 179    next_slot(1:ncells) = part%cell_start(1:ncells)
+    0.00 :   44ab44: mov    (%rax),%rcx
+    0.00 :   44ab47: mov    0x40(%rax),%rax
+    0.00 :   44ab4b: mov    %rdx,%rsi
+    0.00 :   44ab4e: sub    %rax,%rsi
+    0.00 :   44ab51: lea    (%rcx,%rsi,4),%r8
+    0.00 :   44ab55: mov    $0x1,%esi
+    0.00 :   44ab5a: sub    %r14,%rsi
+    0.00 :   44ab5d: lea    0x0(,%rsi,4),%rdi
+    0.00 :   44ab65: add    %r13,%rdi
+    0.00 :   44ab68: mov    $0x1,%esi
+    0.00 :   44ab6d: sub    %rax,%rsi
+    0.00 :   44ab70: lea    (%rcx,%rsi,4),%rsi
+         : 192    mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525():
+    0.00 :   44ab74: cmp    %rdi,%r8
+    0.00 :   44ab77: jb     44abb4 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x1ad4>
+         : 420    mod_particle_sorting_mp_sort_particles_by_cell_():
+    0.00 :   44ab79: mov    %rdx,%rax
+    0.00 :   44ab7c: sub    %r14,%rax
+    0.00 :   44ab7f: lea    0x0(,%rax,4),%rax
+    0.00 :   44ab87: add    %r13,%rax
+    0.00 :   44ab8a: cmp    %rsi,%rax
+    0.00 :   44ab8d: jb     44abb4 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x1ad4>
+    0.00 :   44ab8f: xor    %eax,%eax
+    0.00 :   44ab91: data16 data16 data16 data16 data16 cs nopw 0x0(%rax,%rax,1)
+    0.00 :   44aba0: mov    (%rsi,%rax,4),%ecx
+    0.00 :   44aba3: mov    %ecx,(%rdi,%rax,4)
+    0.00 :   44aba6: lea    0x1(%rax),%rcx
+    0.00 :   44abaa: mov    %rcx,%rax
+    0.00 :   44abad: cmp    %rcx,%rdx
+    0.00 :   44abb0: jne    44aba0 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x1ac0>
+    0.00 :   44abb2: jmp    44ac02 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x1b22>
+    0.00 :   44abb4: cmp    $0xd,%edx
+    0.00 :   44abb7: jb     44abc4 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x1ae4>
+    0.00 :   44abb9: shl    $0x2,%rdx
+    0.00 :   44abbd: call   4fdae0 <_intel_fast_memcpy>
+    0.00 :   44abc2: jmp    44ac02 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x1b22>
+    0.00 :   44abc4: mov    %rdx,%rax
+    0.00 :   44abc7: and    $0xc,%rax
+    0.00 :   44abcb: je     44abea <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x1b0a>
+    0.00 :   44abcd: xor    %ecx,%ecx
+    0.00 :   44abcf: nop
+    0.00 :   44abd0: vmovupd (%rsi,%rcx,4),%xmm0
+    0.00 :   44abd5: vmovupd %xmm0,(%rdi,%rcx,4)
+    0.00 :   44abda: add    $0x4,%rcx
+    0.00 :   44abde: cmp    %rax,%rcx
+    0.00 :   44abe1: jb     44abd0 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x1af0>
+    0.00 :   44abe3: cmp    %rdx,%rax
+    0.00 :   44abe6: jne    44abf0 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x1b10>
+    0.00 :   44abe8: jmp    44ac02 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x1b22>
+    0.00 :   44abea: xor    %eax,%eax
+    0.00 :   44abec: nopl   0x0(%rax)
+    0.00 :   44abf0: mov    (%rsi,%rax,4),%ecx
+    0.00 :   44abf3: mov    %ecx,(%rdi,%rax,4)
+    0.00 :   44abf6: lea    0x1(%rax),%rcx
+    0.00 :   44abfa: mov    %rcx,%rax
+    0.00 :   44abfd: cmp    %rcx,%rdx
+    0.00 :   44ac00: jne    44abf0 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x1b10>
+    0.00 :   44ac02: mov    -0x50(%rbp),%rax
+         : 182    ic  = part%cell_id(i)
+    0.00 :   44ac06: lea    (%rbx,%rax,1),%rdx
+    0.00 :   44ac0a: add    $0x248,%rdx
+         : 187    z_new(pos)       = part%z(i)
+    0.00 :   44ac11: mov    -0x1b0(%rdx),%rcx
+         : 188    vx_new(pos)      = part%vx(i)
+    0.00 :   44ac18: mov    -0x168(%rdx),%rsi
+    0.00 :   44ac1f: mov    -0x128(%rdx),%rax
+    0.00 :   44ac26: shl    $0x3,%rax
+    0.00 :   44ac2a: sub    %rax,%rsi
+    0.00 :   44ac2d: mov    %rsi,-0x30(%rbp)
+         : 187    z_new(pos)       = part%z(i)
+    0.00 :   44ac31: mov    -0x170(%rdx),%rax
+    0.00 :   44ac38: shl    $0x3,%rax
+    0.00 :   44ac3c: sub    %rax,%rcx
+    0.00 :   44ac3f: mov    %rcx,-0xb8(%rbp)
+         : 186    y_new(pos)       = part%y(i)
+    0.00 :   44ac46: mov    -0x1b8(%rdx),%rax
+    0.00 :   44ac4d: shl    $0x3,%rax
+    0.00 :   44ac51: mov    -0x1f8(%rdx),%r15
+    0.00 :   44ac58: sub    %rax,%r15
+    0.00 :   44ac5b: mov    -0x130(%rbp),%rax
+         : 185    x_new(pos)       = part%x(i)
+    0.00 :   44ac62: mov    (%rax),%r11
+    0.00 :   44ac65: mov    -0x200(%rdx),%rax
+    0.00 :   44ac6c: shl    $0x3,%rax
+    0.00 :   44ac70: sub    %rax,%r11
+         : 182    ic  = part%cell_id(i)
+    0.00 :   44ac73: mov    0x40(%rdx),%rax
+    0.00 :   44ac77: shl    $0x2,%rax
+    0.00 :   44ac7b: mov    (%rdx),%rdi
+    0.00 :   44ac7e: sub    %rax,%rdi
+    0.00 :   44ac81: mov    -0xc8(%rbp),%rax
+         : 185    x_new(pos)       = part%x(i)
+    0.00 :   44ac88: mov    (%rax),%rcx
+    0.00 :   44ac8b: mov    %rcx,-0xb0(%rbp)
+    0.00 :   44ac92: mov    0x40(%rax),%rax
+    0.00 :   44ac96: mov    %rax,-0xa8(%rbp)
+    0.00 :   44ac9d: mov    -0xd0(%rbp),%rax
+         : 189    vy_new(pos)      = part%vy(i)
+    0.00 :   44aca4: mov    (%rax),%rcx
+    0.00 :   44aca7: mov    %rcx,-0x68(%rbp)
+    0.00 :   44acab: mov    0x40(%rax),%rax
+    0.00 :   44acaf: mov    %rax,-0x58(%rbp)
+    0.00 :   44acb3: mov    -0xd8(%rbp),%rax
+         : 190    vz_new(pos)      = part%vz(i)
+    0.00 :   44acba: mov    (%rax),%rcx
+    0.00 :   44acbd: mov    %rcx,-0x48(%rbp)
+    0.00 :   44acc1: mov    0x40(%rax),%rax
+    0.00 :   44acc5: mov    %rax,-0x38(%rbp)
+    0.00 :   44acc9: mov    -0xe0(%rbp),%rax
+         : 191    w_new(pos)       = part%w(i)
+    0.00 :   44acd0: mov    (%rax),%rcx
+    0.00 :   44acd3: mov    %rcx,-0xc0(%rbp)
+    0.00 :   44acda: mov    0x40(%rax),%rax
+    0.00 :   44acde: mov    %rax,-0x130(%rbp)
+    0.00 :   44ace5: mov    -0x180(%rbp),%rax
+         : 192    sp_new(pos)      = part%sp(i)
+    0.00 :   44acec: mov    (%rax),%rcx
+    0.00 :   44acef: mov    %rcx,-0xd0(%rbp)
+    0.00 :   44acf6: mov    0x40(%rax),%rax
+    0.00 :   44acfa: mov    %rax,-0xc8(%rbp)
+    0.00 :   44ad01: mov    -0x178(%rbp),%rax
+         : 193    cell_id_new(pos) = ic
+    0.00 :   44ad08: mov    (%rax),%rcx
+    0.00 :   44ad0b: mov    %rcx,-0xe0(%rbp)
+    0.00 :   44ad12: mov    0x40(%rax),%rax
+    0.00 :   44ad16: mov    %rax,-0xd8(%rbp)
+    0.00 :   44ad1d: mov    -0x78(%rbp),%rax
+         : 195    flag_dead_new(pos) = part%flag_dead(i)
+    0.00 :   44ad21: mov    (%rax),%rcx
+    0.00 :   44ad24: mov    %rcx,-0x50(%rbp)
+    0.00 :   44ad28: mov    0x40(%rax),%rax
+    0.00 :   44ad2c: mov    %rax,-0x78(%rbp)
+         : 189    vy_new(pos)      = part%vy(i)
+    0.00 :   44ad30: mov    -0x120(%rdx),%rax
+    0.00 :   44ad37: mov    %rax,-0x70(%rbp)
+    0.00 :   44ad3b: mov    -0xe0(%rdx),%rax
+    0.00 :   44ad42: mov    %rax,-0x90(%rbp)
+         : 190    vz_new(pos)      = part%vz(i)
+    0.00 :   44ad49: mov    -0xd8(%rdx),%rax
+    0.00 :   44ad50: mov    %rax,-0xa0(%rbp)
+    0.00 :   44ad57: mov    -0x98(%rdx),%rax
+    0.00 :   44ad5e: mov    %rax,-0x98(%rbp)
+         : 191    w_new(pos)       = part%w(i)
+    0.00 :   44ad65: mov    -0x90(%rdx),%rbx
+    0.00 :   44ad6c: mov    -0x50(%rdx),%r10
+         : 192    sp_new(pos)      = part%sp(i)
+    0.00 :   44ad70: mov    -0x48(%rdx),%r9
+    0.00 :   44ad74: mov    -0x8(%rdx),%r8
+    0.00 :   44ad78: mov    %r14,-0x170(%rbp)
+         : 195    flag_dead_new(pos) = part%flag_dead(i)
+    0.00 :   44ad7f: mov    0xe0(%rdx),%r14
+    0.00 :   44ad86: mov    0x120(%rdx),%rsi
+         : 196    flag_cex_new(pos)  = part%flag_cex(i)
+    0.00 :   44ad8d: mov    0x128(%rdx),%rcx
+    0.00 :   44ad94: mov    0x168(%rdx),%rdx
+    0.00 :   44ad9b: mov    -0x188(%rbp),%rax
+    0.00 :   44ada2: mov    (%rax),%r12
+    0.00 :   44ada5: mov    %r12,-0x60(%rbp)
+    0.00 :   44ada9: mov    0x40(%rax),%rax
+    0.00 :   44adad: mov    %rax,-0x40(%rbp)
+    0.00 :   44adb1: mov    %rdx,-0x108(%rbp)
+    0.00 :   44adb8: lea    0x0(,%rdx,4),%rax
+    0.00 :   44adc0: neg    %rax
+    0.00 :   44adc3: mov    %rcx,-0x88(%rbp)
+    0.00 :   44adca: add    %rcx,%rax
+    0.00 :   44adcd: add    $0x4,%rax
+    0.00 :   44add1: mov    %rax,-0x168(%rbp)
+    0.00 :   44add8: mov    %r14,-0x1c0(%rbp)
+    0.00 :   44addf: mov    %rsi,-0x1b8(%rbp)
+    0.00 :   44ade6: sub    %rsi,%r14
+    0.00 :   44ade9: inc    %r14
+    0.00 :   44adec: mov    %r14,-0x80(%rbp)
+    0.00 :   44adf0: mov    %r8,-0xf8(%rbp)
+    0.00 :   44adf7: lea    0x0(,%r8,4),%rax
+    0.00 :   44adff: neg    %rax
+    0.00 :   44ae02: mov    %r9,-0x100(%rbp)
+    0.00 :   44ae09: add    %r9,%rax
+    0.00 :   44ae0c: add    $0x4,%rax
+    0.00 :   44ae10: mov    %rax,-0x160(%rbp)
+    0.00 :   44ae17: mov    %r10,-0xe8(%rbp)
+    0.00 :   44ae1e: lea    0x0(,%r10,8),%rax
+    0.00 :   44ae26: neg    %rax
+    0.00 :   44ae29: mov    %rbx,-0xf0(%rbp)
+    0.00 :   44ae30: add    %rbx,%rax
+    0.00 :   44ae33: add    $0x8,%rax
+    0.00 :   44ae37: mov    %rax,-0x158(%rbp)
+    0.00 :   44ae3e: mov    -0x98(%rbp),%rax
+    0.00 :   44ae45: lea    0x0(,%rax,8),%rax
+    0.00 :   44ae4d: neg    %rax
+    0.00 :   44ae50: mov    -0xa0(%rbp),%rcx
+    0.00 :   44ae57: add    %rcx,%rax
+    0.00 :   44ae5a: add    $0x8,%rax
+    0.00 :   44ae5e: mov    %rax,-0x150(%rbp)
+    0.00 :   44ae65: mov    -0x90(%rbp),%rax
+    0.00 :   44ae6c: lea    0x0(,%rax,8),%rax
+    0.00 :   44ae74: neg    %rax
+    0.00 :   44ae77: mov    -0x70(%rbp),%rcx
+    0.00 :   44ae7b: add    %rcx,%rax
+    0.00 :   44ae7e: add    $0x8,%rax
+    0.00 :   44ae82: mov    %rax,-0x110(%rbp)
+    0.00 :   44ae89: addq   $0x8,-0x30(%rbp)
+    0.00 :   44ae8e: addq   $0x8,-0xb8(%rbp)
+    0.00 :   44ae96: add    $0x8,%r15
+    0.00 :   44ae9a: mov    %r15,-0x188(%rbp)
+    0.00 :   44aea1: add    $0x8,%r11
+    0.00 :   44aea5: mov    %r11,-0x180(%rbp)
+    0.00 :   44aeac: add    $0x4,%rdi
+    0.00 :   44aeb0: mov    %rdi,-0x178(%rbp)
+    0.00 :   44aeb7: mov    -0x1a0(%rbp),%rcx
+         : 186    y_new(pos)       = part%y(i)
+    0.00 :   44aebe: mov    (%rcx),%rax
+    0.00 :   44aec1: mov    0x40(%rcx),%r14
+    0.00 :   44aec5: mov    -0x1a8(%rbp),%rcx
+         : 187    z_new(pos)       = part%z(i)
+    0.00 :   44aecc: mov    (%rcx),%rdx
+    0.00 :   44aecf: mov    0x40(%rcx),%rcx
+    0.00 :   44aed3: mov    -0x1b0(%rbp),%rsi
+         : 188    vx_new(pos)      = part%vx(i)
+    0.00 :   44aeda: mov    (%rsi),%r8
+    0.00 :   44aedd: mov    0x40(%rsi),%r15
+    0.00 :   44aee1: xor    %esi,%esi
+    0.00 :   44aee3: data16 data16 data16 cs nopw 0x0(%rax,%rax,1)
+    0.02 :   44aef0: mov    -0x178(%rbp),%rdi
+         : 182    ic  = part%cell_id(i)
+    0.54 :   44aef7: movslq (%rdi,%rsi,4),%r10
+         : 183    pos = next_slot(ic)
+    3.20 :   44aefb: mov    %r10,%r9
+    1.60 :   44aefe: sub    -0x170(%rbp),%r9
+    0.47 :   44af05: movslq 0x0(%r13,%r9,4),%rdi
+         : 185    x_new(pos)       = part%x(i)
+   26.34 :   44af0a: mov    %rdi,%r11
+    0.43 :   44af0d: sub    -0xa8(%rbp),%r11
+    1.77 :   44af14: mov    -0x180(%rbp),%rbx
+    0.30 :   44af1b: vmovsd (%rbx,%rsi,8),%xmm0
+    0.56 :   44af20: mov    -0xb0(%rbp),%rbx
+    0.32 :   44af27: vmovsd %xmm0,(%rbx,%r11,8)
+         : 186    y_new(pos)       = part%y(i)
+   14.11 :   44af2d: mov    %rdi,%r11
+    0.25 :   44af30: sub    %r14,%r11
+    0.00 :   44af33: mov    -0x188(%rbp),%rbx
+    0.27 :   44af3a: vmovsd (%rbx,%rsi,8),%xmm0
+    2.34 :   44af3f: vmovsd %xmm0,(%rax,%r11,8)
+         : 187    z_new(pos)       = part%z(i)
+    2.74 :   44af45: mov    %rdi,%r11
+    0.26 :   44af48: sub    %rcx,%r11
+    0.01 :   44af4b: mov    -0xb8(%rbp),%rbx
+    0.08 :   44af52: vmovsd (%rbx,%rsi,8),%xmm0
+    1.10 :   44af57: vmovsd %xmm0,(%rdx,%r11,8)
+         : 188    vx_new(pos)      = part%vx(i)
+    2.77 :   44af5d: mov    %rdi,%r11
+    0.08 :   44af60: mov    %r13,%r12
+         : 189    vy_new(pos)      = part%vy(i)
+    0.12 :   44af63: mov    %rdi,%r13
+         : 188    vx_new(pos)      = part%vx(i)
+    0.81 :   44af66: sub    %r15,%r11
+    0.52 :   44af69: mov    %r14,%rbx
+    0.10 :   44af6c: mov    -0x30(%rbp),%r14
+    0.13 :   44af70: vmovsd (%r14,%rsi,8),%xmm0
+    1.29 :   44af76: mov    %rbx,%r14
+    1.26 :   44af79: vmovsd %xmm0,(%r8,%r11,8)
+         : 190    vz_new(pos)      = part%vz(i)
+    0.97 :   44af7f: mov    %rdi,%r11
+         : 189    vy_new(pos)      = part%vy(i)
+    0.22 :   44af82: sub    -0x58(%rbp),%r13
+    0.77 :   44af86: mov    -0x110(%rbp),%rbx
+    0.37 :   44af8d: vmovsd (%rbx,%rsi,8),%xmm0
+    0.95 :   44af92: mov    -0x68(%rbp),%rbx
+    0.13 :   44af96: vmovsd %xmm0,(%rbx,%r13,8)
+         : 191    w_new(pos)       = part%w(i)
+    0.99 :   44af9c: mov    %rdi,%r13
+         : 190    vz_new(pos)      = part%vz(i)
+    1.10 :   44af9f: sub    -0x38(%rbp),%r11
+    0.31 :   44afa3: mov    -0x150(%rbp),%rbx
+    0.74 :   44afaa: vmovsd (%rbx,%rsi,8),%xmm0
+    1.15 :   44afaf: mov    -0x48(%rbp),%rbx
+    0.40 :   44afb3: vmovsd %xmm0,(%rbx,%r11,8)
+         : 192    sp_new(pos)      = part%sp(i)
+    1.03 :   44afb9: mov    %rdi,%r11
+    0.02 :   44afbc: mov    -0x158(%rbp),%rbx
+         : 191    w_new(pos)       = part%w(i)
+    0.45 :   44afc3: vmovsd (%rbx,%rsi,8),%xmm0
+    1.57 :   44afc8: sub    -0x130(%rbp),%r13
+    0.26 :   44afcf: mov    -0xc0(%rbp),%rbx
+    0.36 :   44afd6: vmovsd %xmm0,(%rbx,%r13,8)
+         : 192    sp_new(pos)      = part%sp(i)
+    1.18 :   44afdc: sub    -0xc8(%rbp),%r11
+    0.48 :   44afe3: mov    -0x160(%rbp),%rbx
+    0.55 :   44afea: mov    (%rbx,%rsi,4),%r13d
+    2.19 :   44afee: mov    -0xd0(%rbp),%rbx
+    0.59 :   44aff5: mov    %r13d,(%rbx,%r11,4)
+    3.64 :   44aff9: mov    %r12,%r13
+         : 193    cell_id_new(pos) = ic
+    0.16 :   44affc: mov    %rdi,%r11
+    0.12 :   44afff: sub    -0xd8(%rbp),%r11
+    0.54 :   44b006: mov    -0xe0(%rbp),%rbx
+    0.34 :   44b00d: mov    %r10d,(%rbx,%r11,4)
+         : 195    flag_dead_new(pos) = part%flag_dead(i)
+    2.23 :   44b011: mov    %rdi,%r10
+    0.27 :   44b014: sub    -0x78(%rbp),%r10
+    0.66 :   44b018: mov    -0x80(%rbp),%r11
+    0.97 :   44b01c: movzbl (%r11,%rsi,1),%r11d
+    1.20 :   44b021: mov    -0x50(%rbp),%rbx
+    0.18 :   44b025: mov    %r11b,(%rbx,%r10,1)
+         : 196    flag_cex_new(pos)  = part%flag_cex(i)
+    1.06 :   44b029: mov    %rdi,%r10
+    0.20 :   44b02c: sub    -0x40(%rbp),%r10
+    0.66 :   44b030: mov    -0x168(%rbp),%r11
+    0.76 :   44b037: mov    (%r11,%rsi,4),%r11d
+    2.31 :   44b03b: mov    -0x60(%rbp),%rbx
+    0.80 :   44b03f: mov    %r11d,(%rbx,%r10,4)
+         : 198    next_slot(ic) = next_slot(ic) + 1_int32
+    0.91 :   44b043: inc    %edi
+    0.15 :   44b045: mov    %edi,(%r12,%r9,4)
+         : 182    ic  = part%cell_id(i)
+    0.38 :   44b049: inc    %rsi
+         : 199    end do
+    0.47 :   44b04c: cmp    %rsi,-0x148(%rbp)
+    0.97 :   44b053: jne    44aef0 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x1e10>
+    0.00 :   44b059: mov    %rax,%r8
+         : 201    part%x(1:np)       = x_new(1:np)
+    0.00 :   44b05c: mov    -0x1d0(%rbp),%eax
+         : 166    if (.not. allocated(part%x)) return
+    0.00 :   44b062: sub    -0x1c8(%rbp),%rax
+    0.00 :   44b069: inc    %rax
+    0.00 :   44b06c: mov    -0x1d8(%rbp),%rcx
+    0.00 :   44b073: imul   %rax,%rcx
+    0.00 :   44b077: mov    -0x1f0(%rbp),%r15
+    0.00 :   44b07e: add    %rcx,%r15
+         : 201    part%x(1:np)       = x_new(1:np)
+    0.00 :   44b081: movslq -0x1e8(%rbp),%rax
+         : 166    if (.not. allocated(part%x)) return
+    0.00 :   44b088: sub    -0x1e0(%rbp),%rax
+    0.00 :   44b08f: inc    %rax
+    0.00 :   44b092: imul   $0x3b8,%rax,%r11
+         : 201    part%x(1:np)       = x_new(1:np)
+    0.00 :   44b099: mov    0x8(%r11,%r15,1),%rax
+    0.02 :   44b09e: mov    0x48(%r11,%r15,1),%rcx
+    0.00 :   44b0a3: mov    -0x148(%rbp),%rbx
+    0.00 :   44b0aa: mov    %rbx,%rdx
+    0.00 :   44b0ad: mov    -0xa8(%rbp),%r10
+    0.00 :   44b0b4: sub    %r10,%rdx
+    0.00 :   44b0b7: mov    -0xb0(%rbp),%r9
+    0.00 :   44b0be: lea    (%r9,%rdx,8),%rdx
+    0.00 :   44b0c2: mov    $0x1,%esi
+    0.00 :   44b0c7: sub    %rcx,%rsi
+    0.00 :   44b0ca: lea    (%rax,%rsi,8),%rdi
+    0.00 :   44b0ce: mov    $0x1,%esi
+    0.00 :   44b0d3: sub    %r10,%rsi
+    0.00 :   44b0d6: lea    (%r9,%rsi,8),%rsi
+         : 216    mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525():
+    0.00 :   44b0da: cmp    %rdi,%rdx
+    0.00 :   44b0dd: mov    %r11,-0x30(%rbp)
+    0.00 :   44b0e1: jb     44b128 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2048>
+         : 421    mod_particle_sorting_mp_sort_particles_by_cell_():
+    0.00 :   44b0e3: mov    %rbx,%rdx
+    0.00 :   44b0e6: sub    %rcx,%rdx
+    0.00 :   44b0e9: lea    (%rax,%rdx,8),%rax
+    0.00 :   44b0ed: cmp    %rsi,%rax
+    0.00 :   44b0f0: jb     44b128 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2048>
+    0.00 :   44b0f2: xor    %eax,%eax
+    0.00 :   44b0f4: mov    -0x140(%rbp),%r12
+    0.00 :   44b0fb: mov    -0x138(%rbp),%r13
+    0.00 :   44b102: data16 data16 data16 data16 cs nopw 0x0(%rax,%rax,1)
+    0.00 :   44b110: vmovsd (%rsi,%rax,8),%xmm0
+    0.00 :   44b115: vmovsd %xmm0,(%rdi,%rax,8)
+    0.00 :   44b11a: lea    0x1(%rax),%rcx
+    0.00 :   44b11e: mov    %rcx,%rax
+    0.00 :   44b121: cmp    %rcx,%rbx
+    0.00 :   44b124: jne    44b110 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2030>
+    0.00 :   44b126: jmp    44b1a6 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x20c6>
+    0.00 :   44b128: cmp    $0xd,%ebx
+    0.00 :   44b12b: mov    -0x140(%rbp),%r12
+    0.00 :   44b132: mov    -0x138(%rbp),%r13
+    0.00 :   44b139: jb     44b15c <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x207c>
+    0.00 :   44b13b: lea    0x0(,%rbx,8),%rdx
+    0.00 :   44b143: call   4fdae0 <_intel_fast_memcpy>
+    0.00 :   44b148: mov    -0x30(%rbp),%r11
+    0.00 :   44b14c: mov    -0x1a0(%rbp),%rax
+         : 202    part%y(1:np)       = y_new(1:np)
+    0.00 :   44b153: mov    (%rax),%r8
+    0.00 :   44b156: mov    0x40(%rax),%r14
+    0.00 :   44b15a: jmp    44b1a6 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x20c6>
+         : 201    part%x(1:np)       = x_new(1:np)
+    0.00 :   44b15c: mov    %rbx,%rax
+    0.00 :   44b15f: and    $0xc,%rax
+    0.00 :   44b163: je     44b189 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x20a9>
+    0.00 :   44b165: xor    %ecx,%ecx
+    0.00 :   44b167: nopw   0x0(%rax,%rax,1)
+    0.00 :   44b170: vmovupd (%rsi,%rcx,8),%ymm0
+    0.00 :   44b175: vmovupd %ymm0,(%rdi,%rcx,8)
+    0.00 :   44b17a: add    $0x4,%rcx
+    0.00 :   44b17e: cmp    %rax,%rcx
+    0.00 :   44b181: jb     44b170 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2090>
+    0.00 :   44b183: cmp    %ebx,%eax
+    0.00 :   44b185: jne    44b190 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x20b0>
+    0.00 :   44b187: jmp    44b1a6 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x20c6>
+    0.00 :   44b189: xor    %eax,%eax
+    0.00 :   44b18b: nopl   0x0(%rax,%rax,1)
+    0.00 :   44b190: vmovsd (%rsi,%rax,8),%xmm0
+    0.00 :   44b195: vmovsd %xmm0,(%rdi,%rax,8)
+    0.00 :   44b19a: lea    0x1(%rax),%rcx
+    0.00 :   44b19e: mov    %rcx,%rax
+    0.00 :   44b1a1: cmp    %rcx,%rbx
+    0.00 :   44b1a4: jne    44b190 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x20b0>
+         : 202    part%y(1:np)       = y_new(1:np)
+    0.00 :   44b1a6: mov    0x50(%r15,%r11,1),%rax
+    0.00 :   44b1ab: mov    0x90(%r15,%r11,1),%rcx
+    0.00 :   44b1b3: mov    %rbx,%rdx
+    0.00 :   44b1b6: sub    %r14,%rdx
+    0.00 :   44b1b9: lea    (%r8,%rdx,8),%rdx
+    0.00 :   44b1bd: mov    $0x1,%esi
+    0.00 :   44b1c2: sub    %rcx,%rsi
+    0.00 :   44b1c5: lea    (%rax,%rsi,8),%rdi
+    0.00 :   44b1c9: mov    $0x1,%esi
+    0.00 :   44b1ce: sub    %r14,%rsi
+    0.00 :   44b1d1: lea    (%r8,%rsi,8),%rsi
+         : 214    mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525():
+    0.00 :   44b1d5: cmp    %rdi,%rdx
+    0.00 :   44b1d8: jb     44b208 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2128>
+         : 420    mod_particle_sorting_mp_sort_particles_by_cell_():
+    0.00 :   44b1da: mov    %rbx,%rdx
+    0.00 :   44b1dd: sub    %rcx,%rdx
+    0.00 :   44b1e0: lea    (%rax,%rdx,8),%rax
+    0.00 :   44b1e4: cmp    %rsi,%rax
+    0.00 :   44b1e7: jb     44b208 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2128>
+    0.00 :   44b1e9: xor    %eax,%eax
+    0.00 :   44b1eb: nopl   0x0(%rax,%rax,1)
+    0.00 :   44b1f0: vmovsd (%rsi,%rax,8),%xmm0
+    0.00 :   44b1f5: vmovsd %xmm0,(%rdi,%rax,8)
+    0.00 :   44b1fa: lea    0x1(%rax),%rcx
+    0.00 :   44b1fe: mov    %rcx,%rax
+    0.00 :   44b201: cmp    %rcx,%rbx
+    0.00 :   44b204: jne    44b1f0 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2110>
+    0.00 :   44b206: jmp    44b266 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2186>
+    0.00 :   44b208: cmp    $0xd,%ebx
+    0.00 :   44b20b: jb     44b223 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2143>
+    0.00 :   44b20d: lea    0x0(,%rbx,8),%rdx
+    0.00 :   44b215: vzeroupper
+    0.00 :   44b218: call   4fdae0 <_intel_fast_memcpy>
+    0.00 :   44b21d: mov    -0x30(%rbp),%r11
+    0.00 :   44b221: jmp    44b266 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2186>
+    0.00 :   44b223: mov    %rbx,%rax
+    0.00 :   44b226: and    $0xc,%rax
+    0.00 :   44b22a: je     44b249 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2169>
+    0.00 :   44b22c: xor    %ecx,%ecx
+    0.00 :   44b22e: xchg   %ax,%ax
+    0.00 :   44b230: vmovupd (%rsi,%rcx,8),%ymm0
+    0.00 :   44b235: vmovupd %ymm0,(%rdi,%rcx,8)
+    0.00 :   44b23a: add    $0x4,%rcx
+    0.00 :   44b23e: cmp    %rax,%rcx
+    0.00 :   44b241: jb     44b230 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2150>
+    0.00 :   44b243: cmp    %ebx,%eax
+    0.00 :   44b245: jne    44b250 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2170>
+    0.00 :   44b247: jmp    44b266 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2186>
+    0.00 :   44b249: xor    %eax,%eax
+    0.00 :   44b24b: nopl   0x0(%rax,%rax,1)
+    0.00 :   44b250: vmovsd (%rsi,%rax,8),%xmm0
+    0.00 :   44b255: vmovsd %xmm0,(%rdi,%rax,8)
+    0.00 :   44b25a: lea    0x1(%rax),%rcx
+    0.00 :   44b25e: mov    %rcx,%rax
+    0.00 :   44b261: cmp    %rcx,%rbx
+    0.00 :   44b264: jne    44b250 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2170>
+         : 203    part%z(1:np)       = z_new(1:np)
+    0.00 :   44b266: mov    0x98(%r15,%r11,1),%rax
+    0.00 :   44b26e: mov    0xd8(%r15,%r11,1),%rcx
+    0.00 :   44b276: mov    -0x1a8(%rbp),%rsi
+    0.00 :   44b27d: mov    (%rsi),%rdx
+    0.00 :   44b280: mov    0x40(%rsi),%rsi
+    0.00 :   44b284: mov    %rbx,%rdi
+    0.00 :   44b287: sub    %rsi,%rdi
+    0.00 :   44b28a: lea    (%rdx,%rdi,8),%r8
+    0.00 :   44b28e: mov    $0x1,%edi
+    0.00 :   44b293: sub    %rcx,%rdi
+    0.00 :   44b296: lea    (%rax,%rdi,8),%rdi
+    0.00 :   44b29a: mov    $0x1,%r9d
+    0.00 :   44b2a0: sub    %rsi,%r9
+    0.00 :   44b2a3: lea    (%rdx,%r9,8),%rsi
+         : 218    mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525():
+    0.00 :   44b2a7: cmp    %rdi,%r8
+    0.00 :   44b2aa: jb     44b2d8 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x21f8>
+         : 420    mod_particle_sorting_mp_sort_particles_by_cell_():
+    0.00 :   44b2ac: mov    %rbx,%rdx
+    0.00 :   44b2af: sub    %rcx,%rdx
+    0.00 :   44b2b2: lea    (%rax,%rdx,8),%rax
+    0.00 :   44b2b6: cmp    %rsi,%rax
+    0.00 :   44b2b9: jb     44b2d8 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x21f8>
+    0.00 :   44b2bb: xor    %eax,%eax
+    0.00 :   44b2bd: nopl   (%rax)
+    0.00 :   44b2c0: vmovsd (%rsi,%rax,8),%xmm0
+    0.00 :   44b2c5: vmovsd %xmm0,(%rdi,%rax,8)
+    0.00 :   44b2ca: lea    0x1(%rax),%rcx
+    0.00 :   44b2ce: mov    %rcx,%rax
+    0.00 :   44b2d1: cmp    %rcx,%rbx
+    0.00 :   44b2d4: jne    44b2c0 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x21e0>
+    0.00 :   44b2d6: jmp    44b336 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2256>
+    0.00 :   44b2d8: cmp    $0xd,%ebx
+    0.00 :   44b2db: jb     44b2f3 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2213>
+    0.00 :   44b2dd: lea    0x0(,%rbx,8),%rdx
+    0.00 :   44b2e5: vzeroupper
+    0.00 :   44b2e8: call   4fdae0 <_intel_fast_memcpy>
+    0.00 :   44b2ed: mov    -0x30(%rbp),%r11
+    0.00 :   44b2f1: jmp    44b336 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2256>
+    0.00 :   44b2f3: mov    %rbx,%rax
+    0.00 :   44b2f6: and    $0xc,%rax
+    0.00 :   44b2fa: je     44b319 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2239>
+    0.00 :   44b2fc: xor    %ecx,%ecx
+    0.00 :   44b2fe: xchg   %ax,%ax
+    0.00 :   44b300: vmovupd (%rsi,%rcx,8),%ymm0
+    0.00 :   44b305: vmovupd %ymm0,(%rdi,%rcx,8)
+    0.00 :   44b30a: add    $0x4,%rcx
+    0.00 :   44b30e: cmp    %rax,%rcx
+    0.00 :   44b311: jb     44b300 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2220>
+    0.00 :   44b313: cmp    %ebx,%eax
+    0.00 :   44b315: jne    44b320 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2240>
+    0.00 :   44b317: jmp    44b336 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2256>
+    0.00 :   44b319: xor    %eax,%eax
+    0.00 :   44b31b: nopl   0x0(%rax,%rax,1)
+    0.00 :   44b320: vmovsd (%rsi,%rax,8),%xmm0
+    0.00 :   44b325: vmovsd %xmm0,(%rdi,%rax,8)
+    0.00 :   44b32a: lea    0x1(%rax),%rcx
+    0.00 :   44b32e: mov    %rcx,%rax
+    0.00 :   44b331: cmp    %rcx,%rbx
+    0.00 :   44b334: jne    44b320 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2240>
+         : 204    part%vx(1:np)      = vx_new(1:np)
+    0.00 :   44b336: mov    0xe0(%r15,%r11,1),%rax
+    0.00 :   44b33e: mov    0x120(%r15,%r11,1),%rcx
+    0.00 :   44b346: mov    -0x1b0(%rbp),%rsi
+    0.00 :   44b34d: mov    (%rsi),%rdx
+    0.00 :   44b350: mov    0x40(%rsi),%rsi
+    0.00 :   44b354: mov    %rbx,%rdi
+    0.00 :   44b357: sub    %rsi,%rdi
+    0.00 :   44b35a: lea    (%rdx,%rdi,8),%r8
+    0.00 :   44b35e: mov    $0x1,%edi
+    0.00 :   44b363: sub    %rcx,%rdi
+    0.00 :   44b366: lea    (%rax,%rdi,8),%rdi
+    0.00 :   44b36a: mov    $0x1,%r9d
+    0.00 :   44b370: sub    %rsi,%r9
+    0.00 :   44b373: lea    (%rdx,%r9,8),%rsi
+         : 219    mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525():
+    0.00 :   44b377: cmp    %rdi,%r8
+    0.00 :   44b37a: jb     44b3bb <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x22db>
+         : 420    mod_particle_sorting_mp_sort_particles_by_cell_():
+    0.00 :   44b37c: mov    %rbx,%rdx
+    0.00 :   44b37f: sub    %rcx,%rdx
+    0.00 :   44b382: lea    (%rax,%rdx,8),%rax
+    0.00 :   44b386: cmp    %rsi,%rax
+    0.00 :   44b389: jb     44b3bb <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x22db>
+    0.00 :   44b38b: xor    %eax,%eax
+    0.00 :   44b38d: mov    -0x68(%rbp),%rdx
+    0.00 :   44b391: mov    -0x58(%rbp),%r8
+    0.00 :   44b395: mov    -0x70(%rbp),%r9
+    0.00 :   44b399: mov    -0x90(%rbp),%r10
+    0.00 :   44b3a0: vmovsd (%rsi,%rax,8),%xmm0
+    0.00 :   44b3a5: vmovsd %xmm0,(%rdi,%rax,8)
+    0.00 :   44b3aa: lea    0x1(%rax),%rcx
+    0.00 :   44b3ae: mov    %rcx,%rax
+    0.00 :   44b3b1: cmp    %rcx,%rbx
+    0.00 :   44b3b4: jne    44b3a0 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x22c0>
+    0.00 :   44b3b6: jmp    44b456 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2376>
+    0.00 :   44b3bb: cmp    $0xd,%ebx
+    0.00 :   44b3be: jb     44b3e9 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2309>
+    0.00 :   44b3c0: lea    0x0(,%rbx,8),%rdx
+    0.00 :   44b3c8: vzeroupper
+    0.00 :   44b3cb: call   4fdae0 <_intel_fast_memcpy>
+    0.00 :   44b3d0: mov    -0x30(%rbp),%r11
+    0.00 :   44b3d4: mov    -0x68(%rbp),%rdx
+    0.00 :   44b3d8: mov    -0x58(%rbp),%r8
+    0.00 :   44b3dc: mov    -0x70(%rbp),%r9
+    0.00 :   44b3e0: mov    -0x90(%rbp),%r10
+    0.00 :   44b3e7: jmp    44b456 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2376>
+    0.00 :   44b3e9: mov    %rbx,%rax
+    0.00 :   44b3ec: and    $0xc,%rax
+    0.00 :   44b3f0: mov    -0x58(%rbp),%r8
+    0.00 :   44b3f4: mov    -0x90(%rbp),%r10
+    0.00 :   44b3fb: je     44b429 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2349>
+    0.00 :   44b3fd: xor    %ecx,%ecx
+    0.00 :   44b3ff: mov    -0x68(%rbp),%rdx
+    0.00 :   44b403: mov    -0x70(%rbp),%r9
+    0.00 :   44b407: nopw   0x0(%rax,%rax,1)
+    0.00 :   44b410: vmovupd (%rsi,%rcx,8),%ymm0
+    0.00 :   44b415: vmovupd %ymm0,(%rdi,%rcx,8)
+    0.00 :   44b41a: add    $0x4,%rcx
+    0.00 :   44b41e: cmp    %rax,%rcx
+    0.00 :   44b421: jb     44b410 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2330>
+    0.00 :   44b423: cmp    %ebx,%eax
+    0.00 :   44b425: jne    44b440 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2360>
+    0.00 :   44b427: jmp    44b456 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2376>
+    0.00 :   44b429: xor    %eax,%eax
+    0.00 :   44b42b: mov    -0x68(%rbp),%rdx
+    0.00 :   44b42f: mov    -0x70(%rbp),%r9
+    0.00 :   44b433: data16 data16 data16 cs nopw 0x0(%rax,%rax,1)
+    0.00 :   44b440: vmovsd (%rsi,%rax,8),%xmm0
+    0.00 :   44b445: vmovsd %xmm0,(%rdi,%rax,8)
+    0.00 :   44b44a: lea    0x1(%rax),%rcx
+    0.00 :   44b44e: mov    %rcx,%rax
+    0.00 :   44b451: cmp    %rcx,%rbx
+    0.00 :   44b454: jne    44b440 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2360>
+         : 205    part%vy(1:np)      = vy_new(1:np)
+    0.00 :   44b456: mov    %rbx,%rax
+    0.00 :   44b459: sub    %r8,%rax
+    0.00 :   44b45c: lea    (%rdx,%rax,8),%rax
+    0.00 :   44b460: mov    $0x1,%ecx
+    0.00 :   44b465: sub    %r10,%rcx
+    0.00 :   44b468: lea    (%r9,%rcx,8),%rdi
+    0.00 :   44b46c: mov    $0x1,%ecx
+    0.00 :   44b471: sub    %r8,%rcx
+    0.00 :   44b474: lea    (%rdx,%rcx,8),%rsi
+         : 215    mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525():
+    0.00 :   44b478: cmp    %rdi,%rax
+    0.00 :   44b47b: jb     44b4cb <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x23eb>
+         : 420    mod_particle_sorting_mp_sort_particles_by_cell_():
+    0.00 :   44b47d: mov    %rbx,%rax
+    0.00 :   44b480: sub    %r10,%rax
+    0.00 :   44b483: lea    (%r9,%rax,8),%rax
+    0.00 :   44b487: cmp    %rsi,%rax
+    0.00 :   44b48a: jb     44b4cb <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x23eb>
+    0.00 :   44b48c: xor    %eax,%eax
+    0.00 :   44b48e: mov    -0x48(%rbp),%rdx
+    0.00 :   44b492: mov    -0x38(%rbp),%r8
+    0.00 :   44b496: mov    -0xa0(%rbp),%r9
+    0.00 :   44b49d: mov    -0x98(%rbp),%r10
+    0.00 :   44b4a4: data16 data16 cs nopw 0x0(%rax,%rax,1)
+    0.00 :   44b4b0: vmovsd (%rsi,%rax,8),%xmm0
+    0.00 :   44b4b5: vmovsd %xmm0,(%rdi,%rax,8)
+    0.00 :   44b4ba: lea    0x1(%rax),%rcx
+    0.00 :   44b4be: mov    %rcx,%rax
+    0.00 :   44b4c1: cmp    %rcx,%rbx
+    0.00 :   44b4c4: jne    44b4b0 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x23d0>
+    0.00 :   44b4c6: jmp    44b556 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2476>
+    0.00 :   44b4cb: cmp    $0xd,%ebx
+    0.00 :   44b4ce: jb     44b4fc <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x241c>
+    0.00 :   44b4d0: lea    0x0(,%rbx,8),%rdx
+    0.00 :   44b4d8: vzeroupper
+    0.00 :   44b4db: call   4fdae0 <_intel_fast_memcpy>
+    0.00 :   44b4e0: mov    -0x30(%rbp),%r11
+    0.00 :   44b4e4: mov    -0x48(%rbp),%rdx
+    0.00 :   44b4e8: mov    -0x38(%rbp),%r8
+    0.00 :   44b4ec: mov    -0xa0(%rbp),%r9
+    0.00 :   44b4f3: mov    -0x98(%rbp),%r10
+    0.00 :   44b4fa: jmp    44b556 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2476>
+    0.00 :   44b4fc: mov    %rbx,%rax
+    0.00 :   44b4ff: and    $0xc,%rax
+    0.00 :   44b503: mov    -0x48(%rbp),%rdx
+    0.00 :   44b507: mov    -0x38(%rbp),%r8
+    0.00 :   44b50b: mov    -0xa0(%rbp),%r9
+    0.00 :   44b512: mov    -0x98(%rbp),%r10
+    0.00 :   44b519: je     44b539 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2459>
+    0.00 :   44b51b: xor    %ecx,%ecx
+    0.00 :   44b51d: nopl   (%rax)
+    0.00 :   44b520: vmovupd (%rsi,%rcx,8),%ymm0
+    0.00 :   44b525: vmovupd %ymm0,(%rdi,%rcx,8)
+    0.00 :   44b52a: add    $0x4,%rcx
+    0.00 :   44b52e: cmp    %rax,%rcx
+    0.00 :   44b531: jb     44b520 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2440>
+    0.00 :   44b533: cmp    %ebx,%eax
+    0.00 :   44b535: jne    44b540 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2460>
+    0.00 :   44b537: jmp    44b556 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2476>
+    0.00 :   44b539: xor    %eax,%eax
+    0.00 :   44b53b: nopl   0x0(%rax,%rax,1)
+    0.00 :   44b540: vmovsd (%rsi,%rax,8),%xmm0
+    0.00 :   44b545: vmovsd %xmm0,(%rdi,%rax,8)
+    0.00 :   44b54a: lea    0x1(%rax),%rcx
+    0.00 :   44b54e: mov    %rcx,%rax
+    0.00 :   44b551: cmp    %rcx,%rbx
+    0.00 :   44b554: jne    44b540 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2460>
+         : 206    part%vz(1:np)      = vz_new(1:np)
+    0.00 :   44b556: mov    %rbx,%rax
+    0.00 :   44b559: sub    %r8,%rax
+    0.00 :   44b55c: lea    (%rdx,%rax,8),%rax
+    0.00 :   44b560: mov    $0x1,%ecx
+    0.00 :   44b565: sub    %r10,%rcx
+    0.00 :   44b568: lea    (%r9,%rcx,8),%rdi
+    0.00 :   44b56c: mov    $0x1,%ecx
+    0.00 :   44b571: sub    %r8,%rcx
+    0.00 :   44b574: lea    (%rdx,%rcx,8),%rsi
+         : 216    mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525():
+    0.00 :   44b578: cmp    %rdi,%rax
+    0.00 :   44b57b: jb     44b5cb <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x24eb>
+         : 420    mod_particle_sorting_mp_sort_particles_by_cell_():
+    0.00 :   44b57d: mov    %rbx,%rax
+    0.00 :   44b580: sub    %r10,%rax
+    0.00 :   44b583: lea    (%r9,%rax,8),%rax
+    0.00 :   44b587: cmp    %rsi,%rax
+    0.00 :   44b58a: jb     44b5cb <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x24eb>
+    0.00 :   44b58c: xor    %eax,%eax
+    0.00 :   44b58e: mov    -0xc0(%rbp),%rdx
+    0.00 :   44b595: mov    -0x130(%rbp),%r8
+    0.00 :   44b59c: mov    -0xf0(%rbp),%r9
+    0.00 :   44b5a3: mov    -0xe8(%rbp),%r10
+    0.00 :   44b5aa: nopw   0x0(%rax,%rax,1)
+    0.00 :   44b5b0: vmovsd (%rsi,%rax,8),%xmm0
+    0.00 :   44b5b5: vmovsd %xmm0,(%rdi,%rax,8)
+    0.00 :   44b5ba: lea    0x1(%rax),%rcx
+    0.00 :   44b5be: mov    %rcx,%rax
+    0.00 :   44b5c1: cmp    %rcx,%rbx
+    0.00 :   44b5c4: jne    44b5b0 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x24d0>
+    0.00 :   44b5c6: jmp    44b666 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2586>
+    0.00 :   44b5cb: cmp    $0xd,%ebx
+    0.00 :   44b5ce: jb     44b602 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2522>
+    0.00 :   44b5d0: lea    0x0(,%rbx,8),%rdx
+    0.00 :   44b5d8: vzeroupper
+    0.00 :   44b5db: call   4fdae0 <_intel_fast_memcpy>
+    0.00 :   44b5e0: mov    -0x30(%rbp),%r11
+    0.00 :   44b5e4: mov    -0xc0(%rbp),%rdx
+    0.00 :   44b5eb: mov    -0x130(%rbp),%r8
+    0.00 :   44b5f2: mov    -0xf0(%rbp),%r9
+    0.00 :   44b5f9: mov    -0xe8(%rbp),%r10
+    0.00 :   44b600: jmp    44b666 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2586>
+    0.00 :   44b602: mov    %rbx,%rax
+    0.00 :   44b605: and    $0xc,%rax
+    0.00 :   44b609: mov    -0xc0(%rbp),%rdx
+    0.00 :   44b610: mov    -0x130(%rbp),%r8
+    0.00 :   44b617: mov    -0xf0(%rbp),%r9
+    0.00 :   44b61e: mov    -0xe8(%rbp),%r10
+    0.00 :   44b625: je     44b649 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2569>
+    0.00 :   44b627: xor    %ecx,%ecx
+    0.00 :   44b629: nopl   0x0(%rax)
+    0.00 :   44b630: vmovupd (%rsi,%rcx,8),%ymm0
+    0.00 :   44b635: vmovupd %ymm0,(%rdi,%rcx,8)
+    0.00 :   44b63a: add    $0x4,%rcx
+    0.00 :   44b63e: cmp    %rax,%rcx
+    0.00 :   44b641: jb     44b630 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2550>
+    0.00 :   44b643: cmp    %ebx,%eax
+    0.00 :   44b645: jne    44b650 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2570>
+    0.00 :   44b647: jmp    44b666 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2586>
+    0.00 :   44b649: xor    %eax,%eax
+    0.00 :   44b64b: nopl   0x0(%rax,%rax,1)
+    0.00 :   44b650: vmovsd (%rsi,%rax,8),%xmm0
+    0.00 :   44b655: vmovsd %xmm0,(%rdi,%rax,8)
+    0.00 :   44b65a: lea    0x1(%rax),%rcx
+    0.00 :   44b65e: mov    %rcx,%rax
+    0.00 :   44b661: cmp    %rcx,%rbx
+    0.00 :   44b664: jne    44b650 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2570>
+         : 207    part%w(1:np)       = w_new(1:np)
+    0.00 :   44b666: mov    %rbx,%rax
+    0.00 :   44b669: sub    %r8,%rax
+    0.00 :   44b66c: lea    (%rdx,%rax,8),%rax
+    0.00 :   44b670: mov    $0x1,%ecx
+    0.00 :   44b675: sub    %r10,%rcx
+    0.00 :   44b678: lea    (%r9,%rcx,8),%rdi
+    0.00 :   44b67c: mov    $0x1,%ecx
+    0.00 :   44b681: sub    %r8,%rcx
+    0.00 :   44b684: lea    (%rdx,%rcx,8),%rsi
+         : 217    mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525():
+    0.00 :   44b688: cmp    %rdi,%rax
+    0.00 :   44b68b: jb     44b6db <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x25fb>
+         : 420    mod_particle_sorting_mp_sort_particles_by_cell_():
+    0.00 :   44b68d: mov    %rbx,%rax
+    0.00 :   44b690: sub    %r10,%rax
+    0.00 :   44b693: lea    (%r9,%rax,8),%rax
+    0.00 :   44b697: cmp    %rsi,%rax
+    0.00 :   44b69a: jb     44b6db <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x25fb>
+    0.00 :   44b69c: xor    %eax,%eax
+    0.00 :   44b69e: mov    -0xd0(%rbp),%rdx
+    0.00 :   44b6a5: mov    -0xc8(%rbp),%r8
+    0.00 :   44b6ac: mov    -0x100(%rbp),%r9
+    0.00 :   44b6b3: mov    -0xf8(%rbp),%r10
+    0.00 :   44b6ba: nopw   0x0(%rax,%rax,1)
+    0.00 :   44b6c0: vmovsd (%rsi,%rax,8),%xmm0
+    0.00 :   44b6c5: vmovsd %xmm0,(%rdi,%rax,8)
+    0.00 :   44b6ca: lea    0x1(%rax),%rcx
+    0.00 :   44b6ce: mov    %rcx,%rax
+    0.00 :   44b6d1: cmp    %rcx,%rbx
+    0.00 :   44b6d4: jne    44b6c0 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x25e0>
+    0.00 :   44b6d6: jmp    44b776 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2696>
+    0.00 :   44b6db: cmp    $0xd,%ebx
+    0.00 :   44b6de: jb     44b712 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2632>
+    0.00 :   44b6e0: lea    0x0(,%rbx,8),%rdx
+    0.00 :   44b6e8: vzeroupper
+    0.00 :   44b6eb: call   4fdae0 <_intel_fast_memcpy>
+    0.00 :   44b6f0: mov    -0x30(%rbp),%r11
+    0.00 :   44b6f4: mov    -0xd0(%rbp),%rdx
+    0.00 :   44b6fb: mov    -0xc8(%rbp),%r8
+    0.00 :   44b702: mov    -0x100(%rbp),%r9
+    0.00 :   44b709: mov    -0xf8(%rbp),%r10
+    0.00 :   44b710: jmp    44b776 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2696>
+    0.00 :   44b712: mov    %rbx,%rax
+    0.00 :   44b715: and    $0xc,%rax
+    0.00 :   44b719: mov    -0xd0(%rbp),%rdx
+    0.00 :   44b720: mov    -0xc8(%rbp),%r8
+    0.00 :   44b727: mov    -0x100(%rbp),%r9
+    0.00 :   44b72e: mov    -0xf8(%rbp),%r10
+    0.00 :   44b735: je     44b759 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2679>
+    0.00 :   44b737: xor    %ecx,%ecx
+    0.00 :   44b739: nopl   0x0(%rax)
+    0.00 :   44b740: vmovupd (%rsi,%rcx,8),%ymm0
+    0.00 :   44b745: vmovupd %ymm0,(%rdi,%rcx,8)
+    0.00 :   44b74a: add    $0x4,%rcx
+    0.00 :   44b74e: cmp    %rax,%rcx
+    0.00 :   44b751: jb     44b740 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2660>
+    0.00 :   44b753: cmp    %ebx,%eax
+    0.00 :   44b755: jne    44b760 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2680>
+    0.00 :   44b757: jmp    44b776 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2696>
+    0.00 :   44b759: xor    %eax,%eax
+    0.00 :   44b75b: nopl   0x0(%rax,%rax,1)
+    0.00 :   44b760: vmovsd (%rsi,%rax,8),%xmm0
+    0.00 :   44b765: vmovsd %xmm0,(%rdi,%rax,8)
+    0.00 :   44b76a: lea    0x1(%rax),%rcx
+    0.00 :   44b76e: mov    %rcx,%rax
+    0.00 :   44b771: cmp    %rcx,%rbx
+    0.00 :   44b774: jne    44b760 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2680>
+         : 208    part%sp(1:np)      = sp_new(1:np)
+    0.00 :   44b776: mov    %rbx,%rax
+    0.00 :   44b779: sub    %r8,%rax
+    0.00 :   44b77c: lea    (%rdx,%rax,4),%rax
+    0.00 :   44b780: mov    $0x1,%ecx
+    0.00 :   44b785: sub    %r10,%rcx
+    0.00 :   44b788: lea    (%r9,%rcx,4),%rdi
+    0.00 :   44b78c: mov    $0x1,%ecx
+    0.00 :   44b791: sub    %r8,%rcx
+    0.00 :   44b794: lea    (%rdx,%rcx,4),%rsi
+         : 218    mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525():
+    0.00 :   44b798: cmp    %rdi,%rax
+    0.00 :   44b79b: jb     44b7d4 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x26f4>
+         : 420    mod_particle_sorting_mp_sort_particles_by_cell_():
+    0.00 :   44b79d: mov    %rbx,%rax
+    0.00 :   44b7a0: sub    %r10,%rax
+    0.00 :   44b7a3: lea    (%r9,%rax,4),%rax
+    0.00 :   44b7a7: cmp    %rsi,%rax
+    0.00 :   44b7aa: jb     44b7d4 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x26f4>
+    0.00 :   44b7ac: xor    %eax,%eax
+    0.00 :   44b7ae: mov    -0xe0(%rbp),%r8
+    0.00 :   44b7b5: mov    -0xd8(%rbp),%r9
+    0.00 :   44b7bc: nopl   0x0(%rax)
+    0.00 :   44b7c0: mov    (%rsi,%rax,4),%ecx
+    0.00 :   44b7c3: mov    %ecx,(%rdi,%rax,4)
+    0.00 :   44b7c6: lea    0x1(%rax),%rcx
+    0.00 :   44b7ca: mov    %rcx,%rax
+    0.00 :   44b7cd: cmp    %rcx,%rbx
+    0.00 :   44b7d0: jne    44b7c0 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x26e0>
+    0.00 :   44b7d2: jmp    44b852 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2772>
+    0.00 :   44b7d4: cmp    $0xd,%ebx
+    0.00 :   44b7d7: jb     44b7fd <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x271d>
+    0.00 :   44b7d9: lea    0x0(,%rbx,4),%rdx
+    0.00 :   44b7e1: vzeroupper
+    0.00 :   44b7e4: call   4fdae0 <_intel_fast_memcpy>
+    0.00 :   44b7e9: mov    -0x30(%rbp),%r11
+    0.00 :   44b7ed: mov    -0xe0(%rbp),%r8
+    0.00 :   44b7f4: mov    -0xd8(%rbp),%r9
+    0.00 :   44b7fb: jmp    44b852 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2772>
+    0.00 :   44b7fd: mov    %rbx,%rax
+    0.00 :   44b800: and    $0xc,%rax
+    0.00 :   44b804: mov    -0xe0(%rbp),%r8
+    0.00 :   44b80b: mov    -0xd8(%rbp),%r9
+    0.00 :   44b812: je     44b839 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2759>
+    0.00 :   44b814: xor    %ecx,%ecx
+    0.00 :   44b816: cs nopw 0x0(%rax,%rax,1)
+    0.00 :   44b820: vmovupd (%rsi,%rcx,4),%xmm0
+    0.00 :   44b825: vmovupd %xmm0,(%rdi,%rcx,4)
+    0.00 :   44b82a: add    $0x4,%rcx
+    0.00 :   44b82e: cmp    %rax,%rcx
+    0.00 :   44b831: jb     44b820 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2740>
+    0.00 :   44b833: cmp    %ebx,%eax
+    0.00 :   44b835: jne    44b840 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2760>
+    0.00 :   44b837: jmp    44b852 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2772>
+    0.00 :   44b839: xor    %eax,%eax
+    0.00 :   44b83b: nopl   0x0(%rax,%rax,1)
+    0.00 :   44b840: mov    (%rsi,%rax,4),%ecx
+    0.00 :   44b843: mov    %ecx,(%rdi,%rax,4)
+    0.00 :   44b846: lea    0x1(%rax),%rcx
+    0.00 :   44b84a: mov    %rcx,%rax
+    0.00 :   44b84d: cmp    %rcx,%rbx
+    0.00 :   44b850: jne    44b840 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2760>
+         : 209    part%cell_id(1:np) = cell_id_new(1:np)
+    0.00 :   44b852: mov    0x248(%r15,%r11,1),%rax
+    0.00 :   44b85a: mov    0x288(%r15,%r11,1),%rcx
+    0.00 :   44b862: mov    %rbx,%rdx
+    0.00 :   44b865: sub    %r9,%rdx
+    0.00 :   44b868: lea    (%r8,%rdx,4),%rdx
+    0.00 :   44b86c: mov    $0x1,%esi
+    0.00 :   44b871: sub    %rcx,%rsi
+    0.00 :   44b874: lea    (%rax,%rsi,4),%rdi
+    0.00 :   44b878: mov    $0x1,%esi
+    0.00 :   44b87d: sub    %r9,%rsi
+    0.00 :   44b880: lea    (%r8,%rsi,4),%rsi
+         : 221    mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525():
+    0.00 :   44b884: cmp    %rdi,%rdx
+    0.00 :   44b887: jb     44b8c4 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x27e4>
+         : 420    mod_particle_sorting_mp_sort_particles_by_cell_():
+    0.00 :   44b889: mov    %rbx,%rdx
+    0.00 :   44b88c: sub    %rcx,%rdx
+    0.00 :   44b88f: lea    (%rax,%rdx,4),%rax
+    0.00 :   44b893: cmp    %rsi,%rax
+    0.00 :   44b896: jb     44b8c4 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x27e4>
+    0.00 :   44b898: xor    %eax,%eax
+    0.00 :   44b89a: mov    -0x50(%rbp),%r9
+    0.00 :   44b89e: mov    -0x80(%rbp),%r11
+    0.00 :   44b8a2: mov    -0x78(%rbp),%rdx
+    0.00 :   44b8a6: cs nopw 0x0(%rax,%rax,1)
+    0.00 :   44b8b0: mov    (%rsi,%rax,4),%ecx
+    0.00 :   44b8b3: mov    %ecx,(%rdi,%rax,4)
+    0.00 :   44b8b6: lea    0x1(%rax),%rcx
+    0.00 :   44b8ba: mov    %rcx,%rax
+    0.00 :   44b8bd: cmp    %rcx,%rbx
+    0.00 :   44b8c0: jne    44b8b0 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x27d0>
+    0.00 :   44b8c2: jmp    44b932 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2852>
+    0.00 :   44b8c4: cmp    $0xd,%ebx
+    0.00 :   44b8c7: jb     44b8e7 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2807>
+    0.00 :   44b8c9: lea    0x0(,%rbx,4),%rdx
+    0.00 :   44b8d1: vzeroupper
+    0.00 :   44b8d4: call   4fdae0 <_intel_fast_memcpy>
+    0.00 :   44b8d9: mov    -0x50(%rbp),%r9
+    0.00 :   44b8dd: mov    -0x80(%rbp),%r11
+    0.00 :   44b8e1: mov    -0x78(%rbp),%rdx
+    0.00 :   44b8e5: jmp    44b932 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2852>
+    0.00 :   44b8e7: mov    %rbx,%rax
+    0.00 :   44b8ea: and    $0xc,%rax
+    0.00 :   44b8ee: mov    -0x50(%rbp),%r9
+    0.00 :   44b8f2: mov    -0x80(%rbp),%r11
+    0.00 :   44b8f6: je     44b919 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2839>
+    0.00 :   44b8f8: xor    %ecx,%ecx
+    0.00 :   44b8fa: mov    -0x78(%rbp),%rdx
+    0.00 :   44b8fe: xchg   %ax,%ax
+    0.00 :   44b900: vmovupd (%rsi,%rcx,4),%xmm0
+    0.00 :   44b905: vmovupd %xmm0,(%rdi,%rcx,4)
+    0.00 :   44b90a: add    $0x4,%rcx
+    0.00 :   44b90e: cmp    %rax,%rcx
+    0.00 :   44b911: jb     44b900 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2820>
+    0.00 :   44b913: cmp    %ebx,%eax
+    0.00 :   44b915: jne    44b920 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2840>
+    0.00 :   44b917: jmp    44b932 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2852>
+    0.00 :   44b919: xor    %eax,%eax
+    0.00 :   44b91b: mov    -0x78(%rbp),%rdx
+    0.00 :   44b91f: nop
+    0.00 :   44b920: mov    (%rsi,%rax,4),%ecx
+    0.00 :   44b923: mov    %ecx,(%rdi,%rax,4)
+    0.00 :   44b926: lea    0x1(%rax),%rcx
+    0.00 :   44b92a: mov    %rcx,%rax
+    0.00 :   44b92d: cmp    %rcx,%rbx
+    0.00 :   44b930: jne    44b920 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2840>
+         : 211    part%flag_dead(1:np) = flag_dead_new(1:np)
+    0.00 :   44b932: mov    %rbx,%rax
+    0.00 :   44b935: sub    %rdx,%rax
+    0.00 :   44b938: add    %r9,%rax
+    0.00 :   44b93b: sub    %rdx,%r9
+    0.00 :   44b93e: inc    %r9
+         : 217    mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525():
+    0.00 :   44b941: cmp    %r11,%rax
+    0.00 :   44b944: jb     44b99a <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x28ba>
+         : 420    mod_particle_sorting_mp_sort_particles_by_cell_():
+    0.00 :   44b946: mov    %rbx,%rax
+    0.00 :   44b949: sub    -0x1b8(%rbp),%rax
+    0.00 :   44b950: mov    -0x1c0(%rbp),%rcx
+    0.00 :   44b957: add    %rax,%rcx
+    0.00 :   44b95a: cmp    %r9,%rcx
+    0.00 :   44b95d: jb     44b99a <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x28ba>
+    0.00 :   44b95f: xor    %eax,%eax
+    0.00 :   44b961: mov    -0x88(%rbp),%rdx
+    0.00 :   44b968: mov    -0x108(%rbp),%r8
+    0.00 :   44b96f: mov    -0x60(%rbp),%rsi
+    0.00 :   44b973: mov    -0x40(%rbp),%r10
+    0.00 :   44b977: nopw   0x0(%rax,%rax,1)
+    0.00 :   44b980: movzbl (%r9,%rax,1),%ecx
+    0.00 :   44b985: mov    %cl,(%r11,%rax,1)
+    0.00 :   44b989: lea    0x1(%rax),%rcx
+    0.00 :   44b98d: mov    %rcx,%rax
+    0.00 :   44b990: cmp    %rcx,%rbx
+    0.00 :   44b993: jne    44b980 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x28a0>
+    0.00 :   44b995: jmp    44ba35 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2955>
+    0.00 :   44b99a: cmp    $0xd,%ebx
+    0.00 :   44b99d: jb     44b9c8 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x28e8>
+    0.00 :   44b99f: mov    %r11,%rdi
+    0.00 :   44b9a2: mov    %r9,%rsi
+    0.00 :   44b9a5: mov    %rbx,%rdx
+    0.00 :   44b9a8: vzeroupper
+    0.00 :   44b9ab: call   4fdae0 <_intel_fast_memcpy>
+    0.00 :   44b9b0: mov    -0x88(%rbp),%rdx
+    0.00 :   44b9b7: mov    -0x108(%rbp),%r8
+    0.00 :   44b9be: mov    -0x60(%rbp),%rsi
+    0.00 :   44b9c2: mov    -0x40(%rbp),%r10
+    0.00 :   44b9c6: jmp    44ba35 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2955>
+    0.00 :   44b9c8: mov    %rbx,%rax
+    0.00 :   44b9cb: and    $0xc,%rax
+    0.00 :   44b9cf: mov    -0x108(%rbp),%r8
+    0.00 :   44b9d6: mov    -0x60(%rbp),%rsi
+    0.00 :   44b9da: mov    -0x40(%rbp),%r10
+    0.00 :   44b9de: je     44ba0e <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x292e>
+    0.00 :   44b9e0: xor    %ecx,%ecx
+    0.00 :   44b9e2: data16 data16 data16 data16 cs nopw 0x0(%rax,%rax,1)
+    0.00 :   44b9f0: mov    (%r9,%rcx,1),%edx
+    0.00 :   44b9f4: mov    %edx,(%r11,%rcx,1)
+    0.00 :   44b9f8: add    $0x4,%rcx
+    0.00 :   44b9fc: cmp    %rax,%rcx
+    0.00 :   44b9ff: jb     44b9f0 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2910>
+    0.00 :   44ba01: cmp    %ebx,%eax
+    0.00 :   44ba03: mov    -0x88(%rbp),%rdx
+    0.00 :   44ba0a: jne    44ba20 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2940>
+    0.00 :   44ba0c: jmp    44ba35 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2955>
+    0.00 :   44ba0e: xor    %eax,%eax
+    0.00 :   44ba10: mov    -0x88(%rbp),%rdx
+    0.00 :   44ba17: nopw   0x0(%rax,%rax,1)
+    0.00 :   44ba20: movzbl (%r9,%rax,1),%ecx
+    0.00 :   44ba25: mov    %cl,(%r11,%rax,1)
+    0.00 :   44ba29: lea    0x1(%rax),%rcx
+    0.00 :   44ba2d: mov    %rcx,%rax
+    0.00 :   44ba30: cmp    %rcx,%rbx
+    0.00 :   44ba33: jne    44ba20 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2940>
+         : 212    part%flag_cex(1:np)  = flag_cex_new(1:np)
+    0.00 :   44ba35: mov    %rbx,%rax
+    0.00 :   44ba38: sub    %r10,%rax
+    0.00 :   44ba3b: lea    (%rsi,%rax,4),%rax
+    0.00 :   44ba3f: mov    $0x1,%ecx
+    0.00 :   44ba44: sub    %r8,%rcx
+    0.00 :   44ba47: lea    (%rdx,%rcx,4),%rdi
+    0.00 :   44ba4b: mov    $0x1,%ecx
+    0.00 :   44ba50: sub    %r10,%rcx
+    0.00 :   44ba53: lea    (%rsi,%rcx,4),%rsi
+         : 222    mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525():
+    0.00 :   44ba57: cmp    %rdi,%rax
+    0.00 :   44ba5a: jb     44ba87 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x29a7>
+         : 420    mod_particle_sorting_mp_sort_particles_by_cell_():
+    0.00 :   44ba5c: mov    %rbx,%rax
+    0.00 :   44ba5f: sub    %r8,%rax
+    0.00 :   44ba62: lea    (%rdx,%rax,4),%rax
+    0.00 :   44ba66: cmp    %rsi,%rax
+    0.00 :   44ba69: jb     44ba87 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x29a7>
+    0.00 :   44ba6b: xor    %eax,%eax
+    0.00 :   44ba6d: nopl   (%rax)
+    0.00 :   44ba70: mov    (%rsi,%rax,4),%ecx
+    0.00 :   44ba73: mov    %ecx,(%rdi,%rax,4)
+    0.00 :   44ba76: lea    0x1(%rax),%rcx
+    0.00 :   44ba7a: mov    %rcx,%rax
+    0.00 :   44ba7d: cmp    %rcx,%rbx
+    0.00 :   44ba80: jne    44ba70 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2990>
+    0.00 :   44ba82: jmp    4491e0 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x100>
+    0.00 :   44ba87: cmp    $0xd,%ebx
+    0.00 :   44ba8a: jae    4491c3 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0xe3>
+    0.00 :   44ba90: mov    %rbx,%rax
+    0.00 :   44ba93: and    $0xc,%rax
+    0.00 :   44ba97: je     44babc <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x29dc>
+    0.00 :   44ba99: xor    %ecx,%ecx
+    0.00 :   44ba9b: nopl   0x0(%rax,%rax,1)
+    0.00 :   44baa0: vmovupd (%rsi,%rcx,4),%xmm0
+    0.00 :   44baa5: vmovupd %xmm0,(%rdi,%rcx,4)
+    0.00 :   44baaa: add    $0x4,%rcx
+    0.00 :   44baae: cmp    %rax,%rcx
+    0.00 :   44bab1: jb     44baa0 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x29c0>
+    0.00 :   44bab3: cmp    %ebx,%eax
+    0.00 :   44bab5: jne    44bac0 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x29e0>
+    0.00 :   44bab7: jmp    4491e0 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x100>
+    0.00 :   44babc: xor    %eax,%eax
+    0.00 :   44babe: xchg   %ax,%ax
+    0.00 :   44bac0: mov    (%rsi,%rax,4),%ecx
+    0.00 :   44bac3: mov    %ecx,(%rdi,%rax,4)
+    0.00 :   44bac6: lea    0x1(%rax),%rcx
+    0.00 :   44baca: mov    %rcx,%rax
+    0.00 :   44bacd: cmp    %rcx,%rbx
+    0.00 :   44bad0: jne    44bac0 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x29e0>
+    0.00 :   44bad2: jmp    4491e0 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x100>
+         : 250    mod_particle_sorting_mp_compute_particle_cell_ids_():
+    0.00 :   44bad7: nopw   0x0(%rax,%rax,1)
+         : 130    part%cell_count = 0_int32
+    0.00 :   44bae0: cmp    %rax,%rdx
+    0.00 :   44bae3: je     4497ba <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x6da>
+    0.00 :   44bae9: movl   $0x0,(%rbx,%rax,4)
+    0.00 :   44baf0: inc    %rax
+    0.00 :   44baf3: jmp    44bae0 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2a00>
+    0.00 :   44baf5: data16 cs nopw 0x0(%rax,%rax,1)
+         : 131    part%cell_start = 0_int32
+    0.00 :   44bb00: cmp    %rax,%rdx
+    0.00 :   44bb03: je     44985b <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x77b>
+    0.00 :   44bb09: movl   $0x0,(%r14,%rax,4)
+    0.00 :   44bb11: inc    %rax
+    0.00 :   44bb14: jmp    44bb00 <mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525+0x2a20>
+         : 137    mod_state_mp_sort_particles_local_.DIR.OMP.PARALLEL.LOOP.2.split525():
+    0.00 :   44bb16: lea    -0x28(%rbp),%rsp
+    0.00 :   44bb1a: pop    %rbx
+    0.00 :   44bb1b: pop    %r12
+    0.00 :   44bb1d: pop    %r13
+    0.00 :   44bb1f: pop    %r14
+    0.00 :   44bb21: pop    %r15
+    0.00 :   44bb23: pop    %rbp
+    0.00 :   44bb24: ret

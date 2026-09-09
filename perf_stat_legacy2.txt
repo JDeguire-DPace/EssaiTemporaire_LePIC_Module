@@ -1,0 +1,15 @@
+=== LEGACY (cycles/instructions/cache) ===
+
+ Performance counter stats for './3dphpic.exe':
+
+   448,485,894,639      cycles:u                                                              
+   957,854,340,315      instructions:u                   #    2.14  insn per cycle            
+    31,068,390,939      cache-references:u                                                    
+     1,436,459,412      cache-misses:u                   #    4.624 % of all cache refs       
+
+      27.270992371 seconds time elapsed
+
+      99.252838000 seconds user
+       0.931739000 seconds sys
+
+

@@ -44,6 +44,19 @@ module mod_restart
   ! following steps regardless, so skipping their one-time restart
   ! recompute only affects the very first few heating updates after a
   ! restart, not the long-run physics.
+  !
+  ! SECOND DELIBERATE ADDITION: when flag_RFant==1, a scalar E0_RF record
+  ! immediately after `time`, matching legacy (Src/restart.f90:63,87),
+  ! which also stores time+E0_RF and nothing else RF-specific. Gated on
+  ! flag_RFant so the file format is byte-for-byte unchanged for every
+  ! non-RF run (the vast majority, and the only ones with any pre-existing
+  ! local backups to stay compatible with - RF antenna heating didn't
+  ! exist in this modular codebase before this record was added, so there
+  ! is no old-format RF backup to preserve compatibility with). gams (skin
+  ! depth) is deliberately NOT persisted, here or in legacy: it's fully
+  ! re-derived from the local electron density on the first
+  ! update_rf_convergence call after restart, and that density is already
+  ! reconstructed by this module's existing post-restart deposit below.
   !===========================================================================
   use iso_fortran_env,       only: int8, int32, real64
   use mod_particles,         only: ParticleSet
@@ -63,13 +76,16 @@ contains
   ! (it.gt.1 .and. MOD(it,nbak).eq.1), called from mod_simulation.f90.
   ! Alternates Backups/DATA.BAK/ <-> Backups/DATA.BAK2/ via the caller-owned flag_wrt.
   !=========================================================================
-  subroutine write_restart_modular(mpi_rank, ntype, nproc, tag_neg, part, time, flag_wrt)
+  subroutine write_restart_modular(mpi_rank, ntype, nproc, tag_neg, part, time, flag_wrt, &
+                                    flag_RFant, E0_RF)
     integer,           intent(in)    :: mpi_rank
     integer(int32),    intent(in)    :: ntype, nproc
     integer(int32),    intent(in)    :: tag_neg
     type(ParticleSet), intent(in)    :: part(:,:)
     real(real64),      intent(in)    :: time
     integer(int32),    intent(inout) :: flag_wrt
+    integer(int32),    intent(in)    :: flag_RFant
+    real(real64),      intent(in)    :: E0_RF
 
     integer        :: unit_no, ptype, iproc, npar, ios
     character(len=64) :: fname
@@ -105,6 +121,7 @@ contains
 
     write(unit_no) nproc       ! header: this writer's own thread count - see module header
     write(unit_no) time
+    if (flag_RFant == 1_int32) write(unit_no) E0_RF
     write(unit_no) np_tot(1:ntype, 1:nproc)
 
     do iproc = 1_int32, nproc
@@ -141,7 +158,7 @@ contains
   !=========================================================================
   subroutine restart_particles_modular( &
       cfg, mpi_rank, mpi_size, n, h, kq, Nm, ntype, nproc, tag_neg, &
-      iseed, part, np_thread, time_out)
+      iseed, part, np_thread, time_out, E0_RF_out)
 
     type(Config),      intent(in)    :: cfg
     integer,           intent(in)    :: mpi_rank, mpi_size
@@ -155,6 +172,7 @@ contains
     type(ParticleSet), intent(inout) :: part(:,:)
     real(real64),      intent(inout) :: np_thread(0:n(1)+2,0:n(2)+2,0:n(3)+2,ntype,nproc)
     real(real64),      intent(out)   :: time_out
+    real(real64),      intent(out)   :: E0_RF_out
 
     integer(int32) :: ptype, iproc
 
@@ -165,9 +183,9 @@ contains
     end do
 
     if (cfg%flag_restart == 1_int32) then
-      call read_same_rank_count(mpi_rank, ntype, nproc, tag_neg, part, time_out)
+      call read_same_rank_count(cfg, mpi_rank, ntype, nproc, tag_neg, part, time_out, E0_RF_out)
     else
-      call read_external_ranks(cfg, mpi_rank, mpi_size, ntype, nproc, tag_neg, part, time_out)
+      call read_external_ranks(cfg, mpi_rank, mpi_size, ntype, nproc, tag_neg, part, time_out, E0_RF_out)
     end if
 
     call apply_np_dup(cfg%np_dup, ntype, nproc, iseed, part)
@@ -198,12 +216,14 @@ contains
   ! flag_restart == 1 : same MPI/OMP rank count as the writer. Each rank
   ! reads only its own Backups/DATA.BAK/particles<mpi_rank>.bak.
   !=========================================================================
-  subroutine read_same_rank_count(mpi_rank, ntype, nproc, tag_neg, part, time_out)
+  subroutine read_same_rank_count(cfg, mpi_rank, ntype, nproc, tag_neg, part, time_out, E0_RF_out)
+    type(Config),      intent(in)    :: cfg
     integer,           intent(in)    :: mpi_rank
     integer(int32),    intent(in)    :: ntype, nproc
     integer(int32),    intent(in)    :: tag_neg
     type(ParticleSet), intent(inout) :: part(:,:)
     real(real64),      intent(out)   :: time_out
+    real(real64),      intent(out)   :: E0_RF_out
 
     integer        :: unit_no, ptype, iproc, npar, nproc_written
     character(len=64) :: fname
@@ -219,6 +239,11 @@ contains
     open(unit_no, file=trim(fname), form='UNFORMATTED', status='OLD', err=999)
     read(unit_no, err=999) nproc_written
     read(unit_no, err=999) time_out
+
+    E0_RF_out = cfg%E0_RF
+    if (cfg%flag_RFant == 1_int32) then
+      read(unit_no, err=999) E0_RF_out
+    end if
 
     if (nproc_written /= nproc) then
       write(*,*) 'restart_particles_modular: backup file was written with nproc=', &
@@ -265,13 +290,14 @@ contains
   ! from Backups/SAV_DATA/ and redistributed round-robin into the current
   ! part(ptype,iproc) arrays - same algorithm as legacy's restart().
   !=========================================================================
-  subroutine read_external_ranks(cfg, mpi_rank, mpi_size, ntype, nproc, tag_neg, part, time_out)
+  subroutine read_external_ranks(cfg, mpi_rank, mpi_size, ntype, nproc, tag_neg, part, time_out, E0_RF_out)
     type(Config),      intent(in)    :: cfg
     integer,           intent(in)    :: mpi_rank, mpi_size
     integer(int32),    intent(in)    :: ntype, nproc
     integer(int32),    intent(in)    :: tag_neg
     type(ParticleSet), intent(inout) :: part(:,:)
     real(real64),      intent(out)   :: time_out
+    real(real64),      intent(out)   :: E0_RF_out
 
     integer        :: unit_no, irank, mpi_rank_div
     integer        :: ptype, iproc_orig, iproc_tmp
@@ -291,7 +317,8 @@ contains
     end if
     mpi_rank_div = int(cfg%mpi_rank_max, int32) / mpi_size
 
-    time_out = 0.0_real64
+    time_out  = 0.0_real64
+    E0_RF_out = cfg%E0_RF
     unit_no = 41 + mpi_rank
 
     do irank = mpi_rank*mpi_rank_div, (mpi_rank+1)*mpi_rank_div - 1_int32
@@ -303,6 +330,9 @@ contains
       open(unit_no, file=trim(fname), form='UNFORMATTED', status='OLD', err=998)
       read(unit_no, err=998) nproc_written
       read(unit_no, err=998) time_out
+      if (cfg%flag_RFant == 1_int32) then
+        read(unit_no, err=998) E0_RF_out
+      end if
 
       allocate(np_tot_ext(ntype, nproc_written))
       read(unit_no, err=998) np_tot_ext(1:ntype, 1:nproc_written)

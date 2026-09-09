@@ -1,0 +1,754 @@
+                                       
+                                                                       ⣶⣄⠀⠀⢀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+ █████                ███████████  █████   █████████              ⠀⠀⠀⠀⢸⣿⣿⣷⣴⣿⡄⠀⠀⠀⠀⠀⢀⡀⠀⠀⠀
+░░███                ░░███░░░░░███░░███   ███░░░░░███     ███    ⠀⠀⠀⠀⠰⣶⣾⣿⣿⣿⣿⣿⡇⠀⢠⣷⣤⣶⣿⡇⠀⠀⠀⠀⠀
+ ░███         ██████  ░███    ░███ ░███  ███     ░░░     ░███     ⠀⠀  ⠙⣿⣿⣿⣿⣿⣿⣿⣀⣿⣿⣿⣿⣿⣧⣀⠀⠀⠀
+ ░███        ███░░███ ░██████████  ░███ ░███          ███████████  ⣷⣦⣀⠘⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠃⠀
+ ░███       ░███████  ░███░░░░░░   ░███ ░███         ░░░░░███░░░ ⢲⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠁⠀⠀
+ ░███      █░███░░░   ░███         ░███ ░░███     ███    ░███   ⠀ ⠙⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡟⠁⠀
+ ███████████░░██████  █████        █████ ░░█████████     ░░░    ⠀⠀⠚⠻⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠿⠿⠂⠀⠀
+░░░░░░░░░░░  ░░░░░░  ░░░░░        ░░░░░   ░░░░░░░░░           ⠀⠀⠀⠀⠀⠀⠉⠙⢻⣿⣿⡿⠛⠉⡇⠀⠀⠀⠀⠀⠀⠀
+                                                                        ⠋⠁⠀⠀⠸⡄⠀⠀⠀⠀⠀⠀⠀⠀⠀
+                                Laplace Explicit Particle-In-Cell code   
+                                        (Modular Object-Oriented Edition)
+                                     
+  + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + 
+  +                                                                            +
+  +     3D explicit parallel particle in cell code                             +
+  +                                                                            +
+  +   LePIC 3D algorithm version: 3.3.6.2                                      +
+  +   Last modifications: Sep/2024                                             +
+  +                                                                            +
+  +   Copyright or © or Copr. Gwenael Fubiani (2022/11/22)                     +
+  +                                                                            +
+  +   gwenael.fubiani@cnrs.fr                                                  +
+  +                                                                            +
+  +   This software is a computer program whose purpose is to model low        +
+  +   temperature plasmas with a Particle-In-Cell algorihm in 3D-3V            +
+  +   dimensions.                                                              +
+  +                                                                            +
+  +   This software is governed by the CeCILL-C license under French law and   +
+  +   abiding by the rules of distribution of free software.  You can  use,    +
+  +   modify and/ or redistribute the software under the terms of the CeCILL-C +
+  +   license as circulated by CEA, CNRS and INRIA at the following URL        +
+  +   "http://www.cecill.info".                                                +
+  +                                                                            +
+  +   As a counterpart to the access to the source code and  rights to copy,   +
+  +   modify and redistribute granted by the license, users are provided only  +
+  +   with a limited warranty and the software's author, the holder of the     +
+  +   economic rights,  and the successive licensors  have only  limited       +
+  +   liability.                                                               +
+  +                                                                            +
+  +   In this respect, the user's attention is drawn to the risks associated   +
+  +   with loading,  using,  modifying and/or developing or reproducing the    +
+  +   software by the user in light of its specific status of free software,   +
+  +   that may mean  that it is complicated to manipulate,  and  that  also    +
+  +   therefore means  that it is reserved for developers  and  experienced    +
+  +   professionals having in-depth computer knowledge. Users are therefore    +
+  +   encouraged to load and test the software's suitability as regards their  +
+  +   requirements in conditions enabling the security of their systems and/or +
+  +   data to be ensured and,  more generally, to use and operate it in the    +
+  +   same conditions as regards security.                                     +
+  +                                                                            +
+  +   The fact that you are presently reading this means that you have had     +
+  +   knowledge of the CeCILL-C license and that you accept its terms.         +
+  +                                                                            +
+   + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + 
+                                                  
+Input file was read correctly ...
+Gas chemistry read correctly (end of file reached)
+  
+Initializing chemistry/reactions...
+3 species:  (2 charged and 1 neutral)
+[e]    [H+]   [H]                                                    
+Total number of reactions: 1
+   
+  
+Building boundary...
+n = 128 32 32
+h(m) =   7.8125E-04   7.8125E-04   7.8125E-04
+box(m) =   1.0000E-01   2.5000E-02   2.5000E-02
+Sg(m^2) =   6.2500E-04
+flags(pbc,pbcz,nmn,die) = 1 0 0 0
+   
+Frequency of calls to MC collision subroutine = 10
+Frequency of calls to Coulomb collision subroutine = 1
+Frequency of calls to electron (Maxwellian) heating subroutine= 4
+Frequency of calls to sort subroutine= 10
+Frequency of averaging= 50
+  
+Loading particles...
+species 1: 2621440
+species 2: 2621440
+  
+  
+>>> Entering the PIC loop <<<
+  
+ 
+ 
+ TIME STEP 1 -->    0.000 us
+ -------------------------
+ Particles diagnostics: 
+ npart [e]    = 2621440
+ npart [H+]   = 2621440
+ ===== MODULAR DIAGNOSTIC it =            1 =====
+ phi min/max/sum =    0.000000000000000E+00   0.000000000000000E+00   0.000000000000000E+00
+ ===========================================
+ -------------------------
+ Power diagnostics: 
+ Pwall (W)  =   0.00E+00
+ Pabs  (W)  =   0.00E+00
+ Pcoll (W)  =   0.00E+00
+ Pinj  (W)  =   0.00E+00
+ I_w  (A)  =   0.00E+00  0.00E+00
+ Ek_w (eV) =   0.00E+00  0.00E+00
+ -------------------------
+  
+   
+ MOD_NPMX ttype= 1 np_mx=  3.9769E+14
+ MOD_NPMX ttype= 2 np_mx=  3.9521E+14
+ MOD_NPMX ttype= 3 np_mx=  1.0000E+20
+ Accepted collision reactions:
+ reaction    1 accepted =         2422
+ ----- mod_collisionsGwenael debug diagnostics -----
+ ----------------------------------------------------
+ 
+ 
+ TIME STEP 21 -->    0.004 us
+ -------------------------
+ Particles diagnostics: 
+ npart [e]    = 2572094
+ npart [H+]   = 2623636
+ ===== MODULAR DIAGNOSTIC it =           21 =====
+ phi min/max/sum =    0.000000000000000E+00   8.328034899284608E+00   1.066122177830893E+06
+ ===========================================
+ -------------------------
+ Power diagnostics: 
+ Pwall (W)  =  -1.44E-01
+ Pabs  (W)  =   0.00E+00
+ Pcoll (W)  =  -1.08E-02
+ Pinj  (W)  =   0.00E+00
+ I_w  (A)  =  -1.47E-02  6.43E-05
+ Ek_w (eV) =   9.78E+00  2.23E-01
+ -------------------------
+ Timing diagnostics: 
+ E/rho      (ms) =     0.8
+ poisson    (ms) =     5.1
+ sorting    (ms) =     4.5
+ avg/write  (ms) =    10.6
+ MC         (ms) =     0.2
+ mover      (ms) =    51.7
+ bck        (ms) =     0.0
+ total      (ms) =    72.7
+ -------------------------
+ ----- poisson timing breakdown -----
+  scatter(ms)=    0.11  solve(ms)=    4.74  gather(ms)=    0.05
+  k_it_avg=    5.70  k_it_max=    6.00  res_avg=  6.67E-08
+ -------------------------------------
+ ----- mover / deposit timing breakdown -----
+  mover_push(ms)=   43.79  mover_bc(ms)=    0.00
+  dep_clear(ms)=    0.00  dep_loop(ms)=    7.86  dep_reduce(ms)=    0.61
+ ----- OMP load imbalance across iproc (min/avg/max, max/avg ratio) -----
+  mover_push(ms) min=   43.39 avg=   43.66 max=   43.79 max/avg= 1.003
+  dep_loop(ms)   min=    7.51 avg=    7.64 max=    7.86 max/avg= 1.028
+ ---------------------------------------------
+  
+   
+ Accepted collision reactions:
+ reaction    1 accepted =         2246
+ ----- mod_collisionsGwenael debug diagnostics -----
+ ----------------------------------------------------
+ 
+ 
+ TIME STEP 41 -->    0.007 us
+ -------------------------
+ Particles diagnostics: 
+ npart [e]    = 2557234
+ npart [H+]   = 2625513
+ ===== MODULAR DIAGNOSTIC it =           41 =====
+ phi min/max/sum =    0.000000000000000E+00   7.779959402881415E+00   9.667591365275210E+05
+ ===========================================
+ -------------------------
+ Power diagnostics: 
+ Pwall (W)  =  -4.67E-02
+ Pabs  (W)  =   0.00E+00
+ Pcoll (W)  =  -1.00E-02
+ Pinj  (W)  =   0.00E+00
+ I_w  (A)  =  -4.87E-03  1.05E-04
+ Ek_w (eV) =   9.59E+00  2.44E-01
+ -------------------------
+ Timing diagnostics: 
+ E/rho      (ms) =     0.8
+ poisson    (ms) =     5.0
+ sorting    (ms) =     3.7
+ avg/write  (ms) =     7.4
+ MC         (ms) =     0.2
+ mover      (ms) =    50.4
+ bck        (ms) =     0.0
+ total      (ms) =    67.3
+ -------------------------
+ ----- poisson timing breakdown -----
+  scatter(ms)=    0.10  solve(ms)=    4.62  gather(ms)=    0.05
+  k_it_avg=    5.70  k_it_max=    6.00  res_avg=  4.90E-08
+ -------------------------------------
+ ----- mover / deposit timing breakdown -----
+  mover_push(ms)=   42.70  mover_bc(ms)=    0.00
+  dep_clear(ms)=    0.00  dep_loop(ms)=    7.71  dep_reduce(ms)=    0.61
+ ----- OMP load imbalance across iproc (min/avg/max, max/avg ratio) -----
+  mover_push(ms) min=   42.22 avg=   42.52 max=   42.70 max/avg= 1.004
+  dep_loop(ms)   min=    7.40 avg=    7.51 max=    7.71 max/avg= 1.025
+ ---------------------------------------------
+  
+   
+ Accepted collision reactions:
+ reaction    1 accepted =         2134
+ ----- mod_collisionsGwenael debug diagnostics -----
+ ----------------------------------------------------
+ 
+ 
+ TIME STEP 61 -->    0.011 us
+ -------------------------
+ Particles diagnostics: 
+ npart [e]    = 2546261
+ npart [H+]   = 2627049
+ ===== MODULAR DIAGNOSTIC it =           61 =====
+ phi min/max/sum =    0.000000000000000E+00   1.159233363081590E+01   1.512939327247900E+06
+ ===========================================
+ -------------------------
+ Power diagnostics: 
+ Pwall (W)  =  -3.74E-02
+ Pabs  (W)  =   0.00E+00
+ Pcoll (W)  =  -9.50E-03
+ Pinj  (W)  =   0.00E+00
+ I_w  (A)  =  -3.73E-03  1.70E-04
+ Ek_w (eV) =   1.00E+01  2.93E-01
+ -------------------------
+ Timing diagnostics: 
+ E/rho      (ms) =     0.8
+ poisson    (ms) =     4.9
+ sorting    (ms) =     3.7
+ avg/write  (ms) =     7.9
+ MC         (ms) =     0.2
+ mover      (ms) =    50.2
+ bck        (ms) =     0.0
+ total      (ms) =    67.5
+ -------------------------
+ ----- poisson timing breakdown -----
+  scatter(ms)=    0.10  solve(ms)=    4.56  gather(ms)=    0.05
+  k_it_avg=    5.75  k_it_max=    6.00  res_avg=  5.33E-08
+ -------------------------------------
+ ----- mover / deposit timing breakdown -----
+  mover_push(ms)=   42.57  mover_bc(ms)=    0.00
+  dep_clear(ms)=    0.00  dep_loop(ms)=    7.67  dep_reduce(ms)=    0.61
+ ----- OMP load imbalance across iproc (min/avg/max, max/avg ratio) -----
+  mover_push(ms) min=   42.23 avg=   42.43 max=   42.57 max/avg= 1.003
+  dep_loop(ms)   min=    7.39 avg=    7.50 max=    7.67 max/avg= 1.022
+ ---------------------------------------------
+  
+   
+ Accepted collision reactions:
+ reaction    1 accepted =         1994
+ ----- mod_collisionsGwenael debug diagnostics -----
+ ----------------------------------------------------
+ 
+ 
+ TIME STEP 81 -->    0.014 us
+ -------------------------
+ Particles diagnostics: 
+ npart [e]    = 2539853
+ npart [H+]   = 2628158
+ ===== MODULAR DIAGNOSTIC it =           81 =====
+ phi min/max/sum =    0.000000000000000E+00   1.083024854314603E+01   1.397050952156228E+06
+ ===========================================
+ -------------------------
+ Power diagnostics: 
+ Pwall (W)  =  -2.36E-02
+ Pabs  (W)  =   0.00E+00
+ Pcoll (W)  =  -8.87E-03
+ Pinj  (W)  =   0.00E+00
+ I_w  (A)  =  -2.39E-03  2.52E-04
+ Ek_w (eV) =   9.83E+00  4.27E-01
+ -------------------------
+ Timing diagnostics: 
+ E/rho      (ms) =     0.8
+ poisson    (ms) =     4.8
+ sorting    (ms) =     3.7
+ avg/write  (ms) =     7.4
+ MC         (ms) =     0.2
+ mover      (ms) =    50.1
+ bck        (ms) =     0.0
+ total      (ms) =    66.9
+ -------------------------
+ ----- poisson timing breakdown -----
+  scatter(ms)=    0.13  solve(ms)=    4.39  gather(ms)=    0.05
+  k_it_avg=    5.65  k_it_max=    6.00  res_avg=  5.32E-08
+ -------------------------------------
+ ----- mover / deposit timing breakdown -----
+  mover_push(ms)=   42.50  mover_bc(ms)=    0.00
+  dep_clear(ms)=    0.00  dep_loop(ms)=    7.57  dep_reduce(ms)=    0.62
+ ----- OMP load imbalance across iproc (min/avg/max, max/avg ratio) -----
+  mover_push(ms) min=   42.38 avg=   42.45 max=   42.50 max/avg= 1.001
+  dep_loop(ms)   min=    7.38 avg=    7.48 max=    7.57 max/avg= 1.012
+ ---------------------------------------------
+  
+   
+ Accepted collision reactions:
+ reaction    1 accepted =         2074
+ ----- mod_collisionsGwenael debug diagnostics -----
+ ----------------------------------------------------
+ 
+ 
+ TIME STEP 101 -->    0.018 us
+ -------------------------
+ Particles diagnostics: 
+ npart [e]    = 2534789
+ npart [H+]   = 2628933
+ ===== MODULAR DIAGNOSTIC it =          101 =====
+ phi min/max/sum =    0.000000000000000E+00   1.371486739337128E+01   1.787890729731042E+06
+ ===========================================
+ -------------------------
+ Power diagnostics: 
+ Pwall (W)  =  -2.07E-02
+ Pabs  (W)  =   0.00E+00
+ Pcoll (W)  =  -9.23E-03
+ Pinj  (W)  =   0.00E+00
+ I_w  (A)  =  -2.03E-03  3.69E-04
+ Ek_w (eV) =   1.01E+01  5.73E-01
+ -------------------------
+ Timing diagnostics: 
+ E/rho      (ms) =     0.8
+ poisson    (ms) =     4.8
+ sorting    (ms) =     3.7
+ avg/write  (ms) =     8.0
+ MC         (ms) =     0.2
+ mover      (ms) =    50.0
+ bck        (ms) =     0.0
+ total      (ms) =    67.3
+ -------------------------
+ ----- poisson timing breakdown -----
+  scatter(ms)=    0.11  solve(ms)=    4.46  gather(ms)=    0.05
+  k_it_avg=    5.70  k_it_max=    6.00  res_avg=  5.06E-08
+ -------------------------------------
+ ----- mover / deposit timing breakdown -----
+  mover_push(ms)=   42.44  mover_bc(ms)=    0.00
+  dep_clear(ms)=    0.00  dep_loop(ms)=    7.55  dep_reduce(ms)=    0.60
+ ----- OMP load imbalance across iproc (min/avg/max, max/avg ratio) -----
+  mover_push(ms) min=   42.31 avg=   42.39 max=   42.44 max/avg= 1.001
+  dep_loop(ms)   min=    7.39 avg=    7.46 max=    7.55 max/avg= 1.011
+ ---------------------------------------------
+  
+   
+ Accepted collision reactions:
+ reaction    1 accepted =         2030
+ ----- mod_collisionsGwenael debug diagnostics -----
+ ----------------------------------------------------
+ 
+ 
+ TIME STEP 121 -->    0.021 us
+ -------------------------
+ Particles diagnostics: 
+ npart [e]    = 2531382
+ npart [H+]   = 2629292
+ ===== MODULAR DIAGNOSTIC it =          121 =====
+ phi min/max/sum =    0.000000000000000E+00   1.262119098688210E+01   1.652247760821514E+06
+ ===========================================
+ -------------------------
+ Power diagnostics: 
+ Pwall (W)  =  -1.57E-02
+ Pabs  (W)  =   0.00E+00
+ Pcoll (W)  =  -9.03E-03
+ Pinj  (W)  =   0.00E+00
+ I_w  (A)  =  -1.55E-03  4.75E-04
+ Ek_w (eV) =   9.89E+00  8.02E-01
+ -------------------------
+ Timing diagnostics: 
+ E/rho      (ms) =     0.8
+ poisson    (ms) =     4.8
+ sorting    (ms) =     3.7
+ avg/write  (ms) =     8.8
+ MC         (ms) =     0.2
+ mover      (ms) =    50.0
+ bck        (ms) =     0.0
+ total      (ms) =    68.1
+ -------------------------
+ ----- poisson timing breakdown -----
+  scatter(ms)=    0.11  solve(ms)=    4.46  gather(ms)=    0.05
+  k_it_avg=    5.70  k_it_max=    6.00  res_avg=  4.90E-08
+ -------------------------------------
+ ----- mover / deposit timing breakdown -----
+  mover_push(ms)=   42.44  mover_bc(ms)=    0.00
+  dep_clear(ms)=    0.00  dep_loop(ms)=    7.54  dep_reduce(ms)=    0.60
+ ----- OMP load imbalance across iproc (min/avg/max, max/avg ratio) -----
+  mover_push(ms) min=   42.24 avg=   42.35 max=   42.44 max/avg= 1.002
+  dep_loop(ms)   min=    7.39 avg=    7.46 max=    7.54 max/avg= 1.011
+ ---------------------------------------------
+  
+   
+ Accepted collision reactions:
+ reaction    1 accepted =         1898
+ ----- mod_collisionsGwenael debug diagnostics -----
+ ----------------------------------------------------
+ 
+ 
+ TIME STEP 141 -->    0.025 us
+ -------------------------
+ Particles diagnostics: 
+ npart [e]    = 2528530
+ npart [H+]   = 2629024
+ ===== MODULAR DIAGNOSTIC it =          141 =====
+ phi min/max/sum =    0.000000000000000E+00   1.521770489756549E+01   1.972966276031200E+06
+ ===========================================
+ -------------------------
+ Power diagnostics: 
+ Pwall (W)  =  -1.40E-02
+ Pabs  (W)  =   0.00E+00
+ Pcoll (W)  =  -8.45E-03
+ Pinj  (W)  =   0.00E+00
+ I_w  (A)  =  -1.35E-03  6.16E-04
+ Ek_w (eV) =   9.85E+00  1.07E+00
+ -------------------------
+ Timing diagnostics: 
+ E/rho      (ms) =     0.8
+ poisson    (ms) =     4.8
+ sorting    (ms) =     3.7
+ avg/write  (ms) =     9.4
+ MC         (ms) =     0.2
+ mover      (ms) =    50.1
+ bck        (ms) =     0.0
+ total      (ms) =    68.9
+ -------------------------
+ ----- poisson timing breakdown -----
+  scatter(ms)=    0.13  solve(ms)=    4.44  gather(ms)=    0.05
+  k_it_avg=    5.70  k_it_max=    6.00  res_avg=  4.88E-08
+ -------------------------------------
+ ----- mover / deposit timing breakdown -----
+  mover_push(ms)=   42.51  mover_bc(ms)=    0.00
+  dep_clear(ms)=    0.00  dep_loop(ms)=    7.63  dep_reduce(ms)=    0.62
+ ----- OMP load imbalance across iproc (min/avg/max, max/avg ratio) -----
+  mover_push(ms) min=   42.12 avg=   42.34 max=   42.51 max/avg= 1.004
+  dep_loop(ms)   min=    7.38 avg=    7.48 max=    7.63 max/avg= 1.020
+ ---------------------------------------------
+  
+   
+ Accepted collision reactions:
+ reaction    1 accepted =         1869
+ ----- mod_collisionsGwenael debug diagnostics -----
+ ----------------------------------------------------
+ 
+ 
+ TIME STEP 161 -->    0.028 us
+ -------------------------
+ Particles diagnostics: 
+ npart [e]    = 2526378
+ npart [H+]   = 2628293
+ ===== MODULAR DIAGNOSTIC it =          161 =====
+ phi min/max/sum =    0.000000000000000E+00   1.385376782038588E+01   1.809660956993926E+06
+ ===========================================
+ -------------------------
+ Power diagnostics: 
+ Pwall (W)  =  -1.20E-02
+ Pabs  (W)  =   0.00E+00
+ Pcoll (W)  =  -8.32E-03
+ Pinj  (W)  =   0.00E+00
+ I_w  (A)  =  -1.14E-03  7.39E-04
+ Ek_w (eV) =   9.52E+00  1.44E+00
+ -------------------------
+ Timing diagnostics: 
+ E/rho      (ms) =     0.8
+ poisson    (ms) =     4.7
+ sorting    (ms) =     3.7
+ avg/write  (ms) =     9.0
+ MC         (ms) =     0.2
+ mover      (ms) =    50.0
+ bck        (ms) =     0.0
+ total      (ms) =    68.2
+ -------------------------
+ ----- poisson timing breakdown -----
+  scatter(ms)=    0.11  solve(ms)=    4.38  gather(ms)=    0.05
+  k_it_avg=    5.65  k_it_max=    6.00  res_avg=  4.98E-08
+ -------------------------------------
+ ----- mover / deposit timing breakdown -----
+  mover_push(ms)=   42.42  mover_bc(ms)=    0.00
+  dep_clear(ms)=    0.00  dep_loop(ms)=    7.58  dep_reduce(ms)=    0.61
+ ----- OMP load imbalance across iproc (min/avg/max, max/avg ratio) -----
+  mover_push(ms) min=   42.13 avg=   42.31 max=   42.42 max/avg= 1.003
+  dep_loop(ms)   min=    7.38 avg=    7.47 max=    7.58 max/avg= 1.016
+ ---------------------------------------------
+  
+   
+ Accepted collision reactions:
+ reaction    1 accepted =         1835
+ ----- mod_collisionsGwenael debug diagnostics -----
+ ----------------------------------------------------
+ 
+ 
+ TIME STEP 181 -->    0.032 us
+ -------------------------
+ Particles diagnostics: 
+ npart [e]    = 2524565
+ npart [H+]   = 2627183
+ ===== MODULAR DIAGNOSTIC it =          181 =====
+ phi min/max/sum =    0.000000000000000E+00   1.628289194197523E+01   2.091535232152396E+06
+ ===========================================
+ -------------------------
+ Power diagnostics: 
+ Pwall (W)  =  -1.12E-02
+ Pabs  (W)  =   0.00E+00
+ Pcoll (W)  =  -8.17E-03
+ Pinj  (W)  =   0.00E+00
+ I_w  (A)  =  -1.04E-03  8.38E-04
+ Ek_w (eV) =   9.30E+00  1.84E+00
+ -------------------------
+ Timing diagnostics: 
+ E/rho      (ms) =     0.7
+ poisson    (ms) =     4.8
+ sorting    (ms) =     3.7
+ avg/write  (ms) =     7.0
+ MC         (ms) =     0.2
+ mover      (ms) =    49.9
+ bck        (ms) =     0.0
+ total      (ms) =    66.2
+ -------------------------
+ ----- poisson timing breakdown -----
+  scatter(ms)=    0.11  solve(ms)=    4.47  gather(ms)=    0.05
+  k_it_avg=    5.70  k_it_max=    6.00  res_avg=  4.91E-08
+ -------------------------------------
+ ----- mover / deposit timing breakdown -----
+  mover_push(ms)=   42.37  mover_bc(ms)=    0.00
+  dep_clear(ms)=    0.00  dep_loop(ms)=    7.55  dep_reduce(ms)=    0.60
+ ----- OMP load imbalance across iproc (min/avg/max, max/avg ratio) -----
+  mover_push(ms) min=   42.11 avg=   42.26 max=   42.37 max/avg= 1.003
+  dep_loop(ms)   min=    7.38 avg=    7.45 max=    7.55 max/avg= 1.013
+ ---------------------------------------------
+  
+   
+ Accepted collision reactions:
+ reaction    1 accepted =         1732
+ ----- mod_collisionsGwenael debug diagnostics -----
+ ----------------------------------------------------
+ 
+ 
+ TIME STEP 201 -->    0.036 us
+ -------------------------
+ Particles diagnostics: 
+ npart [e]    = 2523193
+ npart [H+]   = 2625600
+ ===== MODULAR DIAGNOSTIC it =          201 =====
+ phi min/max/sum =    0.000000000000000E+00   1.437501152320366E+01   1.885862146416424E+06
+ ===========================================
+ -------------------------
+ Power diagnostics: 
+ Pwall (W)  =  -9.61E-03
+ Pabs  (W)  =   0.00E+00
+ Pcoll (W)  =  -7.71E-03
+ Pinj  (W)  =   0.00E+00
+ I_w  (A)  =  -8.83E-04  9.43E-04
+ Ek_w (eV) =   8.42E+00  2.30E+00
+ -------------------------
+ Timing diagnostics: 
+ E/rho      (ms) =     0.8
+ poisson    (ms) =     4.9
+ sorting    (ms) =     3.7
+ avg/write  (ms) =     7.2
+ MC         (ms) =     0.2
+ mover      (ms) =    50.0
+ bck        (ms) =     0.0
+ total      (ms) =    66.7
+ -------------------------
+ ----- poisson timing breakdown -----
+  scatter(ms)=    0.13  solve(ms)=    4.50  gather(ms)=    0.05
+  k_it_avg=    5.75  k_it_max=    6.00  res_avg=  4.55E-08
+ -------------------------------------
+ ----- mover / deposit timing breakdown -----
+  mover_push(ms)=   42.42  mover_bc(ms)=    0.00
+  dep_clear(ms)=    0.00  dep_loop(ms)=    7.56  dep_reduce(ms)=    0.62
+ ----- OMP load imbalance across iproc (min/avg/max, max/avg ratio) -----
+  mover_push(ms) min=   42.18 avg=   42.29 max=   42.42 max/avg= 1.003
+  dep_loop(ms)   min=    7.38 avg=    7.46 max=    7.56 max/avg= 1.014
+ ---------------------------------------------
+  
+   
+ Accepted collision reactions:
+ reaction    1 accepted =         1749
+ ----- mod_collisionsGwenael debug diagnostics -----
+ ----------------------------------------------------
+ 
+ 
+ TIME STEP 221 -->    0.039 us
+ -------------------------
+ Particles diagnostics: 
+ npart [e]    = 2522348
+ npart [H+]   = 2623779
+ ===== MODULAR DIAGNOSTIC it =          221 =====
+ phi min/max/sum =    0.000000000000000E+00   1.648545338437982E+01   2.148162302879725E+06
+ ===========================================
+ -------------------------
+ Power diagnostics: 
+ Pwall (W)  =  -8.55E-03
+ Pabs  (W)  =   0.00E+00
+ Pcoll (W)  =  -7.78E-03
+ Pinj  (W)  =   0.00E+00
+ I_w  (A)  =  -7.38E-04  1.02E-03
+ Ek_w (eV) =   7.77E+00  2.78E+00
+ -------------------------
+ Timing diagnostics: 
+ E/rho      (ms) =     0.8
+ poisson    (ms) =     4.8
+ sorting    (ms) =     3.6
+ avg/write  (ms) =     8.4
+ MC         (ms) =     0.2
+ mover      (ms) =    49.8
+ bck        (ms) =     0.0
+ total      (ms) =    67.5
+ -------------------------
+ ----- poisson timing breakdown -----
+  scatter(ms)=    0.11  solve(ms)=    4.47  gather(ms)=    0.05
+  k_it_avg=    5.70  k_it_max=    6.00  res_avg=  4.88E-08
+ -------------------------------------
+ ----- mover / deposit timing breakdown -----
+  mover_push(ms)=   42.25  mover_bc(ms)=    0.00
+  dep_clear(ms)=    0.00  dep_loop(ms)=    7.57  dep_reduce(ms)=    0.61
+ ----- OMP load imbalance across iproc (min/avg/max, max/avg ratio) -----
+  mover_push(ms) min=   42.01 avg=   42.17 max=   42.25 max/avg= 1.002
+  dep_loop(ms)   min=    7.35 avg=    7.44 max=    7.57 max/avg= 1.018
+ ---------------------------------------------
+  
+   
+ Accepted collision reactions:
+ reaction    1 accepted =         1621
+ ----- mod_collisionsGwenael debug diagnostics -----
+ ----------------------------------------------------
+ 
+ 
+ TIME STEP 241 -->    0.043 us
+ -------------------------
+ Particles diagnostics: 
+ npart [e]    = 2522257
+ npart [H+]   = 2621582
+ ===== MODULAR DIAGNOSTIC it =          241 =====
+ phi min/max/sum =    0.000000000000000E+00   1.447486472176310E+01   1.892852418273859E+06
+ ===========================================
+ -------------------------
+ Power diagnostics: 
+ Pwall (W)  =  -6.83E-03
+ Pabs  (W)  =   0.00E+00
+ Pcoll (W)  =  -7.21E-03
+ Pinj  (W)  =   0.00E+00
+ I_w  (A)  =  -4.87E-04  1.09E-03
+ Ek_w (eV) =   6.66E+00  3.30E+00
+ -------------------------
+ Timing diagnostics: 
+ E/rho      (ms) =     0.8
+ poisson    (ms) =     4.8
+ sorting    (ms) =     3.7
+ avg/write  (ms) =     7.0
+ MC         (ms) =     0.2
+ mover      (ms) =    49.8
+ bck        (ms) =     0.0
+ total      (ms) =    66.0
+ -------------------------
+ ----- poisson timing breakdown -----
+  scatter(ms)=    0.11  solve(ms)=    4.40  gather(ms)=    0.05
+  k_it_avg=    5.65  k_it_max=    6.00  res_avg=  5.14E-08
+ -------------------------------------
+ ----- mover / deposit timing breakdown -----
+  mover_push(ms)=   42.22  mover_bc(ms)=    0.00
+  dep_clear(ms)=    0.00  dep_loop(ms)=    7.55  dep_reduce(ms)=    0.60
+ ----- OMP load imbalance across iproc (min/avg/max, max/avg ratio) -----
+  mover_push(ms) min=   42.00 avg=   42.14 max=   42.22 max/avg= 1.002
+  dep_loop(ms)   min=    7.33 avg=    7.43 max=    7.55 max/avg= 1.017
+ ---------------------------------------------
+  
+   
+ Accepted collision reactions:
+ reaction    1 accepted =         1665
+ ----- mod_collisionsGwenael debug diagnostics -----
+ ----------------------------------------------------
+ 
+ 
+ TIME STEP 261 -->    0.046 us
+ -------------------------
+ Particles diagnostics: 
+ npart [e]    = 2523113
+ npart [H+]   = 2619342
+ ===== MODULAR DIAGNOSTIC it =          261 =====
+ phi min/max/sum =    0.000000000000000E+00   1.612951060214105E+01   2.105039677075138E+06
+ ===========================================
+ -------------------------
+ Power diagnostics: 
+ Pwall (W)  =  -5.51E-03
+ Pabs  (W)  =   0.00E+00
+ Pcoll (W)  =  -7.41E-03
+ Pinj  (W)  =   0.00E+00
+ I_w  (A)  =  -2.30E-04  1.11E-03
+ Ek_w (eV) =   5.65E+00  3.79E+00
+ -------------------------
+ Timing diagnostics: 
+ E/rho      (ms) =     0.8
+ poisson    (ms) =     4.8
+ sorting    (ms) =     3.6
+ avg/write  (ms) =     9.3
+ MC         (ms) =     0.2
+ mover      (ms) =    49.8
+ bck        (ms) =     0.0
+ total      (ms) =    68.3
+ -------------------------
+ ----- poisson timing breakdown -----
+  scatter(ms)=    0.11  solve(ms)=    4.43  gather(ms)=    0.05
+  k_it_avg=    5.70  k_it_max=    6.00  res_avg=  4.61E-08
+ -------------------------------------
+ ----- mover / deposit timing breakdown -----
+  mover_push(ms)=   42.23  mover_bc(ms)=    0.00
+  dep_clear(ms)=    0.00  dep_loop(ms)=    7.60  dep_reduce(ms)=    0.60
+ ----- OMP load imbalance across iproc (min/avg/max, max/avg ratio) -----
+  mover_push(ms) min=   41.93 avg=   42.12 max=   42.23 max/avg= 1.003
+  dep_loop(ms)   min=    7.35 avg=    7.45 max=    7.60 max/avg= 1.021
+ ---------------------------------------------
+  
+   
+ Accepted collision reactions:
+ reaction    1 accepted =         1629
+ ----- mod_collisionsGwenael debug diagnostics -----
+ ----------------------------------------------------
+ 
+ 
+ TIME STEP 281 -->    0.050 us
+ -------------------------
+ Particles diagnostics: 
+ npart [e]    = 2524493
+ npart [H+]   = 2616982
+ ===== MODULAR DIAGNOSTIC it =          281 =====
+ phi min/max/sum =    0.000000000000000E+00   1.365677297488620E+01   1.800574828248785E+06
+ ===========================================
+ -------------------------
+ Power diagnostics: 
+ Pwall (W)  =  -5.22E-03
+ Pabs  (W)  =   0.00E+00
+ Pcoll (W)  =  -7.25E-03
+ Pinj  (W)  =   0.00E+00
+ I_w  (A)  =  -7.08E-05  1.13E-03
+ Ek_w (eV) =   5.30E+00  4.27E+00
+ -------------------------
+ Timing diagnostics: 
+ E/rho      (ms) =     0.8
+ poisson    (ms) =     4.8
+ sorting    (ms) =     3.7
+ avg/write  (ms) =     7.4
+ MC         (ms) =     0.2
+ mover      (ms) =    49.9
+ bck        (ms) =     0.0
+ total      (ms) =    66.5
+ -------------------------
+ ----- poisson timing breakdown -----
+  scatter(ms)=    0.11  solve(ms)=    4.47  gather(ms)=    0.05
+  k_it_avg=    5.70  k_it_max=    6.00  res_avg=  5.14E-08
+ -------------------------------------
+ ----- mover / deposit timing breakdown -----
+  mover_push(ms)=   42.23  mover_bc(ms)=    0.00
+  dep_clear(ms)=    0.00  dep_loop(ms)=    7.64  dep_reduce(ms)=    0.60
+ ----- OMP load imbalance across iproc (min/avg/max, max/avg ratio) -----
+  mover_push(ms) min=   41.84 avg=   42.09 max=   42.23 max/avg= 1.003
+  dep_loop(ms)   min=    7.32 avg=    7.46 max=    7.64 max/avg= 1.024
+ ---------------------------------------------
+  
+   

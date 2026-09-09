@@ -27,6 +27,7 @@ module mod_simParams
     integer(int32) :: nb_step_coulomb        = 1
     integer(int32) :: nb_step_heating        = 4
     integer(int32) :: nb_step_averaging      = 0
+    integer(int32) :: ns_RF                  = 0 ! time steps per RF antenna period, flag_RFant==1 only
     integer(int32) :: nb_step_Neg_PE         = 1
     integer(int32) :: nb_step_Part_Injection = 1
 
@@ -152,6 +153,10 @@ contains
     end if
 
     self%nudt = cfg%nu_h * ( real(self%nb_step_heating, real64) * self%dt )
+
+    if (cfg%flag_RFant == 1) then
+      self%ns_RF = nint(1.0_real64 / cfg%f0_RF / self%dt, int32)
+    end if
 
     self%nu_uplim(:) = huge(1.0_real64)
 

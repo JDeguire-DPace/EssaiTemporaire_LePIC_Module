@@ -1,0 +1,14 @@
+=== LEGACY (branches) ===
+
+ Performance counter stats for './3dphpic.exe':
+
+   450,173,428,356      cycles:u                                                              
+    87,539,390,403      branches:u                                                            
+        37,662,739      branch-misses:u                  #    0.04% of all branches           
+
+      27.387733659 seconds time elapsed
+
+      99.620362000 seconds user
+       1.015491000 seconds sys
+
+

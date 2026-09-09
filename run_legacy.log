@@ -1,0 +1,318 @@
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ +                                                                          +
+ +   3D explicit parallel particle in cell code                             +
+ +                                                                          +
+ + LePIC 3D algorithm version: 3.3.6.2                                      +
+ + Last modifications: Sep/2024                                             +
+ +                                                                          +
+ + Copyright or © or Copr. Gwenael Fubiani (2022/11/22)                     +
+ +                                                                          +
+ + gwenael.fubiani@cnrs.fr                                                  +
+ +                                                                          +
+ + This software is a computer program whose purpose is to model low        +
+ + temperature plasmas with a Particle-In-Cell algorihm in 3D-3V            +
+ + dimensions.                                                              +
+ +                                                                          +
+ + This software is governed by the CeCILL-C license under French law and   +
+ + abiding by the rules of distribution of free software.  You can  use,    +
+ + modify and/ or redistribute the software under the terms of the CeCILL-C +
+ + license as circulated by CEA, CNRS and INRIA at the following URL        +
+ + "http://www.cecill.info".                                                +
+ +                                                                          +
+ + As a counterpart to the access to the source code and  rights to copy,   +
+ + modify and redistribute granted by the license, users are provided only  +
+ + with a limited warranty and the software's author, the holder of the     +
+ + economic rights,  and the successive licensors  have only  limited       +
+ + liability.                                                               +
+ +                                                                          +
+ + In this respect, the user's attention is drawn to the risks associated   +
+ + with loading,  using,  modifying and/or developing or reproducing the    +
+ + software by the user in light of its specific status of free software,   +
+ + that may mean  that it is complicated to manipulate,  and  that  also    +
+ + therefore means  that it is reserved for developers  and  experienced    +
+ + professionals having in-depth computer knowledge. Users are therefore    +
+ + encouraged to load and test the software's suitability as regards their  +
+ + requirements in conditions enabling the security of their systems and/or +
+ + data to be ensured and,  more generally, to use and operate it in the    +
+ + same conditions as regards security.                                     +
+ +                                                                          +
+ + The fact that you are presently reading this means that you have had     +
+ + knowledge of the CeCILL-C license and that you accept its terms.         +
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+                                                   
+ Number of OpenMP threads=   4
+ Number of MPI threads=   1
+ Input file was read correctly ...
+ Gas chemistry read correctly (end of file reached)
+ Total number of reactions:           1
+ Type of wall surfaces (1=metal, 2 & 3= dielectric):  1  1
+ Bmax @ location:           0           0           0
+ Frequency of calls to collision subroutine=  10
+ Frequency of calls to electron (Maxwellian) heating subroutine=   4
+ Frequency of calls to sort subroutine=  10
+ Frequency for averaging=    50
+ Heating region: ix<=  1, ix>=  129
+ Injection region: ix<=  1, ix>=  129, iy<=  1, iy>=   33, iz<=  1, iz>=   33
+ Particle loading region: nx<= 129
+ Loading particles ...
+ Particles: [e]   [H+] 
+ np=   2621440   2621440
+ lde (mm)=   1.05131821372299     
+ lpe (mm)=   2111.73315028130     
+ vt (m/s)=   1326205.18037975        4392.84268275340     
+ <|v|> (m/s)=   1496462.29683466     
+ dx (mm)=  0.781250000000000      dy (mm)=  0.781250000000000      dz (mm)=
+  0.781250000000000     
+ dx/lde=  0.743114681931926      dy/lde=  0.743114681931926      dz/lde=
+  0.743114681931926     
+ Nm=   5960.46447753906     
+ dt (s)=  1.767260477242953E-010 , wpe*dt=  0.157638429238005     
+ vte*dt/dx=  0.300000000000000     
+ Figures in the YZ plane are drawn at the location ix=   65
+ Figures in the XY plane are drawn at the location iz=   17
+ Multigrid PDE Solver is used, eps=   1.00E-07
+ ng= 5, omega=   1.4
+ nx= 128, ny=  32, nz=  32, # of cells:   131072
+ Save 3D density, potential and E-field maps option on
+ *** Startup time (s):   0.5 ***
+  
+ Running simulation ...
+  
+ ===== LEGACY DIAGNOSTIC it =            1  =====
+ phi min/max/sum =   0.000000000000000E+000  0.000000000000000E+000
+  0.000000000000000E+000
+ ===========================================
+  
+ 
+ Accepted collision reactions:
+ 
+ ----- LEGACY collisions.f90 debug diagnostics -----
+ ----------------------------------------------------
+ Pwall (W)=  -1.88E-01, Pabs (W)=   0.00E+00, Pcoll (W)=   0.00E+00, Pinj (W)=   0.00E+00, I_w (A)=  -1.89E-02    7.02E-05  , Ek_w (eV)=   9.98E+00    2.30E-01
+ it=        1, t (us)=    0.0, np=    2617951     2621427
+ LEGACY poisson niter=     2, res=   2.75E-19
+ Saving 3D potentiel and density maps ...
+ LEG_NPMX ttype= 1 np_mx=  3.8760E+14
+ LEG_NPMX ttype= 2 np_mx=  4.0443E+14
+ 
+ Accepted collision reactions:
+ reaction    1 accepted =         2241
+ 
+ ----- LEGACY collisions.f90 debug diagnostics -----
+ ----------------------------------------------------
+ Pwall (W)=  -1.31E-01, Pabs (W)=   0.00E+00, Pcoll (W)=  -9.48E-03, Pinj (W)=   0.00E+00, I_w (A)=  -1.34E-02    6.86E-05  , Ek_w (eV)=   9.77E+00    1.95E-01
+ it=       21, t (us)=    0.0, np=    2570658     2623414
+ LEGACY poisson niter=    20, res=   7.85E-08
+ <t> (ms): E/rho=    0.6, poisson=   19.1, sorting=    3.6, avg/write=   23.2, MC=    0.2, mover=    32.2, bck=    0.0, total=    79.0
+ ----- LEGACY OMP load imbalance across iproc (min/avg/max, max/avg ratio) -----
+  push(ms) min=   24.30 avg=   24.53 max=   24.71 max/avg= 1.008
+  dep (ms) min=    7.27 avg=    7.32 max=    7.36 max/avg= 1.005
+ Saving 3D potentiel and density maps ...
+ LEG_NPMX ttype= 1 np_mx=  3.8456E+14
+ LEG_NPMX ttype= 2 np_mx=  4.0195E+14
+ 
+ Accepted collision reactions:
+ reaction    1 accepted =         2178
+ 
+ ----- LEGACY collisions.f90 debug diagnostics -----
+ ----------------------------------------------------
+ Pwall (W)=  -4.19E-02, Pabs (W)=   0.00E+00, Pcoll (W)=  -9.21E-03, Pinj (W)=   0.00E+00, I_w (A)=  -4.38E-03    9.75E-05  , Ek_w (eV)=   9.56E+00    2.49E-01
+ it=       41, t (us)=    0.0, np=    2556625     2625231
+ LEGACY poisson niter=    18, res=   7.73E-08
+ <t> (ms): E/rho=    0.7, poisson=   17.2, sorting=    3.6, avg/write=   13.9, MC=    0.2, mover=    31.6, bck=    0.0, total=    67.2
+ ----- LEGACY OMP load imbalance across iproc (min/avg/max, max/avg ratio) -----
+  push(ms) min=   24.14 avg=   24.20 max=   24.26 max/avg= 1.003
+  dep (ms) min=    7.28 avg=    7.30 max=    7.31 max/avg= 1.002
+ Saving 3D potentiel and density maps ...
+ LEG_NPMX ttype= 1 np_mx=  3.9157E+14
+ LEG_NPMX ttype= 2 np_mx=  3.9903E+14
+ 
+ Accepted collision reactions:
+ reaction    1 accepted =         2069
+ 
+ ----- LEGACY collisions.f90 debug diagnostics -----
+ ----------------------------------------------------
+ Pwall (W)=  -3.58E-02, Pabs (W)=   0.00E+00, Pcoll (W)=  -8.75E-03, Pinj (W)=   0.00E+00, I_w (A)=  -3.57E-03    1.63E-04  , Ek_w (eV)=   1.00E+01    3.01E-01
+ it=       61, t (us)=    0.0, np=    2545484     2626696
+ LEGACY poisson niter=    19, res=   9.69E-08
+ <t> (ms): E/rho=    0.4, poisson=   17.8, sorting=    3.5, avg/write=   13.2, MC=    0.2, mover=    31.7, bck=    0.0, total=    66.8
+ ----- LEGACY OMP load imbalance across iproc (min/avg/max, max/avg ratio) -----
+  push(ms) min=   24.06 avg=   24.15 max=   24.28 max/avg= 1.005
+  dep (ms) min=    7.26 avg=    7.28 max=    7.30 max/avg= 1.002
+ Saving 3D potentiel and density maps ...
+ LEG_NPMX ttype= 1 np_mx=  3.8856E+14
+ LEG_NPMX ttype= 2 np_mx=  3.9600E+14
+ 
+ Accepted collision reactions:
+ reaction    1 accepted =         2086
+ 
+ ----- LEGACY collisions.f90 debug diagnostics -----
+ ----------------------------------------------------
+ Pwall (W)=  -2.13E-02, Pabs (W)=   0.00E+00, Pcoll (W)=  -8.82E-03, Pinj (W)=   0.00E+00, I_w (A)=  -2.22E-03    2.51E-04  , Ek_w (eV)=   9.56E+00    4.22E-01
+ it=       81, t (us)=    0.0, np=    2539352     2627852
+ LEGACY poisson niter=    18, res=   9.63E-08
+ <t> (ms): E/rho=    0.8, poisson=   17.0, sorting=    3.5, avg/write=   12.7, MC=    0.2, mover=    31.3, bck=    0.0, total=    65.5
+ ----- LEGACY OMP load imbalance across iproc (min/avg/max, max/avg ratio) -----
+  push(ms) min=   24.02 avg=   24.05 max=   24.10 max/avg= 1.002
+  dep (ms) min=    7.23 avg=    7.27 max=    7.28 max/avg= 1.002
+ Saving 3D potentiel and density maps ...
+ LEG_NPMX ttype= 1 np_mx=  3.8020E+14
+ LEG_NPMX ttype= 2 np_mx=  3.9279E+14
+ 
+ Accepted collision reactions:
+ reaction    1 accepted =         2093
+ 
+ ----- LEGACY collisions.f90 debug diagnostics -----
+ ----------------------------------------------------
+ Pwall (W)=  -1.95E-02, Pabs (W)=   0.00E+00, Pcoll (W)=  -8.85E-03, Pinj (W)=   0.00E+00, I_w (A)=  -1.92E-03    3.57E-04  , Ek_w (eV)=   1.00E+01    5.92E-01
+ it=      101, t (us)=    0.0, np=    2534326     2628623
+ LEGACY poisson niter=    19, res=   9.84E-08
+ <t> (ms): E/rho=    0.6, poisson=   17.3, sorting=    3.5, avg/write=   12.3, MC=    0.2, mover=    31.5, bck=    0.0, total=    65.3
+ ----- LEGACY OMP load imbalance across iproc (min/avg/max, max/avg ratio) -----
+  push(ms) min=   24.00 avg=   24.04 max=   24.09 max/avg= 1.002
+  dep (ms) min=    7.23 avg=    7.27 max=    7.29 max/avg= 1.004
+ Saving 3D potentiel and density maps ...
+ LEG_NPMX ttype= 1 np_mx=  4.1026E+14
+ LEG_NPMX ttype= 2 np_mx=  3.8951E+14
+ 
+ Accepted collision reactions:
+ reaction    1 accepted =         1908
+ 
+ ----- LEGACY collisions.f90 debug diagnostics -----
+ ----------------------------------------------------
+ Pwall (W)=  -1.45E-02, Pabs (W)=   0.00E+00, Pcoll (W)=  -8.07E-03, Pinj (W)=   0.00E+00, I_w (A)=  -1.45E-03    4.77E-04  , Ek_w (eV)=   9.72E+00    8.09E-01
+ it=      121, t (us)=    0.0, np=    2530859     2628764
+ LEGACY poisson niter=    19, res=   7.29E-08
+ <t> (ms): E/rho=    0.6, poisson=   17.0, sorting=    3.6, avg/write=   11.8, MC=    0.2, mover=    31.6, bck=    0.0, total=    64.7
+ ----- LEGACY OMP load imbalance across iproc (min/avg/max, max/avg ratio) -----
+  push(ms) min=   24.05 avg=   24.10 max=   24.16 max/avg= 1.003
+  dep (ms) min=    7.20 avg=    7.25 max=    7.28 max/avg= 1.004
+ Saving 3D potentiel and density maps ...
+ LEG_NPMX ttype= 1 np_mx=  3.9047E+14
+ LEG_NPMX ttype= 2 np_mx=  3.8594E+14
+ 
+ Accepted collision reactions:
+ reaction    1 accepted =         1819
+ 
+ ----- LEGACY collisions.f90 debug diagnostics -----
+ ----------------------------------------------------
+ Pwall (W)=  -1.38E-02, Pabs (W)=   0.00E+00, Pcoll (W)=  -7.69E-03, Pinj (W)=   0.00E+00, I_w (A)=  -1.30E-03    6.04E-04  , Ek_w (eV)=   1.01E+01    1.11E+00
+ it=      141, t (us)=    0.0, np=    2527862     2628346
+ LEGACY poisson niter=    19, res=   8.89E-08
+ <t> (ms): E/rho=    0.5, poisson=   17.1, sorting=    3.5, avg/write=   11.4, MC=    0.2, mover=    31.5, bck=    0.0, total=    64.2
+ ----- LEGACY OMP load imbalance across iproc (min/avg/max, max/avg ratio) -----
+  push(ms) min=   23.98 avg=   24.04 max=   24.07 max/avg= 1.001
+  dep (ms) min=    7.19 avg=    7.26 max=    7.29 max/avg= 1.005
+ Saving 3D potentiel and density maps ...
+ LEG_NPMX ttype= 1 np_mx=  3.9410E+14
+ LEG_NPMX ttype= 2 np_mx=  3.8218E+14
+ 
+ Accepted collision reactions:
+ reaction    1 accepted =         1768
+ 
+ ----- LEGACY collisions.f90 debug diagnostics -----
+ ----------------------------------------------------
+ Pwall (W)=  -1.17E-02, Pabs (W)=   0.00E+00, Pcoll (W)=  -7.48E-03, Pinj (W)=   0.00E+00, I_w (A)=  -1.09E-03    6.81E-04  , Ek_w (eV)=   9.85E+00    1.44E+00
+ it=      161, t (us)=    0.0, np=    2525609     2627592
+ LEGACY poisson niter=    18, res=   9.68E-08
+ <t> (ms): E/rho=    0.7, poisson=   16.6, sorting=    3.5, avg/write=   16.8, MC=    0.2, mover=    31.4, bck=    0.0, total=    69.2
+ ----- LEGACY OMP load imbalance across iproc (min/avg/max, max/avg ratio) -----
+  push(ms) min=   23.95 avg=   23.99 max=   24.04 max/avg= 1.002
+  dep (ms) min=    7.21 avg=    7.24 max=    7.26 max/avg= 1.003
+ Saving 3D potentiel and density maps ...
+ LEG_NPMX ttype= 1 np_mx=  3.8772E+14
+ LEG_NPMX ttype= 2 np_mx=  3.7870E+14
+ 
+ Accepted collision reactions:
+ reaction    1 accepted =         1709
+ 
+ ----- LEGACY collisions.f90 debug diagnostics -----
+ ----------------------------------------------------
+ Pwall (W)=  -1.07E-02, Pabs (W)=   0.00E+00, Pcoll (W)=  -7.23E-03, Pinj (W)=   0.00E+00, I_w (A)=  -9.79E-04    7.92E-04  , Ek_w (eV)=   9.40E+00    1.85E+00
+ it=      181, t (us)=    0.0, np=    2523696     2626368
+ LEGACY poisson niter=    19, res=   8.22E-08
+ <t> (ms): E/rho=    0.8, poisson=   17.1, sorting=    3.5, avg/write=   19.9, MC=    0.2, mover=    31.2, bck=    0.0, total=    72.6
+ ----- LEGACY OMP load imbalance across iproc (min/avg/max, max/avg ratio) -----
+  push(ms) min=   23.89 avg=   23.95 max=   24.02 max/avg= 1.003
+  dep (ms) min=    7.20 avg=    7.24 max=    7.26 max/avg= 1.003
+ Saving 3D potentiel and density maps ...
+ LEG_NPMX ttype= 1 np_mx=  3.9794E+14
+ LEG_NPMX ttype= 2 np_mx=  3.7700E+14
+ 
+ Accepted collision reactions:
+ reaction    1 accepted =         1752
+ 
+ ----- LEGACY collisions.f90 debug diagnostics -----
+ ----------------------------------------------------
+ Pwall (W)=  -9.06E-03, Pabs (W)=   0.00E+00, Pcoll (W)=  -7.41E-03, Pinj (W)=   0.00E+00, I_w (A)=  -8.20E-04    8.74E-04  , Ek_w (eV)=   8.60E+00    2.29E+00
+ it=      201, t (us)=    0.0, np=    2522413     2624884
+ LEGACY poisson niter=    18, res=   9.66E-08
+ <t> (ms): E/rho=    0.9, poisson=   16.6, sorting=    3.6, avg/write=   19.7, MC=    0.2, mover=    31.0, bck=    0.0, total=    72.0
+ ----- LEGACY OMP load imbalance across iproc (min/avg/max, max/avg ratio) -----
+  push(ms) min=   23.88 avg=   23.94 max=   24.01 max/avg= 1.003
+  dep (ms) min=    7.21 avg=    7.23 max=    7.25 max/avg= 1.003
+ Saving 3D potentiel and density maps ...
+ LEG_NPMX ttype= 1 np_mx=  3.9006E+14
+ LEG_NPMX ttype= 2 np_mx=  3.7912E+14
+ 
+ Accepted collision reactions:
+ reaction    1 accepted =         1694
+ 
+ ----- LEGACY collisions.f90 debug diagnostics -----
+ ----------------------------------------------------
+ Pwall (W)=  -8.03E-03, Pabs (W)=   0.00E+00, Pcoll (W)=  -7.16E-03, Pinj (W)=   0.00E+00, I_w (A)=  -6.95E-04    9.53E-04  , Ek_w (eV)=   7.69E+00    2.82E+00
+ it=      221, t (us)=    0.0, np=    2521535     2623049
+ LEGACY poisson niter=    19, res=   7.65E-08
+ <t> (ms): E/rho=    0.7, poisson=   17.0, sorting=    3.5, avg/write=   14.0, MC=    0.2, mover=    31.2, bck=    0.0, total=    66.6
+ ----- LEGACY OMP load imbalance across iproc (min/avg/max, max/avg ratio) -----
+  push(ms) min=   23.92 avg=   23.95 max=   24.00 max/avg= 1.002
+  dep (ms) min=    7.19 avg=    7.22 max=    7.24 max/avg= 1.003
+ Saving 3D potentiel and density maps ...
+ LEG_NPMX ttype= 1 np_mx=  3.9122E+14
+ LEG_NPMX ttype= 2 np_mx=  3.8137E+14
+ 
+ Accepted collision reactions:
+ reaction    1 accepted =         1678
+ 
+ ----- LEGACY collisions.f90 debug diagnostics -----
+ ----------------------------------------------------
+ Pwall (W)=  -6.59E-03, Pabs (W)=   0.00E+00, Pcoll (W)=  -7.10E-03, Pinj (W)=   0.00E+00, I_w (A)=  -4.79E-04    1.03E-03  , Ek_w (eV)=   6.62E+00    3.31E+00
+ it=      241, t (us)=    0.0, np=    2521441     2620904
+ LEGACY poisson niter=    19, res=   7.23E-08
+ <t> (ms): E/rho=    0.5, poisson=   16.6, sorting=    3.5, avg/write=   14.2, MC=    0.2, mover=    31.4, bck=    0.0, total=    66.3
+ ----- LEGACY OMP load imbalance across iproc (min/avg/max, max/avg ratio) -----
+  push(ms) min=   23.88 avg=   23.90 max=   23.94 max/avg= 1.002
+  dep (ms) min=    7.21 avg=    7.22 max=    7.23 max/avg= 1.002
+ Saving 3D potentiel and density maps ...
+ LEG_NPMX ttype= 1 np_mx=  3.8295E+14
+ LEG_NPMX ttype= 2 np_mx=  3.8333E+14
+ 
+ Accepted collision reactions:
+ reaction    1 accepted =         1655
+ 
+ ----- LEGACY collisions.f90 debug diagnostics -----
+ ----------------------------------------------------
+ Pwall (W)=  -5.26E-03, Pabs (W)=   0.00E+00, Pcoll (W)=  -7.00E-03, Pinj (W)=   0.00E+00, I_w (A)=  -2.13E-04    1.07E-03  , Ek_w (eV)=   5.58E+00    3.81E+00
+ it=      261, t (us)=    0.0, np=    2522309     2618605
+ LEGACY poisson niter=    19, res=   7.71E-08
+ <t> (ms): E/rho=    0.8, poisson=   17.0, sorting=    3.5, avg/write=   12.9, MC=    0.2, mover=    31.2, bck=    0.0, total=    65.6
+ ----- LEGACY OMP load imbalance across iproc (min/avg/max, max/avg ratio) -----
+  push(ms) min=   23.91 avg=   23.94 max=   23.96 max/avg= 1.001
+  dep (ms) min=    7.18 avg=    7.23 max=    7.25 max/avg= 1.002
+ Saving 3D potentiel and density maps ...
+ LEG_NPMX ttype= 1 np_mx=  3.8940E+14
+ LEG_NPMX ttype= 2 np_mx=  3.8498E+14
+ 
+ Accepted collision reactions:
+ reaction    1 accepted =         1633
+ 
+ ----- LEGACY collisions.f90 debug diagnostics -----
+ ----------------------------------------------------
+ Pwall (W)=  -4.86E-03, Pabs (W)=   0.00E+00, Pcoll (W)=  -6.90E-03, Pinj (W)=   0.00E+00, I_w (A)=  -4.62E-05    1.08E-03  , Ek_w (eV)=   5.01E+00    4.30E+00
+ it=      281, t (us)=    0.0, np=    2523771     2616248
+ LEGACY poisson niter=    19, res=   7.93E-08
+ <t> (ms): E/rho=    0.8, poisson=   16.8, sorting=    3.5, avg/write=   12.2, MC=    0.2, mover=    31.1, bck=    0.0, total=    64.6
+ ----- LEGACY OMP load imbalance across iproc (min/avg/max, max/avg ratio) -----
+  push(ms) min=   23.89 avg=   23.93 max=   23.97 max/avg= 1.001
+  dep (ms) min=    7.17 avg=    7.23 max=    7.25 max/avg= 1.004
+ Saving 3D potentiel and density maps ...

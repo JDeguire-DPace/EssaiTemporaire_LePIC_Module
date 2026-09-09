@@ -6,7 +6,7 @@ module mod_state
   use mod_config,         only: Config
   use mod_readConditions, only: read_input
 
-  use mod_constants,      only: eps0, qe
+  use mod_constants,      only: eps0, qe, c, pi
   use mod_domain,         only: Domain
   use mod_boundary,       only: build_boundary
 
@@ -23,7 +23,8 @@ module mod_state
   use mod_particle_loader,  only: load_particles_modular
   use mod_restart,          only: restart_particles_modular
   use mod_particle_sorting, only: sort_particles_by_cell, check_particles_are_sorted, check_cell_indexing
-  use mod_particleMover,    only: move_and_bc_electrostatic, move_and_bc_boris
+  use mod_particleMover,    only: move_and_bc_electrostatic, move_and_bc_electrostatic_fast, &
+                                   move_and_bc_boris
   use mod_particleBC,       only: apply_particle_bc, SeeParams
   use mod_chargeDeposition, only: deposit_particle_set_to_np_thread
   use mod_magneticField,    only: MagneticField
@@ -75,6 +76,14 @@ module mod_state
     real(real64), allocatable :: P_loss(:,:,:)
     real(real64), allocatable :: p_mac(:,:,:,:)
 
+    ! RF antenna (inductive) heating - flag_RFant==1 only. gams: dynamic
+    ! skin depth (m), refined every ns_RF steps by update_rf_convergence
+    ! from the actual local electron density. P_RF(ptype,iproc): power
+    ! absorbed via the RF field, accumulated every step by the mover and
+    ! folded into P_loss(2,:,:)/reset every ns_RF steps.
+    real(real64) :: gams = 0.0_real64
+    real(real64), allocatable :: P_RF(:,:)
+
     ! Injection source diagnostic arrays — same shape as legacy:
     !   sour_xy/xz/yz: volume injection (part_injection)
     !   sour_fx_yz:    flux injection off extraction electrode (part_flux_injection)
@@ -111,6 +120,7 @@ module mod_state
     procedure :: apply_electron_heating_local
     procedure :: compute_heating_region_moments
     procedure :: update_heating_vt
+    procedure :: update_rf_convergence
     procedure :: compute_plane_moments_local
     procedure :: apply_dielectric_bc_to_phi
     procedure :: accumulate_2d_averages
@@ -155,6 +165,33 @@ contains
     call self%params%init_seeds(self%nproc, self%mpi_rank)
     call self%params%print_summary(self%mpi_rank, self%cfg%nsav)
 
+    ! RF antenna heating: R_ahp (antenna radius) must be set here whenever
+    ! flag_RFant==1, independent of flag_circxh - apply_electron_heating_local's
+    ! lazy R_ahp assignment never runs under RF-antenna mode since that
+    ! forces flag_heat=0 (mod_readConditions.f90). Mirrors legacy
+    ! Src/main.f90:312.
+    if (self%cfg%flag_circxh == 1 .or. self%cfg%flag_RFant == 1) then
+      self%cfg%R_ahp = self%cfg%yr_pow - self%dom%ymax / 2.0_real64
+    end if
+
+    if (self%cfg%flag_RFant == 1) then
+      ! Initial nominal skin depth from the startup wp - mirrors legacy
+      ! Src/main.f90:661-667. Refined every ns_RF steps by
+      ! update_rf_convergence (called from mod_simulation.f90's
+      ! advance_one_step).
+      self%gams = c / self%params%wp / sqrt(self%cfg%k_eps0)
+
+      if (self%mpi_rank == 0) then
+        write(*,'(1x,a,i0,a,f6.2)') &
+          '# of time steps per RF period=', self%params%ns_RF, &
+          ', RF skin depth gam(cm)=', self%gams*1.0e2_real64
+      end if
+
+      ! Round nsav to a multiple of the RF period - legacy Src/main.f90:666.
+      self%cfg%nsav = self%params%ns_RF * max(1_int32, &
+           nint(real(self%cfg%nsav, real64) / real(self%params%ns_RF, real64), int32))
+    end if
+
     allocate(self%np_thread(0:self%dom%n(1)+2, &
                             0:self%dom%n(2)+2, &
                             0:self%dom%n(3)+2, &
@@ -176,6 +213,9 @@ contains
 
     allocate(self%P_loss(4, self%ntype, self%nproc))
     self%P_loss = 0.0_real64
+
+    allocate(self%P_RF(self%ntype, self%nproc))
+    self%P_RF = 0.0_real64
 
     allocate(self%p_mac(self%ntype, 2, 0:self%cfg%ngrid, self%nproc))
     self%p_mac = 0.0_real64
@@ -293,6 +333,7 @@ contains
     class(State), intent(inout) :: self
     integer(int32) :: ntype_trk
     integer(int32) :: ptype, iproc
+    real(real64)   :: E0_RF_restart
 
     ntype_trk = self%ntype
 
@@ -320,7 +361,14 @@ contains
             iseed     = self%params%iseed, &
             part      = self%part, &
             np_thread = self%np_thread, &
-            time_out  = self%time )
+            time_out  = self%time, &
+            E0_RF_out = E0_RF_restart )
+      ! Applied after the call returns, not passed as an alias of
+      ! self%cfg%E0_RF directly - cfg (intent in, whole struct) and
+      ! E0_RF_out (intent out) would otherwise be overlapping actual
+      ! arguments, which is non-conforming per the Fortran standard's
+      ! argument-association rules.
+      self%cfg%E0_RF = E0_RF_restart
     else
       call load_particles_modular( &
             cfg       = self%cfg, &
@@ -496,7 +544,7 @@ contains
   end subroutine apply_dielectric_bc_to_phi
 
 
-  subroutine advance_particles_local(self, t_move_out, t_bc_out, t_deposit_out, &
+  subroutine advance_particles_local(self, istep, t_move_out, t_bc_out, t_deposit_out, &
                                       t_move_min_out, t_move_avg_out, &
                                       t_deposit_min_out, t_deposit_avg_out)
     ! Fused push + boundary-condition/SEE + charge-deposition pass.
@@ -552,6 +600,7 @@ contains
     ! doing most of the work and the mover cost is imbalance, not raw
     ! per-particle cost) instead of guessing from the max alone.
     type(State), intent(inout) :: self
+    integer(int32), intent(in) :: istep
     real(real64), intent(out) :: t_move_out, t_bc_out, t_deposit_out
     real(real64), intent(out) :: t_move_min_out, t_move_avg_out
     real(real64), intent(out) :: t_deposit_min_out, t_deposit_avg_out
@@ -562,8 +611,16 @@ contains
     real(real64)    :: tw0, tw1
     logical         :: use_boris
     logical         :: use_energy_conserving
+    logical         :: use_fast_electrostatic
     type(SeeParams) :: see
     real(real64), allocatable :: t_move_thread(:), t_bc_thread(:), t_deposit_thread(:)
+
+    ! RF antenna heating: quantities constant for the whole step, computed
+    ! once here rather than per-particle inside the movers (mirrors legacy
+    ! computing omega_RF once per part_mover call).
+    real(real64)   :: time_rf, omega_RF_local
+    integer(int32) :: ixl_pow_rf, ixr_pow_rf
+    real(real64)   :: x0_rf
 
     t_move_out        = 0.0_real64
     t_bc_out          = 0.0_real64
@@ -582,6 +639,26 @@ contains
 
     dt_local = self%params%dt
     use_energy_conserving = (trim(self%cfg%push_scheme) == 'energy')
+    ! Fast electrostatic path (mod_particleMover.f90): skips both this and
+    ! RF-antenna heating entirely rather than branching on them per-particle
+    ! - see move_and_bc_electrostatic_fast's header comment.
+    use_fast_electrostatic = (.not. use_energy_conserving) .and. &
+                              (self%cfg%flag_RFant /= 1_int32)
+
+    time_rf        = 0.0_real64
+    omega_RF_local = 0.0_real64
+    ixl_pow_rf     = 0_int32
+    ixr_pow_rf     = 0_int32
+    x0_rf          = 0.0_real64
+    if (self%cfg%flag_RFant == 1_int32) then
+      time_rf        = real(istep, real64) * dt_local
+      omega_RF_local = 2.0_real64 * pi * self%cfg%f0_RF
+      ! Clamp to the domain box - see update_rf_convergence's header comment.
+      ixl_pow_rf     = int(max(0.0_real64, self%cfg%xl_pow) / self%dom%h(1), int32) + 1_int32
+      ixr_pow_rf     = int(min(self%dom%xmax, self%cfg%xr_pow) / self%dom%h(1), int32) + 1_int32
+      ! Planar-coil geometry only: window position, same clamp as ixl_pow_rf.
+      x0_rf          = max(0.0_real64, self%cfg%xl_pow)
+    end if
 
     tag_neg_local = -1_int32
     do ispec = 1_int32, self%ntype
@@ -652,6 +729,46 @@ contains
                 see            = see, &
                 part_electrons = self%part(1,iproc), &
                 iseed          = self%params%iseed(iproc), &
+                P_loss_see     = self%P_loss(4,1,iproc), &
+                flag_RFant     = self%cfg%flag_RFant, &
+                ixl_pow        = ixl_pow_rf, &
+                ixr_pow        = ixr_pow_rf, &
+                R_ahp          = self%cfg%R_ahp, &
+                gams           = self%gams, &
+                E0_RF          = self%cfg%E0_RF, &
+                omega_RF       = omega_RF_local, &
+                time           = time_rf, &
+                P_RF_local     = self%P_RF(ptype,iproc), &
+                flag_planar_ant = self%cfg%flag_planar_ant, &
+                x0             = x0_rf )
+          else if (use_fast_electrostatic) then
+            call move_and_bc_electrostatic_fast( &
+                part           = self%part(ptype,iproc), &
+                n              = int(self%dom%n, int32), &
+                h              = self%dom%h, &
+                E              = self%fld%E, &
+                q              = q_species, &
+                m              = m_species, &
+                dt             = dt_local, &
+                bcnd           = self%dom%bcnd, &
+                xmax           = self%dom%xmax, &
+                ymax           = self%dom%ymax, &
+                zmax           = self%dom%zmax, &
+                flag_pbc       = int(self%dom%flag_pbc, int32), &
+                flag_nmn       = int(self%dom%flag_nmn, int32), &
+                ptype          = ptype, &
+                tag_neg        = tag_neg_local, &
+                flag_die       = int(self%dom%flag_die, int32), &
+                dtype          = self%dom%dtype, &
+                qmacro         = qmacro, &
+                sum_q_xz_local = self%sum_q_xz(:,:,ptype,iproc), &
+                sum_q_yz_local = self%sum_q_yz(:,:,:,ptype,iproc), &
+                p_mac_boundary = self%p_mac(ptype,:,:,iproc), &
+                P_loss_wall    = self%P_loss(1,ptype,iproc), &
+                Nm_species     = self%params%Nm(ptype), &
+                see            = see, &
+                part_electrons = self%part(1,iproc), &
+                iseed          = self%params%iseed(iproc), &
                 P_loss_see     = self%P_loss(4,1,iproc) )
           else
             call move_and_bc_electrostatic( &
@@ -682,7 +799,18 @@ contains
                 see            = see, &
                 part_electrons = self%part(1,iproc), &
                 iseed          = self%params%iseed(iproc), &
-                P_loss_see     = self%P_loss(4,1,iproc) )
+                P_loss_see     = self%P_loss(4,1,iproc), &
+                flag_RFant     = self%cfg%flag_RFant, &
+                ixl_pow        = ixl_pow_rf, &
+                ixr_pow        = ixr_pow_rf, &
+                R_ahp          = self%cfg%R_ahp, &
+                gams           = self%gams, &
+                E0_RF          = self%cfg%E0_RF, &
+                omega_RF       = omega_RF_local, &
+                time           = time_rf, &
+                P_RF_local     = self%P_RF(ptype,iproc), &
+                flag_planar_ant = self%cfg%flag_planar_ant, &
+                x0             = x0_rf )
           end if
         else
           ! m_species<=0: no push (same guard as before this fusion),
@@ -847,6 +975,115 @@ contains
   end subroutine update_heating_vt
 
 
+  subroutine update_rf_convergence(self, istep)
+    ! RF antenna heating: periodic (every ns_RF steps) convergence step -
+    ! recompute the skin depth from the actual local electron density, and
+    ! rescale E0_RF toward the target absorbed power cfg%Pabs. Ported from
+    ! legacy Src/main.f90:887-933. Follows the MPI-reduction idiom of
+    ! update_heating_vt above and the OMP-reduction-over-grid idiom of
+    ! compute_heating_region_moments above.
+    use mpi
+    class(State),   intent(inout) :: self
+    integer(int32), intent(in)    :: istep
+
+    integer :: ierr
+    integer(int32) :: ix, iy, iz, cnt_RFcels
+    integer(int32) :: ixl, ixr, iyl, iyr, izl, izr
+    real(real64)   :: xl_c, xr_c, yl_c, yr_c, zl_c, zr_c
+    real(real64)   :: yp, zp, ymax_half, zmax_half
+    real(real64)   :: np_avgRF, wp_rf, P_RFtot, P_RFtot_local
+
+    ! Clamp the heating-region bounds to the domain box before turning them
+    ! into grid indices - cfg%xl_pow etc. are user input and, by convention,
+    ! often set larger than the box to mean "the whole domain" (elsewhere
+    ! they're only ever used as comparison bounds, where an oversized value
+    ! is harmless). Used directly as array indices below, an unclamped
+    ! oversized bound reads self%fld%np far out of bounds. Mirrors legacy
+    ! Src/main.f90:680-692.
+    xl_c = max(0.0_real64, self%cfg%xl_pow)
+    xr_c = min(self%dom%xmax, self%cfg%xr_pow)
+    yl_c = max(0.0_real64, self%cfg%yl_pow)
+    yr_c = min(self%dom%ymax, self%cfg%yr_pow)
+    zl_c = max(0.0_real64, self%cfg%zl_pow)
+    zr_c = min(self%dom%zmax, self%cfg%zr_pow)
+
+    ixl = int(xl_c/self%dom%h(1), int32) + 1_int32
+    ixr = int(xr_c/self%dom%h(1), int32) + 1_int32
+    iyl = int(yl_c/self%dom%h(2), int32) + 1_int32
+    iyr = int(yr_c/self%dom%h(2), int32) + 1_int32
+    izl = int(zl_c/self%dom%h(3), int32) + 1_int32
+    izr = int(zr_c/self%dom%h(3), int32) + 1_int32
+
+    ymax_half = self%dom%ymax / 2.0_real64
+    zmax_half = self%dom%zmax / 2.0_real64
+
+    ! <np> over the heating volume, restricted to the circular
+    ! cross-section of radius R_ahp - legacy Src/main.f90:888-909. Every
+    ! rank holds the full self%fld%np grid (already MPI-Allreduced by
+    ! reduce_species_density) and the same cfg-derived loop bounds, so no
+    ! MPI reduction is needed here - matches legacy, which also doesn't
+    ! reduce cnt_RFcels.
+    np_avgRF   = 0.0_real64
+    cnt_RFcels = 0_int32
+    !$omp parallel do collapse(2) private(iy,iz,ix,yp,zp) &
+    !$omp&  reduction(+:np_avgRF,cnt_RFcels) schedule(static)
+    do iz = izl, izr
+      do iy = iyl, iyr
+        yp = real(iy-1, real64)*self%dom%h(2)
+        zp = real(iz-1, real64)*self%dom%h(3)
+        if (((yp-ymax_half)**2 + (zp-zmax_half)**2) <= self%cfg%R_ahp**2) then
+          do ix = ixl, ixr
+            np_avgRF   = np_avgRF + self%fld%np(ix,iy,iz,1)
+            cnt_RFcels = cnt_RFcels + 1_int32
+          end do
+        end if
+      end do
+    end do
+    !$omp end parallel do
+
+    if (cnt_RFcels <= 0_int32) return
+    np_avgRF = np_avgRF / real(cnt_RFcels, real64)
+
+    ! wp/gams from the true physical eps0 (undo the k_eps0 rescale applied
+    ! at init(), line ~135) - matches legacy Src/main.f90:910-912 exactly.
+    wp_rf = sqrt( np_avgRF * self%chem%charge(1)**2 / &
+                  ((eps0/self%cfg%k_eps0) * self%chem%mass(1)) )
+    self%gams = c / wp_rf
+
+    ! Reduce this period's absorbed power (accumulated by the mover into
+    ! self%P_RF every step since the last call) across MPI ranks.
+    P_RFtot_local = sum(self%P_RF(1:self%ntype,1:self%nproc)) / &
+                    real(self%params%ns_RF, real64) / self%params%dt
+    P_RFtot = P_RFtot_local
+    if (self%mpi_size > 1) then
+      call MPI_Allreduce(P_RFtot_local, P_RFtot, 1, MPI_DOUBLE_PRECISION, &
+                          MPI_SUM, self%comm, ierr)
+    end if
+
+    ! Fold into the same power-loss counter print_diagnostics already
+    ! reports as "Pabs (W)" - reuses P_loss(2,:,:), matching legacy's own
+    ! reuse (Src/main.f90:923).
+    self%P_loss(2,:,:) = self%P_loss(2,:,:) + self%P_RF(:,:)
+
+    ! Iterative E0_RF toward the target cfg%Pabs.
+    if (P_RFtot > 0.0_real64) then
+      self%cfg%E0_RF = self%cfg%E0_RF * sqrt(self%cfg%Pabs / P_RFtot)
+    end if
+    if (self%mpi_size > 1) then
+      call MPI_Bcast(self%cfg%E0_RF, 1, MPI_DOUBLE_PRECISION, 0, self%comm, ierr)
+    end if
+
+    if (self%mpi_rank == 0) then
+      write(*,'(1x,a,i0,a,es10.2,a,es10.2,a,es10.2,a,f6.2)') &
+        'it=', istep, ', E0(V/m)=', self%cfg%E0_RF, &
+        ', <P_RF>(W)=', P_RFtot, ', <np>(/m^3)=', np_avgRF, &
+        ', skin depth gam(cm)=', self%gams*1.0e2_real64
+    end if
+
+    self%P_RF = 0.0_real64
+  end subroutine update_rf_convergence
+
+
   subroutine compute_plane_moments_local(self)
     class(State), intent(inout) :: self
     integer(int32) :: ptype
@@ -934,6 +1171,7 @@ contains
     if (allocated(self%sum_q_xz))     deallocate(self%sum_q_xz)
     if (allocated(self%sum_q_yz))     deallocate(self%sum_q_yz)
     if (allocated(self%P_loss))       deallocate(self%P_loss)
+    if (allocated(self%P_RF))         deallocate(self%P_RF)
     if (allocated(self%p_mac))        deallocate(self%p_mac)
     if (allocated(self%sour_xy))      deallocate(self%sour_xy)
     if (allocated(self%sour_xz))      deallocate(self%sour_xz)

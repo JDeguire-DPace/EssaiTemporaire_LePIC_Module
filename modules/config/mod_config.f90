@@ -38,6 +38,7 @@ module mod_config
 
     real(real64)      :: phi0_RF   = 0.0_real64, f0_RF = 0.0_real64
     real(real64)      :: phi1_RF   = 0.0_real64, f1_RF = 0.0_real64
+    real(real64)      :: E0_RF     = 0.0_real64
 
     real(real64)      :: Ti(npart)     = 0.0_real64
     real(real64)      :: x_load    = 0.0_real64
@@ -121,6 +122,8 @@ module mod_config
     integer           :: igrid_sec = 0
 
     integer           :: flag_RFpot = 0
+    integer           :: flag_RFant = 0
+    integer           :: flag_planar_ant = 0
     integer           :: flag_grd   = 0
   end type Config
 
