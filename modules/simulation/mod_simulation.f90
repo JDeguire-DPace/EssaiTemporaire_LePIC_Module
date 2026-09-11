@@ -846,40 +846,87 @@ contains
     real(real64) :: Pwall, Pabs, Pcoll, Pinj
     real(real64) :: Iw1, Iw2
     real(real64) :: Ekw1, Ekw2
+    integer :: ierr
+    integer(int32) :: nspecies_print
+    integer(int32), allocatable :: npart_global(:)
+    ! self%state%P_loss/p_mac/part(:,:) hold only THIS MPI rank's local
+    ! subdomain, so the sum(...)'s below (unchanged from before - they
+    ! already summed across this rank's own OMP threads/iproc) are still
+    ! only a per-rank-local total. raw(:) packs those local totals so ONE
+    ! MPI_Allreduce can turn them into true global totals before anything
+    ! is printed - same two-step "reduce across MPI, THEN rank-0 prints"
+    ! order legacy uses for its own equivalent diagnostics (sum_np_tot's
+    ! MPI_ALLREDUCE followed by "if(mpi_rank.eq.0) write(*,101) ...",
+    ! Src/main.f90). Without this, each rank would print only its own
+    ! local slice of particles/power/current, not the physically
+    ! meaningful whole-domain total.
+    real(real64) :: raw(9)
 
-    call print_rxn_counts()
-    call reset_rxn_counts()
-    call print_debug_diagnostics()
-    call reset_debug_diagnostics()
+    nspecies_print = self%state%rxn%ntype - self%state%rxn%n_neu
+    allocate(npart_global(nspecies_print))
+    do ptype = 1_int32, nspecies_print
+      npart_global(ptype) = sum(self%state%part(ptype,:)%n)
+    end do
 
-    Pabs  = sum(self%state%P_loss(2,:,:)) / &
+    raw(1) = sum(self%state%P_loss(1,:,:))
+    raw(2) = sum(self%state%P_loss(2,:,:))
+    raw(3) = sum(self%state%P_loss(3,:,:))
+    raw(4) = sum(self%state%P_loss(4,:,:))
+    raw(5) = sum(self%state%p_mac(1,1,:,:))
+    raw(6) = sum(self%state%p_mac(2:self%state%ntype,1,:,:))
+    raw(7) = sum(self%state%p_mac(1,2,:,:))
+    raw(8) = sum(self%state%p_mac(2:self%state%ntype,2,:,:))
+    ! sum(abs(x_i)) over the global particle set equals the sum, across
+    ! ranks, of each rank's own local sum(abs(its particles)) - abs() is
+    ! applied per-element before any summing, so this reduces the same
+    ! way as the plain sums above (unlike abs(sum(x_i)), which is NOT
+    ! separable across ranks - Ekw1 below instead takes abs() of raw(5)
+    ! AFTER raw(5) is already the global sum, matching how Iw1/Iw2 treat
+    ! their own sums).
+    raw(9) = sum(abs(self%state%p_mac(2:self%state%ntype,1,:,:)))
+
+    if (self%state%mpi_size > 1_int32) then
+      call MPI_Allreduce(MPI_IN_PLACE, npart_global, nspecies_print, &
+                          MPI_INTEGER, MPI_SUM, self%state%comm, ierr)
+      call MPI_Allreduce(MPI_IN_PLACE, raw, 9_int32, &
+                          MPI_DOUBLE_PRECISION, MPI_SUM, self%state%comm, ierr)
+    end if
+
+    Pabs  = raw(2) / &
         (real(self%state%cfg%nsav - 1_int32, real64) * self%state%params%dt)
 
-    Pcoll = sum(self%state%P_loss(3,:,:)) / &
+    Pcoll = raw(3) / &
         (real(self%state%cfg%nsav - 1_int32, real64) * self%state%params%dt)
 
-    Pinj  = sum(self%state%P_loss(4,:,:))
+    Pinj  = raw(4)
 
-    Pwall = -sum(self%state%P_loss(1,:,:)) / &
+    Pwall = -raw(1) / &
         (real(self%state%cfg%nsav - 1_int32, real64) * self%state%params%dt)
 
-    Iw1 = sum(self%state%p_mac(1,1,:,:)) / &
+    Iw1 = raw(5) / &
           (real(self%state%cfg%nsav - 1_int32, real64) * self%state%params%dt)
 
-    Iw2 = sum(self%state%p_mac(2:self%state%ntype,1,:,:)) / &
+    Iw2 = raw(6) / &
           (real(self%state%cfg%nsav - 1_int32, real64) * self%state%params%dt)
 
     Ekw1 = 0.0_real64
-    if (abs(sum(self%state%p_mac(1,1,:,:))) > 0.0_real64) then
-      Ekw1 = sum(self%state%p_mac(1,2,:,:)) / &
-            abs(sum(self%state%p_mac(1,1,:,:)))
-    end if
+    if (abs(raw(5)) > 0.0_real64) Ekw1 = raw(7) / abs(raw(5))
 
     Ekw2 = 0.0_real64
-    if (sum(abs(self%state%p_mac(2:self%state%ntype,1,:,:))) > 0.0_real64) then
-      Ekw2 = sum(self%state%p_mac(2:self%state%ntype,2,:,:)) / &
-            sum(abs(self%state%p_mac(2:self%state%ntype,1,:,:)))
-    end if
+    if (raw(9) > 0.0_real64) Ekw2 = raw(8) / raw(9)
+
+    ! Everything below this point is output only (no further physics
+    ! state is touched) - restrict it to rank 0, matching legacy's own
+    ! convention of a single rank-0-only diagnostic print instead of one
+    ! copy per MPI rank. print_rxn_counts/print_debug_diagnostics/
+    ! print_poisson_breakdown are similarly rank-0-only calls now; their
+    ! matching reset_* calls still run on every rank below (unconditional,
+    ! after this block), since every rank must keep zeroing its own local
+    ! accumulators each period regardless of who prints.
+    if (self%state%mpi_rank == 0_int32) then
+
+    call print_rxn_counts()
+    call print_debug_diagnostics()
 
     write(*,'(a)') " "
     write(*,'(a)') " "
@@ -891,10 +938,10 @@ contains
     write(*,'(a)') " -------------------------"
     write(*,'(a)') " Particles diagnostics: "
 
-    do ptype = 1_int32, self%state%rxn%ntype-self%state%rxn%n_neu
+    do ptype = 1_int32, nspecies_print
       write(*,'(a,a,a,i0)') &
         " npart ", self%state%chem%pname(ptype) , &
-        " = ", sum(self%state%part(ptype,:)%n)
+        " = ", npart_global(ptype)
     end do
 
     write(*,'(a,i12,a)') " ===== MODULAR DIAGNOSTIC it = ", istep, " ====="
@@ -994,12 +1041,21 @@ contains
     end if
 
 
-    
+
 
     write(*,'(a)') "  "
     write(*,*) "  "
 
-    ! Reset legacy-style power accumulators after printing
+    end if ! self%state%mpi_rank == 0
+
+    deallocate(npart_global)
+
+    ! Reset legacy-style power accumulators after printing - unconditional
+    ! on every rank (not just rank 0), so each rank's own local
+    ! accumulators start clean for the next reporting period regardless
+    ! of which rank did the printing above.
+    call reset_rxn_counts()
+    call reset_debug_diagnostics()
     if (allocated(self%state%P_loss) .or. allocated(self%state%p_mac)) then
       self%state%P_loss = 0.0_real64
       self%state%p_mac  = 0.0_real64
