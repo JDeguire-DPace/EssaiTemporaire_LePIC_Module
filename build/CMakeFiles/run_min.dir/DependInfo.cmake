@@ -8,7 +8,7 @@ set(CMAKE_DEPENDS_LANGUAGES
   )
 # The set of files for implicit dependencies of each language:
 set(CMAKE_DEPENDS_CHECK_Fortran
-  "/scratch/deguire1/LePIC_antenna/modules/main/main.f90" "/scratch/deguire1/LePIC_antenna/build/CMakeFiles/run_min.dir/modules/main/main.f90.o"
+  "/home/jdeguire/LePIC_antenna/modules/main/main.f90" "/home/jdeguire/LePIC_antenna/build/CMakeFiles/run_min.dir/modules/main/main.f90.o"
   )
 set(CMAKE_Fortran_COMPILER_ID "IntelLLVM")
 set(CMAKE_Fortran_SUBMODULE_SEP "@")
@@ -16,7 +16,7 @@ set(CMAKE_Fortran_SUBMODULE_EXT ".smod")
 
 # The include file search paths:
 set(CMAKE_Fortran_TARGET_INCLUDE_PATH
-  "/scratch/deguire1/LePIC_antenna/modules/legacy"
+  "/home/jdeguire/LePIC_antenna/modules/legacy"
   "mod"
   )
 
@@ -29,4 +29,4 @@ set(CMAKE_Fortran_TARGET_LINKED_INFO_FILES
   )
 
 # Fortran module output directory.
-set(CMAKE_Fortran_TARGET_MODULE_DIR "/scratch/deguire1/LePIC_antenna/build/mod")
+set(CMAKE_Fortran_TARGET_MODULE_DIR "/home/jdeguire/LePIC_antenna/build/mod")
