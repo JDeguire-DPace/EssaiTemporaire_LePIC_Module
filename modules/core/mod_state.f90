@@ -161,7 +161,15 @@ contains
     self%ntype = int(self%rxn%ntype - self%rxn%n_neu, int32)
     if (self%ntype < 1_int32) self%ntype = 1_int32
 
-    self%nproc = max(1_int32, int(self%cfg%omp_rank_max, int32))
+    ! Matches legacy (Src/main.f90:143): particle-domain parallelism always
+    ! sizes to the real OMP runtime thread count, not the input file's
+    ! "# of OMP threads" field (cfg%omp_rank_max), which is a separate
+    ! legacy knob used only for restart redistribution math (see
+    ! mod_restart.f90's nproc_written). Sizing self%nproc from
+    ! cfg%omp_rank_max instead left most threads idle in the mover/deposit
+    ! loops (or crashed outright) whenever that stale input-file value
+    ! didn't match OMP_NUM_THREADS.
+    self%nproc = max(1_int32, omp_get_max_threads())
     call self%params%init_seeds(self%nproc, self%mpi_rank)
     call self%params%print_summary(self%mpi_rank, self%cfg%nsav)
 
