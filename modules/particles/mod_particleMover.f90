@@ -224,7 +224,7 @@ contains
     real(real64),       intent(inout) :: P_loss_wall
     real(real64),       intent(in)    :: Nm_species
     type(SeeParams),    intent(in)    :: see
-    type(ParticleSet),  intent(inout) :: part_electrons
+    type(ParticleSet),  intent(inout), optional :: part_electrons
     integer(int32),     intent(inout) :: iseed
     real(real64),       intent(inout) :: P_loss_see
 
@@ -265,7 +265,20 @@ contains
     if (part%n <= 0_int32) return
 
     qmdt   = dt*q/m
-    do_see = (see%gam_sec > 0.0_real64) .and. (q > 0.0_real64)
+    ! part_electrons is OPTIONAL (not just always-passed-but-unused): when
+    ! this call pushes the electron species itself, the caller
+    ! (mod_state.f90) omits it rather than passing self%part(1,iproc) - the
+    ! same actual storage as `part` in that case. Passing the same
+    ! ParticleSet to two INTENT(INOUT) dummies is non-conforming argument
+    ! association (see mod_restart.f90's E0_RF comment for the same class
+    ! of issue elsewhere), and even where q<0 makes do_see provably false
+    ! at runtime, the compiler can't see that - it has no choice but to
+    ! assume part and part_electrons might overlap and re-load part's
+    ! several allocatable-array descriptors every iteration instead of
+    ! hoisting them once outside this loop. Making the argument itself
+    ! absent for that call removes the aliasing possibility at the
+    ! language level, not just the runtime branch.
+    do_see = present(part_electrons) .and. (see%gam_sec > 0.0_real64) .and. (q > 0.0_real64)
 
     np_lost = 0_int32
 
@@ -577,7 +590,7 @@ contains
     real(real64),       intent(inout) :: P_loss_wall
     real(real64),       intent(in)    :: Nm_species
     type(SeeParams),    intent(in)    :: see
-    type(ParticleSet),  intent(inout) :: part_electrons
+    type(ParticleSet),  intent(inout), optional :: part_electrons
     integer(int32),     intent(inout) :: iseed
     real(real64),       intent(inout) :: P_loss_see
 
@@ -606,7 +619,10 @@ contains
     if (part%n <= 0_int32) return
 
     qmdt   = dt*q/m
-    do_see = (see%gam_sec > 0.0_real64) .and. (q > 0.0_real64)
+    ! part_electrons is OPTIONAL - see move_and_bc_electrostatic's header
+    ! comment on why the electron-species call omits it entirely rather
+    ! than passing self%part(1,iproc) aliased against `part`.
+    do_see = present(part_electrons) .and. (see%gam_sec > 0.0_real64) .and. (q > 0.0_real64)
 
     np_lost = 0_int32
 
@@ -893,7 +909,7 @@ contains
     real(real64),       intent(inout) :: P_loss_wall
     real(real64),       intent(in)    :: Nm_species
     type(SeeParams),    intent(in)    :: see
-    type(ParticleSet),  intent(inout) :: part_electrons
+    type(ParticleSet),  intent(inout), optional :: part_electrons
     integer(int32),     intent(inout) :: iseed
     real(real64),       intent(inout) :: P_loss_see
 
@@ -949,7 +965,10 @@ contains
     if (part%n <= 0_int32) return
 
     qm2dt  = 0.5_real64 * dt * q / m
-    do_see = (see%gam_sec > 0.0_real64) .and. (q > 0.0_real64)
+    ! part_electrons is OPTIONAL - see move_and_bc_electrostatic's header
+    ! comment on why the electron-species call omits it entirely rather
+    ! than passing self%part(1,iproc) aliased against `part`.
+    do_see = present(part_electrons) .and. (see%gam_sec > 0.0_real64) .and. (q > 0.0_real64)
 
     uniform_B = (n_B(1) == 1_int32 .and. n_B(2) == 1_int32 .and. n_B(3) == 1_int32)
 
