@@ -23,6 +23,28 @@ module mod_simulation
 
   logical, parameter :: DEBUG_SIMULATION = .false.
 
+  ! TRIED, MEASURED, REJECTED (keep .false.): sort particles by cell every
+  ! step, immediately before the fused mover+BC+deposit region, instead of
+  ! only right before collisions (mod_state%sort_particles_local's other
+  ! call site, ~line 627 below). Rationale that motivated the experiment:
+  ! deposit_particle_set_to_np_thread's charge scatter and the mover's E/B
+  ! gather (mod_particleMover.f90) both touch the field grid at
+  ! particle-position-dependent, effectively random cell indices unless
+  ! particles are already cell-sorted, and most steps run that scatter/
+  ! gather on whatever order injection/the previous push left particles in.
+  !
+  ! Measured on the ITER example case, MPI=2 x OMP=16, 32-core dev box:
+  ! sorting every step roughly DOUBLED average per-step wall time (~670ms
+  ! -> ~1015-1818ms on non-collision steps). Worse, each individual sort
+  ! call got ~3x more expensive too (97-180ms once per 10 steps at
+  ! baseline vs 336-520ms every step here) - not just paid more often -
+  ! for reasons not fully root-caused (mover_push itself looked flat to
+  ! slightly better, ~268ms vs baseline's ~340ms, consistent with the
+  ! locality theory being directionally right, but nowhere near enough to
+  ! offset the added sort cost). Left in, disabled, so nobody re-tries
+  ! this exact experiment without knowing the result.
+  logical, parameter :: SORT_EVERY_STEP = .false.
+
   type :: Simulation
     type(State) :: state
     !type(CollisionWorkspace) :: coll_ws
@@ -526,6 +548,21 @@ contains
           call self%state%apply_electron_heating_local(vt_heat)
         end if
       end if
+    end if
+
+    ! EXPERIMENTAL (SORT_EVERY_STEP): see flag declaration above. Sorts
+    ! immediately before the fused push+deposit region below, on whatever
+    ! order the previous step (injection/BC) left particles in, so that
+    ! region's field gather (mover) and charge scatter (deposit) both run
+    ! on cell-sorted particles instead of arbitrary order. Timed into the
+    ! same t_sort accumulator as the collision-triggered sort below, so
+    ! this shows up in the existing "sorting" line of the diagnostic
+    ! print without adding a new counter.
+    if (SORT_EVERY_STEP) then
+      t0 = MPI_Wtime()
+      call self%state%sort_particles_local()
+      t1 = MPI_Wtime()
+      self%t_sort = self%t_sort + (t1 - t0)
     end if
 
     ! Mover + particle BC/SEE + charge deposition, fused into a single OMP
