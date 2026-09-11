@@ -800,7 +800,16 @@ program main
 
      flag_updatephi= 0
      ! Iterate to find Pabs, I_inj or V
-     if( flag_convP.eq.1 .and. MOD(it,ns_convP).eq.0 ) then
+     ! NOTE: split into nested if's on purpose - ns_convP is only ever
+     ! assigned (main.f90, ~line 753) when flag_convP==1; Fortran's .and.
+     ! is not guaranteed to short-circuit, so the old single-condition
+     ! "flag_convP.eq.1 .and. MOD(it,ns_convP).eq.0" could evaluate
+     ! MOD(it,ns_convP) with ns_convP still uninitialized whenever
+     ! flag_convP==0, i.e. on every single timestep of any run that
+     ! doesn't use this feature (integer divide-by-zero, or undefined
+     ! behavior more generally, depending on what garbage ns_convP holds).
+     if( flag_convP.eq.1 ) then
+     if( MOD(it,ns_convP).eq.0 ) then
         np_pos= SUM(np_tot(2:ntype,1:nproc))
         if(tag_neg.gt.0) np_pos= np_pos - SUM(np_tot(tag_neg,1:nproc))
         if(nproc_mpi.gt.1) then
@@ -825,8 +834,9 @@ program main
            ! Update flag
            flag_updatephi= 1
            ! Iterative Vgrd
-           Vgrd(igrid_sec)=Vgrd(igrid_sec)*real(np_pos0)/real(np_pos)       
+           Vgrd(igrid_sec)=Vgrd(igrid_sec)*real(np_pos0)/real(np_pos)
         endif
+     endif
      endif
 
      if(flag_RFpot.eq.1) then
