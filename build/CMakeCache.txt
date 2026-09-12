@@ -20,7 +20,8 @@ CMAKE_ADDR2LINE:FILEPATH=/usr/bin/addr2line
 //Path to a program.
 CMAKE_AR:FILEPATH=/usr/bin/ar
 
-//Build type
+//Choose the type of build, options are: None Debug Release RelWithDebInfo
+// MinSizeRel ...
 CMAKE_BUILD_TYPE:STRING=Release
 
 //Enable/Disable color output during build.
@@ -51,7 +52,7 @@ CMAKE_EXPORT_COMPILE_COMMANDS:BOOL=
 CMAKE_FIND_PACKAGE_REDIRECTS_DIR:STATIC=/home/jdeguire/LePIC_antenna/build/CMakeFiles/pkgRedirects
 
 //Fortran compiler
-CMAKE_Fortran_COMPILER:STRING=/opt/intel/oneapi/mpi/2021.14/bin/mpiifx
+CMAKE_Fortran_COMPILER:FILEPATH=/opt/intel/oneapi/mpi/2021.14/bin/mpiifx
 
 //LLVM archiver
 CMAKE_Fortran_COMPILER_AR:FILEPATH=CMAKE_Fortran_COMPILER_AR-NOTFOUND
