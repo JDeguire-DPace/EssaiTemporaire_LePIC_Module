@@ -99,7 +99,9 @@ contains
   subroutine perform_collisions_gwenael( &
       part, n, h, ntype_tracked, ntype_all, mass, Ti, Nm, p_ncol, sig_list, &
       col_info, sigv_mx, sig, sig_Er, sig_Eex, ni0, ns_coll, dt, nu_uplim, &
-      iseed, mpi_rank, Pcoll, dom_volume, np_red, bcnd)
+      iseed, mpi_rank, Pcoll, dom_volume, np_red, bcnd, &
+      ix_plane, iy_plane, iz_plane, sour_xy, sour_xz, sour_yz, &
+      sink_xy, sink_xz, sink_yz)
 
     type(ParticleSet), intent(inout) :: part(:,:)
     integer(int32), intent(in)    :: n(3)
@@ -123,6 +125,12 @@ contains
     ! (physical, non-wall/non-ghost) cell - legacy calc_rho.f90 only takes
     ! np_mx's running max over bcnd==-1 cells.
     integer(int32), intent(in)    :: bcnd(0:,0:,0:)
+    ! Legacy ss2D_xy/xz/yz equivalent: reaction-driven particle
+    ! production (sour)/destruction (sink) per plane, per tracked species,
+    ! per iproc (see mod_state.f90 sour_avg_xy/etc for why per-iproc).
+    integer(int32), intent(in)    :: ix_plane, iy_plane, iz_plane
+    real(real64),   intent(inout) :: sour_xy(0:,0:,:,:), sour_xz(0:,0:,:,:), sour_yz(0:,0:,:,:)
+    real(real64),   intent(inout) :: sink_xy(0:,0:,:,:), sink_xz(0:,0:,:,:), sink_yz(0:,0:,:,:)
 
     integer(int32) :: ptype, iproc, nproc
     integer(int32) :: npt_sig
@@ -251,7 +259,9 @@ contains
               part, n, h, ptype, iproc, nproc, n_total_local, Nc_tmp, &
               nu_max_OMP_local, ntype_tracked, ntype_all, mass, Ti, Nm, &
               p_ncol, sig_list, col_info, sig, sig_Er, sig_Eex, ni0, &
-              np_red, np_mx, iseed(iproc), Pcoll, n_add)
+              np_red, np_mx, iseed(iproc), Pcoll, n_add, &
+              ix_plane, iy_plane, iz_plane, sour_xy, sour_xz, sour_yz, &
+              sink_xy, sink_xz, sink_yz)
         end block
 
       end do
@@ -278,7 +288,9 @@ contains
   subroutine run_trials_for_thread( &
       part, n, h, ptype, iproc, nproc, n_total, Nc_tmp, nu_max_OMP, &
       ntype_tracked, ntype_all, mass, Ti, Nm, p_ncol, sig_list, col_info, &
-      sig, sig_Er, sig_Eex, ni0, np_red, np_mx, iseed_local, Pcoll, n_add)
+      sig, sig_Er, sig_Eex, ni0, np_red, np_mx, iseed_local, Pcoll, n_add, &
+      ix_plane, iy_plane, iz_plane, sour_xy, sour_xz, sour_yz, &
+      sink_xy, sink_xz, sink_yz)
 
     type(ParticleSet), intent(inout) :: part(:,:)
     integer(int32), intent(in)    :: n(3)
@@ -296,6 +308,9 @@ contains
     integer(int32), intent(inout) :: iseed_local
     real(real64),   intent(inout) :: Pcoll(:,:)
     integer(int32), intent(inout) :: n_add(:,:)
+    integer(int32), intent(in)    :: ix_plane, iy_plane, iz_plane
+    real(real64),   intent(inout) :: sour_xy(0:,0:,:,:), sour_xz(0:,0:,:,:), sour_yz(0:,0:,:,:)
+    real(real64),   intent(inout) :: sink_xy(0:,0:,:,:), sink_xz(0:,0:,:,:), sink_yz(0:,0:,:,:)
 
     integer(int32) :: ic, ip, icol, ind_col, n_re, ttype, c_ind
     integer(int32) :: npt_sig
@@ -442,10 +457,12 @@ contains
       call count_rxn(c_ind)
 
       call apply_reaction_products( &
-          part, n_add, ptype, iproc, ip, ttype, &
+          part, n, h, n_add, ptype, iproc, ip, ttype, &
           cache_tvx(ttype), cache_tvy(ttype), cache_tvz(ttype), &
           cache_it(ttype), cache_itproc(ttype), ntype_tracked, &
-          c_ind, col_info, sig_Eex, mass, Nm, Pcoll, iseed_local)
+          c_ind, col_info, sig_Eex, mass, Nm, Pcoll, iseed_local, &
+          ix_plane, iy_plane, iz_plane, sour_xy, sour_xz, sour_yz, &
+          sink_xy, sink_xz, sink_yz)
 
     end do ! ic
 
@@ -457,10 +474,14 @@ contains
   ! Mirrors legacy collision_OMP lines ~745-1003 (all-but-CEX + CEX).
   !=========================================================================
   subroutine apply_reaction_products( &
-      part, n_add, ptype, iproc, ip, ttype, tvx, tvy, tvz, it, itproc, &
-      ntype_tracked, c_ind, col_info, sig_Eex, mass, Nm, Pcoll, iseed_local)
+      part, n, h, n_add, ptype, iproc, ip, ttype, tvx, tvy, tvz, it, itproc, &
+      ntype_tracked, c_ind, col_info, sig_Eex, mass, Nm, Pcoll, iseed_local, &
+      ix_plane, iy_plane, iz_plane, sour_xy, sour_xz, sour_yz, &
+      sink_xy, sink_xz, sink_yz)
 
     type(ParticleSet), intent(inout) :: part(:,:)
+    integer(int32), intent(in)    :: n(3)
+    real(real64),   intent(in)    :: h(3)
     integer(int32), intent(inout) :: n_add(:,:)
     integer(int32), intent(in)    :: ptype, iproc, ip, ttype
     real(real64),   intent(in)    :: tvx, tvy, tvz
@@ -471,6 +492,9 @@ contains
     real(real64),   intent(in)    :: sig_Eex(:,:), mass(:), Nm(:)
     real(real64),   intent(inout) :: Pcoll(:,:)
     integer(int32), intent(inout) :: iseed_local
+    integer(int32), intent(in)    :: ix_plane, iy_plane, iz_plane
+    real(real64),   intent(inout) :: sour_xy(0:,0:,:,:), sour_xz(0:,0:,:,:), sour_yz(0:,0:,:,:)
+    real(real64),   intent(inout) :: sink_xy(0:,0:,:,:), sink_xz(0:,0:,:,:), sink_yz(0:,0:,:,:)
 
     integer(int32) :: n_re, n_by, rt, i_by, btype, ib, ibproc
     integer(int32) :: flag_proj_kept, flag_targ_kept
@@ -603,19 +627,74 @@ contains
       Pcoll(btype,ibproc) = Pcoll(btype,ibproc) + &
           0.5_real64*Nm(btype)*abs(mass(btype))*(v2new - v2old)
 
+      ! Legacy ss2D(1,...) equivalent: this reaction produced one btype
+      ! macroparticle here (whether ib is a freshly-appended slot or a
+      ! reused reactant slot doesn't change the physical production rate).
+      call deposit_plane_event( &
+          part(btype,ibproc)%x(ib), part(btype,ibproc)%y(ib), part(btype,ibproc)%z(ib), &
+          n, h, ix_plane, iy_plane, iz_plane, btype, ibproc, Nm(btype), &
+          sour_xy, sour_xz, sour_yz)
+
     end do
 
     ! Reactants that did not survive as a byproduct slot are marked dead
     ! (compaction happens later, in mod_particleBC - exactly like legacy's
-    ! "kill done in mover").
+    ! "kill done in mover"). Legacy ss2D(2,...) equivalent: deposit the
+    ! destruction at the reactant's own (unchanged) position.
     if (flag_proj_kept == 0_int32) then
       if (allocated(part(ptype,iproc)%flag_dead)) part(ptype,iproc)%flag_dead(ip) = 1_int8
+      call deposit_plane_event( &
+          part(ptype,iproc)%x(ip), part(ptype,iproc)%y(ip), part(ptype,iproc)%z(ip), &
+          n, h, ix_plane, iy_plane, iz_plane, ptype, iproc, Nm(ptype), &
+          sink_xy, sink_xz, sink_yz)
     end if
     if (flag_targ_kept == 0_int32 .and. ttype <= ntype_tracked .and. it > 0_int32) then
       if (allocated(part(ttype,itproc)%flag_dead)) part(ttype,itproc)%flag_dead(it) = 1_int8
+      call deposit_plane_event( &
+          part(ttype,itproc)%x(it), part(ttype,itproc)%y(it), part(ttype,itproc)%z(it), &
+          n, h, ix_plane, iy_plane, iz_plane, ttype, itproc, Nm(ttype), &
+          sink_xy, sink_xz, sink_yz)
     end if
 
   end subroutine apply_reaction_products
+
+
+  !=========================================================================
+  ! Deposit one reaction-driven production/destruction event into whichever
+  ! of the three output planes it is nearest to. Nearest-cell (not the
+  ! moments code's bilinear/plane-straddle interpolation) - this fires from
+  ! inside the hot per-trial collision loop, so a cheaper deposition was
+  ! chosen deliberately; it is not legacy's exact ki(1-4) bilinear formula.
+  !=========================================================================
+  subroutine deposit_plane_event(x, y, z, n, h, ix_plane, iy_plane, iz_plane, &
+                                  species, iproc, weight, arr_xy, arr_xz, arr_yz)
+    real(real64),   intent(in)    :: x, y, z
+    integer(int32), intent(in)    :: n(3)
+    real(real64),   intent(in)    :: h(3)
+    integer(int32), intent(in)    :: ix_plane, iy_plane, iz_plane
+    integer(int32), intent(in)    :: species, iproc
+    real(real64),   intent(in)    :: weight
+    real(real64),   intent(inout) :: arr_xy(0:,0:,:,:), arr_xz(0:,0:,:,:), arr_yz(0:,0:,:,:)
+
+    integer(int32) :: ix, iy, iz
+
+    ix = int(x / h(1), int32) + 1_int32
+    iy = int(y / h(2), int32) + 1_int32
+    iz = int(z / h(3), int32) + 1_int32
+
+    if (iz == iz_plane .and. ix >= 0_int32 .and. ix <= n(1)+2_int32 .and. &
+                              iy >= 0_int32 .and. iy <= n(2)+2_int32) then
+      arr_xy(ix,iy,species,iproc) = arr_xy(ix,iy,species,iproc) + weight
+    end if
+    if (iy == iy_plane .and. ix >= 0_int32 .and. ix <= n(1)+2_int32 .and. &
+                              iz >= 0_int32 .and. iz <= n(3)+2_int32) then
+      arr_xz(ix,iz,species,iproc) = arr_xz(ix,iz,species,iproc) + weight
+    end if
+    if (ix == ix_plane .and. iy >= 0_int32 .and. iy <= n(2)+2_int32 .and. &
+                              iz >= 0_int32 .and. iz <= n(3)+2_int32) then
+      arr_yz(iy,iz,species,iproc) = arr_yz(iy,iz,species,iproc) + weight
+    end if
+  end subroutine deposit_plane_event
 
 
   !=========================================================================

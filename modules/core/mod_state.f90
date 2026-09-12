@@ -108,6 +108,20 @@ module mod_state
     real(real64), allocatable :: phi_avg_xz(:,:)
     real(real64), allocatable :: phi_avg_yz(:,:)
 
+    ! Reaction-driven particle production/destruction per plane, per
+    ! tracked species, per OMP thread (iproc) - legacy's plt_src==1
+    ! ss2D_xy/xz/yz. Dimensioned per-iproc (like Pcoll/p_mac) because they
+    ! are written concurrently from perform_collisions_gwenael's
+    ! "!$omp parallel do ... iproc" loop; summed over iproc only at
+    ! output/write time. Accumulate continuously across steps, reset only
+    ! in reset_2d_averages (same cadence as data_pavg_xy).
+    real(real64), allocatable :: sour_avg_xy(:,:,:,:)
+    real(real64), allocatable :: sour_avg_xz(:,:,:,:)
+    real(real64), allocatable :: sour_avg_yz(:,:,:,:)
+    real(real64), allocatable :: sink_avg_xy(:,:,:,:)
+    real(real64), allocatable :: sink_avg_xz(:,:,:,:)
+    real(real64), allocatable :: sink_avg_yz(:,:,:,:)
+
     integer(int32) :: cnt_avg = 0_int32
 
   contains
@@ -267,6 +281,20 @@ contains
     self%data_pavg_xy = 0.0_real64
     self%data_pavg_xz = 0.0_real64
     self%data_pavg_yz = 0.0_real64
+
+    allocate(self%sour_avg_xy(0:self%dom%n(1)+2, 0:self%dom%n(2)+2, self%ntype, self%nproc))
+    allocate(self%sour_avg_xz(0:self%dom%n(1)+2, 0:self%dom%n(3)+2, self%ntype, self%nproc))
+    allocate(self%sour_avg_yz(0:self%dom%n(2)+2, 0:self%dom%n(3)+2, self%ntype, self%nproc))
+    allocate(self%sink_avg_xy(0:self%dom%n(1)+2, 0:self%dom%n(2)+2, self%ntype, self%nproc))
+    allocate(self%sink_avg_xz(0:self%dom%n(1)+2, 0:self%dom%n(3)+2, self%ntype, self%nproc))
+    allocate(self%sink_avg_yz(0:self%dom%n(2)+2, 0:self%dom%n(3)+2, self%ntype, self%nproc))
+
+    self%sour_avg_xy = 0.0_real64
+    self%sour_avg_xz = 0.0_real64
+    self%sour_avg_yz = 0.0_real64
+    self%sink_avg_xy = 0.0_real64
+    self%sink_avg_xz = 0.0_real64
+    self%sink_avg_yz = 0.0_real64
 
   end subroutine init
 
@@ -1331,6 +1359,12 @@ contains
     if (allocated(self%data_pavg_xy)) deallocate(self%data_pavg_xy)
     if (allocated(self%data_pavg_xz)) deallocate(self%data_pavg_xz)
     if (allocated(self%data_pavg_yz)) deallocate(self%data_pavg_yz)
+    if (allocated(self%sour_avg_xy))  deallocate(self%sour_avg_xy)
+    if (allocated(self%sour_avg_xz))  deallocate(self%sour_avg_xz)
+    if (allocated(self%sour_avg_yz))  deallocate(self%sour_avg_yz)
+    if (allocated(self%sink_avg_xy))  deallocate(self%sink_avg_xy)
+    if (allocated(self%sink_avg_xz))  deallocate(self%sink_avg_xz)
+    if (allocated(self%sink_avg_yz))  deallocate(self%sink_avg_yz)
 
     if (allocated(self%params%iseed)) deallocate(self%params%iseed)
   end subroutine finalize

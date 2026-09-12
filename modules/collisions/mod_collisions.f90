@@ -14,7 +14,9 @@ contains
   subroutine perform_collisions_step( &
       part, n, h, ntype_tracked, ntype_all, mass, charge, Ti, Nm, p_ncol, sig_list, col_info, &
       sigv_mx, sig, sig_Er, sig_Eex, ni0, ns_coll, dt, nu_uplim, iseed, &
-      mpi_rank, Pcoll, dom_volume, np_red, bcnd)
+      mpi_rank, Pcoll, dom_volume, np_red, bcnd, &
+      ix_plane, iy_plane, iz_plane, sour_xy, sour_xz, sour_yz, &
+      sink_xy, sink_xz, sink_yz)
 
     type(ParticleSet), intent(inout) :: part(:,:)
     integer(int32), intent(in) :: n(3)
@@ -33,6 +35,9 @@ contains
     real(real64), intent(in) :: dom_volume
     real(real64), intent(in) :: np_red(0:,0:,0:,:)
     integer(int32), intent(in) :: bcnd(0:,0:,0:)
+    integer(int32), intent(in) :: ix_plane, iy_plane, iz_plane
+    real(real64), intent(inout) :: sour_xy(0:,0:,:,:), sour_xz(0:,0:,:,:), sour_yz(0:,0:,:,:)
+    real(real64), intent(inout) :: sink_xy(0:,0:,:,:), sink_xz(0:,0:,:,:), sink_yz(0:,0:,:,:)
 
     call init_rxn_counts(int(size(sigv_mx,2), int32))
 
@@ -61,7 +66,16 @@ contains
         Pcoll         = Pcoll, &
         dom_volume    = dom_volume, &
         np_red        = np_red, &
-        bcnd          = bcnd)
+        bcnd          = bcnd, &
+        ix_plane      = ix_plane, &
+        iy_plane      = iy_plane, &
+        iz_plane      = iz_plane, &
+        sour_xy       = sour_xy, &
+        sour_xz       = sour_xz, &
+        sour_yz       = sour_yz, &
+        sink_xy       = sink_xy, &
+        sink_xz       = sink_xz, &
+        sink_yz       = sink_yz)
 
   end subroutine perform_collisions_step
 

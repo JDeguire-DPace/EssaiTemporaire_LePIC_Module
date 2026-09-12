@@ -69,12 +69,9 @@ contains
     integer :: ntype, n_neu
     real(real64) :: hmin
     real(real64) :: qabs, mabs, Tpart
-    logical :: bak_mode
 
     ntype = rxn%ntype
     n_neu = rxn%n_neu
-
-    bak_mode = (cfg%nbak /= 0)
 
     if (cfg%n0 <= 0.0_real64) then
       if (mpi_rank == 0) write(*,*) 'ERROR: n0 must be > 0 to compute lbd_d/wp'
@@ -139,11 +136,14 @@ contains
     if (cfg%kt >= 0.05_real64 .and. cfg%kt < 0.1_real64) self%nb_step_heating = 20
     if (cfg%kt <  0.05_real64)                           self%nb_step_heating = 40
 
-    if (bak_mode) then
-      self%nb_step_averaging = 5 * self%nb_step_sort
-    else
-      self%nb_step_averaging = cfg%nsav
-    end if
+    ! Always sample plane moments on the same cadence output_step/
+    ! reset_2d_averages use (cfg%nsav) - previously this used a fixed
+    ! 5*nb_step_sort=50 stride whenever nbak/=0, which for nsav values not
+    ! a multiple of 50 (e.g. 20) left most save intervals with ZERO new
+    ! samples accumulated before reset_2d_averages wiped data_pavg_xy/
+    ! phi_avg_xy back to zero - silently zeroing T<i>_*.mco and friends on
+    ! most saves for any nbak!=0 run.
+    self%nb_step_averaging = cfg%nsav
 
     self%tseq = cfg%tseq
     self%nseq = 0

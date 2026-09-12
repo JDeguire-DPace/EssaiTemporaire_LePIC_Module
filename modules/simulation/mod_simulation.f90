@@ -10,8 +10,10 @@ module mod_simulation
   use mod_output_2d,             only: write_density_planes, write_scalar_planes, &
                                        write_vector_component_planes, &
                                        write_plane_xy_scalar_2d, write_plane_xz_scalar_2d, &
-                                       write_plane_yz_scalar_2d
-  use mod_constants,             only: eps0
+                                       write_plane_yz_scalar_2d, &
+                                       write_plane_xy_flux_2d, write_plane_xz_flux_2d, &
+                                       write_plane_yz_flux_2d
+  use mod_constants,             only: eps0, qe
   use mod_collisionDiagnostics, only: print_rxn_counts, reset_rxn_counts, &
                                        print_debug_diagnostics, reset_debug_diagnostics
   use mod_collisions, only: perform_collisions_step, perform_coulomb_step
@@ -289,7 +291,16 @@ contains
         dom_volume    = self%state%dom%h(1) * self%state%dom%h(2) * self%state%dom%h(3) * &
                         real(self%state%dom%n(1)*self%state%dom%n(2)*self%state%dom%n(3), real64), &
         np_red        = self%state%fld%np, &
-        bcnd          = self%state%dom%bcnd)
+        bcnd          = self%state%dom%bcnd, &
+        ix_plane      = self%state%params%ix_plot_plane, &
+        iy_plane      = int(self%state%dom%n(2)/2 + 1, int32), &
+        iz_plane      = self%state%params%iz_plot_plane, &
+        sour_xy       = self%state%sour_avg_xy, &
+        sour_xz       = self%state%sour_avg_xz, &
+        sour_yz       = self%state%sour_avg_yz, &
+        sink_xy       = self%state%sink_avg_xy, &
+        sink_xz       = self%state%sink_avg_xz, &
+        sink_yz       = self%state%sink_avg_yz)
 
   end subroutine collisions_step
 
@@ -329,6 +340,13 @@ contains
     if (allocated(self%state%data_pavg_xz)) self%state%data_pavg_xz = 0.0_real64
     if (allocated(self%state%data_pavg_yz)) self%state%data_pavg_yz = 0.0_real64
 
+    if (allocated(self%state%sour_avg_xy)) self%state%sour_avg_xy = 0.0_real64
+    if (allocated(self%state%sour_avg_xz)) self%state%sour_avg_xz = 0.0_real64
+    if (allocated(self%state%sour_avg_yz)) self%state%sour_avg_yz = 0.0_real64
+    if (allocated(self%state%sink_avg_xy)) self%state%sink_avg_xy = 0.0_real64
+    if (allocated(self%state%sink_avg_xz)) self%state%sink_avg_xz = 0.0_real64
+    if (allocated(self%state%sink_avg_yz)) self%state%sink_avg_yz = 0.0_real64
+
     self%state%cnt_avg = 0_int32
   end subroutine reset_2d_averages
 
@@ -341,8 +359,9 @@ contains
     integer(int32) :: ix_plane, iy_plane_E, iz_plane
     character(len=256) :: prefix
     character(len=16)  :: sstep, sspecies
-    real(real64) :: avg_factor
+    real(real64) :: avg_factor, dr_cell, cell_volume, dt_interval
     real(real64), allocatable :: tmp_xy(:,:), tmp_xz(:,:), tmp_yz(:,:)
+    real(real64), allocatable :: ang_xy(:,:), ang_xz(:,:), ang_yz(:,:)
 
     if (self%state%mpi_rank /= 0) return
 
@@ -350,13 +369,51 @@ contains
     iz_plane   = self%state%params%iz_plot_plane
     iy_plane_E = int(self%state%dom%n(2)/2 + 1, int32)
 
-    avg_factor = real(max(1_int32, self%state%cnt_avg), real64)
+    avg_factor  = real(max(1_int32, self%state%cnt_avg), real64)
+    cell_volume = self%state%dom%h(1) * self%state%dom%h(2) * self%state%dom%h(3)
+    dt_interval = real(self%state%cfg%nsav - 1_int32, real64) * self%state%params%dt
 
     allocate(tmp_xy(0:self%state%dom%n(1)+2,0:self%state%dom%n(2)+2))
     allocate(tmp_xz(0:self%state%dom%n(1)+2,0:self%state%dom%n(3)+2))
     allocate(tmp_yz(0:self%state%dom%n(2)+2,0:self%state%dom%n(3)+2))
+    allocate(ang_xy(0:self%state%dom%n(1)+2,0:self%state%dom%n(2)+2))
+    allocate(ang_xz(0:self%state%dom%n(1)+2,0:self%state%dom%n(3)+2))
+    allocate(ang_yz(0:self%state%dom%n(2)+2,0:self%state%dom%n(3)+2))
 
     write(sstep,'(i0)') istep
+
+    ! --- Debye length ratio (legacy dr_*.mco): dr_cell/lambda_De, from
+    ! species 1 (electron) T/n moments - dividing by data_pavg_xy(1,...)
+    ! rather than np_avg_xy since legacy computes this from the SAME
+    ! per-particle-moment n/T pair used for the u/j outputs below, not the
+    ! grid-deposited density used for the n<i> files above. Guarded exactly
+    ! like legacy (only take the ratio where lambda_De > 0) to avoid a
+    ! divide-by-zero where a cell has no sampled electrons this step.
+    dr_cell = (self%state%dom%h(1) * self%state%dom%h(2) * self%state%dom%h(3)) ** (1.0_real64/3.0_real64)
+
+    tmp_xy = 0.0_real64
+    where (self%state%data_pavg_xy(1,:,:,1) > 0.0_real64)
+      tmp_xy = sqrt( eps0 * self%state%data_pavg_xy(2,:,:,1) / (self%state%data_pavg_xy(1,:,:,1) * qe) )
+    end where
+    where (tmp_xy > 0.0_real64) tmp_xy = dr_cell / tmp_xy
+
+    tmp_xz = 0.0_real64
+    where (self%state%data_pavg_xz(1,:,:,1) > 0.0_real64)
+      tmp_xz = sqrt( eps0 * self%state%data_pavg_xz(2,:,:,1) / (self%state%data_pavg_xz(1,:,:,1) * qe) )
+    end where
+    where (tmp_xz > 0.0_real64) tmp_xz = dr_cell / tmp_xz
+
+    tmp_yz = 0.0_real64
+    where (self%state%data_pavg_yz(1,:,:,1) > 0.0_real64)
+      tmp_yz = sqrt( eps0 * self%state%data_pavg_yz(2,:,:,1) / (self%state%data_pavg_yz(1,:,:,1) * qe) )
+    end where
+    where (tmp_yz > 0.0_real64) tmp_yz = dr_cell / tmp_yz
+
+    prefix = './Output/Output_2D/it' // trim(sstep) // '_dr'
+
+    call write_plane_xy_scalar_2d(trim(prefix)//'_xy.mco', tmp_xy, int(self%state%dom%n, int32), 1_int32)
+    call write_plane_xz_scalar_2d(trim(prefix)//'_xz.mco', tmp_xz, int(self%state%dom%n, int32), 1_int32)
+    call write_plane_yz_scalar_2d(trim(prefix)//'_yz.mco', tmp_yz, int(self%state%dom%n, int32), 1_int32)
 
     do i = 1, self%state%ntype
       write(sspecies,'(i0)') i
@@ -377,6 +434,74 @@ contains
 
       prefix = './Output/Output_2D/it' // trim(sstep) // '_T' // trim(sspecies)
 
+      call write_plane_xy_scalar_2d(trim(prefix)//'_xy.mco', tmp_xy, int(self%state%dom%n, int32), 1_int32)
+      call write_plane_xz_scalar_2d(trim(prefix)//'_xz.mco', tmp_xz, int(self%state%dom%n, int32), 1_int32)
+      call write_plane_yz_scalar_2d(trim(prefix)//'_yz.mco', tmp_yz, int(self%state%dom%n, int32), 1_int32)
+
+      ! --- raw mean velocity components (legacy u<i>x/y/z_*.mco). Not
+      ! divided by avg_factor: unlike np_avg_xy/data_pavg(Tp_avg), these
+      ! (data_pavg indices 3-5) are overwritten - not summed - by each
+      ! compute_particle_plane_moments_species call, so they already hold
+      ! a single normalized snapshot (see mod_planeMoments.f90).
+      prefix = './Output/Output_2D/it' // trim(sstep) // '_u' // trim(sspecies) // 'x'
+      call write_plane_xy_scalar_2d(trim(prefix)//'_xy.mco', self%state%data_pavg_xy(3,:,:,i), int(self%state%dom%n, int32), 1_int32)
+      call write_plane_xz_scalar_2d(trim(prefix)//'_xz.mco', self%state%data_pavg_xz(3,:,:,i), int(self%state%dom%n, int32), 1_int32)
+      call write_plane_yz_scalar_2d(trim(prefix)//'_yz.mco', self%state%data_pavg_yz(3,:,:,i), int(self%state%dom%n, int32), 1_int32)
+
+      prefix = './Output/Output_2D/it' // trim(sstep) // '_u' // trim(sspecies) // 'y'
+      call write_plane_xy_scalar_2d(trim(prefix)//'_xy.mco', self%state%data_pavg_xy(4,:,:,i), int(self%state%dom%n, int32), 1_int32)
+      call write_plane_xz_scalar_2d(trim(prefix)//'_xz.mco', self%state%data_pavg_xz(4,:,:,i), int(self%state%dom%n, int32), 1_int32)
+      call write_plane_yz_scalar_2d(trim(prefix)//'_yz.mco', self%state%data_pavg_yz(4,:,:,i), int(self%state%dom%n, int32), 1_int32)
+
+      prefix = './Output/Output_2D/it' // trim(sstep) // '_u' // trim(sspecies) // 'z'
+      call write_plane_xy_scalar_2d(trim(prefix)//'_xy.mco', self%state%data_pavg_xy(5,:,:,i), int(self%state%dom%n, int32), 1_int32)
+      call write_plane_xz_scalar_2d(trim(prefix)//'_xz.mco', self%state%data_pavg_xz(5,:,:,i), int(self%state%dom%n, int32), 1_int32)
+      call write_plane_yz_scalar_2d(trim(prefix)//'_yz.mco', self%state%data_pavg_yz(5,:,:,i), int(self%state%dom%n, int32), 1_int32)
+
+      ! --- flux magnitude + direction (legacy j<i>_*.mco): n*|u| plus a
+      ! "vector" block of the in-plane flow angle. Uses the per-particle
+      ! moment density (index 1), the same source legacy's own j uses -
+      ! not np_avg_xy, which is the separate grid-deposited density used
+      ! for n<i>_*.mco above.
+      tmp_xy = self%state%data_pavg_xy(1,:,:,i) * sqrt( self%state%data_pavg_xy(3,:,:,i)**2 &
+                                                        + self%state%data_pavg_xy(4,:,:,i)**2 &
+                                                        + self%state%data_pavg_xy(5,:,:,i)**2 )
+      ang_xy = atan2( self%state%data_pavg_xy(4,:,:,i), self%state%data_pavg_xy(3,:,:,i) )
+
+      tmp_xz = self%state%data_pavg_xz(1,:,:,i) * sqrt( self%state%data_pavg_xz(3,:,:,i)**2 &
+                                                        + self%state%data_pavg_xz(4,:,:,i)**2 &
+                                                        + self%state%data_pavg_xz(5,:,:,i)**2 )
+      ang_xz = atan2( self%state%data_pavg_xz(5,:,:,i), self%state%data_pavg_xz(3,:,:,i) )
+
+      tmp_yz = self%state%data_pavg_yz(1,:,:,i) * sqrt( self%state%data_pavg_yz(3,:,:,i)**2 &
+                                                        + self%state%data_pavg_yz(4,:,:,i)**2 &
+                                                        + self%state%data_pavg_yz(5,:,:,i)**2 )
+      ang_yz = atan2( self%state%data_pavg_yz(5,:,:,i), self%state%data_pavg_yz(4,:,:,i) )
+
+      prefix = './Output/Output_2D/it' // trim(sstep) // '_j' // trim(sspecies)
+      call write_plane_xy_flux_2d(trim(prefix)//'_xy.mco', tmp_xy, ang_xy, int(self%state%dom%n, int32), 1_int32)
+      call write_plane_xz_flux_2d(trim(prefix)//'_xz.mco', tmp_xz, ang_xz, int(self%state%dom%n, int32), 1_int32)
+      call write_plane_yz_flux_2d(trim(prefix)//'_yz.mco', tmp_yz, ang_yz, int(self%state%dom%n, int32), 1_int32)
+
+      ! --- reaction-driven source/sink rate maps (legacy sour<i>/sink<i>_
+      ! *.mco, plt_src==1 branch): sum the per-iproc accumulators from
+      ! mod_collisionsGwenael's deposit_plane_event, then convert the
+      ! interval's accumulated particle count into a rate density
+      ! (particles / m^3 / s), same (nsav-1)*dt convention as Iw/Pw above.
+      tmp_xy = sum(self%state%sour_avg_xy(:,:,i,:), dim=3) / (cell_volume * dt_interval)
+      tmp_xz = sum(self%state%sour_avg_xz(:,:,i,:), dim=3) / (cell_volume * dt_interval)
+      tmp_yz = sum(self%state%sour_avg_yz(:,:,i,:), dim=3) / (cell_volume * dt_interval)
+
+      prefix = './Output/Output_2D/it' // trim(sstep) // '_sour' // trim(sspecies)
+      call write_plane_xy_scalar_2d(trim(prefix)//'_xy.mco', tmp_xy, int(self%state%dom%n, int32), 1_int32)
+      call write_plane_xz_scalar_2d(trim(prefix)//'_xz.mco', tmp_xz, int(self%state%dom%n, int32), 1_int32)
+      call write_plane_yz_scalar_2d(trim(prefix)//'_yz.mco', tmp_yz, int(self%state%dom%n, int32), 1_int32)
+
+      tmp_xy = sum(self%state%sink_avg_xy(:,:,i,:), dim=3) / (cell_volume * dt_interval)
+      tmp_xz = sum(self%state%sink_avg_xz(:,:,i,:), dim=3) / (cell_volume * dt_interval)
+      tmp_yz = sum(self%state%sink_avg_yz(:,:,i,:), dim=3) / (cell_volume * dt_interval)
+
+      prefix = './Output/Output_2D/it' // trim(sstep) // '_sink' // trim(sspecies)
       call write_plane_xy_scalar_2d(trim(prefix)//'_xy.mco', tmp_xy, int(self%state%dom%n, int32), 1_int32)
       call write_plane_xz_scalar_2d(trim(prefix)//'_xz.mco', tmp_xz, int(self%state%dom%n, int32), 1_int32)
       call write_plane_yz_scalar_2d(trim(prefix)//'_yz.mco', tmp_yz, int(self%state%dom%n, int32), 1_int32)
@@ -404,11 +529,49 @@ contains
     call write_vector_component_planes(self%state%fld%E, int(self%state%dom%n, int32), &
                                       3_int32, ix_plane, iy_plane_E, iz_plane, 1_int32, prefix)
 
+    ! --- legacy phi_Te_ne_cntr.dat: domain-center phi/Te/ne (species 1 =
+    ! electrons) plus ne sampled along x. Same data_pavg source as the
+    ! dr/u/j outputs above (not np_avg_xy), matching legacy's own internal
+    ! consistency. Written here (not print_diagnostics) because phi_avg_xy/
+    ! data_pavg_xy are only freshly populated for THIS interval at this
+    ! point - print_diagnostics(istep) runs before advance_one_step(istep),
+    ! i.e. before this interval's compute_plane_moments_local/
+    ! accumulate_2d_averages, so it would see last interval's already-reset
+    ! (zero) values instead.
+    block
+      integer :: ucntr, k
+      integer(int32) :: nx, iy_c
+      real(real64) :: simulation_time
+      logical :: file_exists
+
+      nx  = int(self%state%dom%n(1), int32)
+      iy_c = int(self%state%dom%n(2)/2_int32 + 1_int32, int32)
+      simulation_time = self%state%params%dt * real(istep, real64)
+
+      inquire(file='./Output/phi_Te_ne_cntr.dat', exist=file_exists)
+      open(newunit=ucntr, file='./Output/phi_Te_ne_cntr.dat', status='unknown', &
+           position='append', action='write')
+      if (.not. file_exists) then
+        write(ucntr,'(a)') '# Time(s), phi(xm/2,ym/2,z_pl), Te(xm/2,ym/2,z_pl), ne at ym/2, z_pl and '// &
+            'xm/2, xm/10, 2xm/10, 3xm/10, 4xm/10, 6xm/10, 7xm/10, 8xm/10, 9xm/10'
+      end if
+      write(ucntr,'(20(1x,es16.8))') simulation_time, &
+          self%state%phi_avg_xy(nx/2_int32+1_int32, iy_c) / avg_factor, &
+          self%state%data_pavg_xy(2, nx/2_int32+1_int32, iy_c, 1) / avg_factor, &
+          self%state%data_pavg_xy(1, nx/2_int32+1_int32, iy_c, 1) / avg_factor, &
+          ( self%state%data_pavg_xy(1, nint(real(k,real64)*real(nx,real64)/10.0_real64)+1_int32, iy_c, 1) &
+              / avg_factor, k = 1_int32, 4_int32 ), &
+          ( self%state%data_pavg_xy(1, nint(real(k,real64)*real(nx,real64)/10.0_real64)+1_int32, iy_c, 1) &
+              / avg_factor, k = 6_int32, 9_int32 )
+      close(ucntr)
+    end block
+
     if (DEBUG_SIMULATION) then
       write(*,*) "MOD output_step: istep, cnt_avg = ", istep, self%state%cnt_avg
     end if
 
     deallocate(tmp_xy, tmp_xz, tmp_yz)
+    deallocate(ang_xy, ang_xz, ang_yz)
   end subroutine output_step
 
 
@@ -861,12 +1024,21 @@ contains
     ! local slice of particles/power/current, not the physically
     ! meaningful whole-domain total.
     real(real64) :: raw(9)
+    ! Per-(species,grid-region) current/power, legacy's Iw<i>.dat/Pw<i>.dat -
+    ! same two-step MPI reduction as raw(:) above, but keeping the full
+    ! (ntype,2,0:ngrid) shape instead of collapsing to scalars.
+    real(real64), allocatable :: p_mac_global(:,:,:)
+    integer(int32) :: igrid, kn_start
 
-    nspecies_print = self%state%rxn%ntype - self%state%rxn%n_neu
+    nspecies_print   = self%state%rxn%ntype - self%state%rxn%n_neu
+    simulation_time  = self%state%params%dt * real(istep, real64)
     allocate(npart_global(nspecies_print))
     do ptype = 1_int32, nspecies_print
       npart_global(ptype) = sum(self%state%part(ptype,:)%n)
     end do
+
+    allocate(p_mac_global(self%state%ntype, 2_int32, 0:self%state%cfg%ngrid))
+    p_mac_global = sum(self%state%p_mac, dim=4)
 
     raw(1) = sum(self%state%P_loss(1,:,:))
     raw(2) = sum(self%state%P_loss(2,:,:))
@@ -890,7 +1062,16 @@ contains
                           MPI_INTEGER, MPI_SUM, self%state%comm, ierr)
       call MPI_Allreduce(MPI_IN_PLACE, raw, 9_int32, &
                           MPI_DOUBLE_PRECISION, MPI_SUM, self%state%comm, ierr)
+      call MPI_Allreduce(MPI_IN_PLACE, p_mac_global, &
+                          size(p_mac_global, kind=int32), &
+                          MPI_DOUBLE_PRECISION, MPI_SUM, self%state%comm, ierr)
     end if
+
+    ! Same normalization Iw1/Iw2 already apply to raw(5)/raw(6) below -
+    ! p_mac is already in physical (current/power) units at accumulation
+    ! time (see mod_state.f90), just averaged over the save interval here.
+    p_mac_global = p_mac_global / &
+        (real(self%state%cfg%nsav - 1_int32, real64) * self%state%params%dt)
 
     Pabs  = raw(2) / &
         (real(self%state%cfg%nsav - 1_int32, real64) * self%state%params%dt)
@@ -962,6 +1143,49 @@ contains
 
     write(*,'(a,ES10.2,ES10.2)') ' I_w  (A)  = ', Iw1, Iw2
     write(*,'(a,ES10.2,ES10.2)') ' Ek_w (eV) = ', Ekw1, Ekw2
+
+    ! --- legacy DATA/*.dat scalar time series, kept in Output/ instead
+    ! (this is the modular tree, not legacy's DATA/ layout). I_inj and
+    ! Vgrd(igrid_sec) (legacy's RF-antenna injected current and per-grid
+    ! bias voltage) are not tracked anywhere in modular yet, so those two
+    ! legacy columns are omitted here rather than zero-padded - a script
+    ! expecting legacy's exact 11-column Ptot.dat will need updating.
+    block
+      integer :: ufile
+      logical :: file_exists
+
+      inquire(file='./Output/Ptot.dat', exist=file_exists)
+      open(newunit=ufile, file='./Output/Ptot.dat', status='unknown', &
+           position='append', action='write')
+      if (.not. file_exists) then
+        write(ufile,'(a)') '# Time (s), Pwall (W), Pabs, Pcoll, Pinj, I_mw (A), I_pw, Ek_ew (eV), Ek_iw'
+      end if
+      write(ufile,'(20(1x,es16.8))') simulation_time, Pwall, Pabs, Pcoll, Pinj, Iw1, Iw2, Ekw1, Ekw2
+      close(ufile)
+    end block
+
+    ! --- legacy Iw<i>.dat/Pw<i>.dat: per-species, per-grid-region
+    ! current/power time series (p_mac_global reduced/normalized above).
+    kn_start = 1_int32
+    if (self%state%dom%flag_nmn == 1_int32) kn_start = 0_int32
+
+    do ptype = 1_int32, self%state%ntype
+      block
+        integer :: uIw, uPw
+        character(len=8) :: pnum
+        write(pnum,'(i0)') ptype
+        open(newunit=uIw, file='./Output/Iw'//trim(pnum)//'.dat', status='unknown', &
+             position='append', action='write')
+        open(newunit=uPw, file='./Output/Pw'//trim(pnum)//'.dat', status='unknown', &
+             position='append', action='write')
+        write(uIw,'(20(1x,es16.8))') simulation_time, &
+            ( p_mac_global(ptype,1,igrid), igrid=kn_start, self%state%cfg%ngrid )
+        write(uPw,'(20(1x,es16.8))') simulation_time, &
+            ( p_mac_global(ptype,2,igrid), igrid=kn_start, self%state%cfg%ngrid )
+        close(uIw)
+        close(uPw)
+      end block
+    end do
 
     write(*,'(a)') " -------------------------"
 
@@ -1049,6 +1273,7 @@ contains
     end if ! self%state%mpi_rank == 0
 
     deallocate(npart_global)
+    deallocate(p_mac_global)
 
     ! Reset legacy-style power accumulators after printing - unconditional
     ! on every rank (not just rank 0), so each rank's own local
