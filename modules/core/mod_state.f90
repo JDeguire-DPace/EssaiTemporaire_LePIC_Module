@@ -76,6 +76,16 @@ module mod_state
     real(real64), allocatable :: P_loss(:,:,:)
     real(real64), allocatable :: p_mac(:,:,:,:)
 
+    ! Momentum-conservation diagnostic - vector (x,y,z) counterpart of
+    ! P_loss, same (slot,ptype,iproc) convention: mom_loss(:,1,:,:) wall,
+    ! mom_loss(:,2,:,:) RF-antenna impulse (folded in from mom_RF the same
+    ! way P_RF folds into P_loss(2,:,:)), mom_loss(:,3,:,:) collisions
+    ! (incl. the dead-particle correction below), mom_loss(:,4,:,:)
+    ! injection+SEE. See print_diagnostics (mod_simulation.f90) for how
+    ! this is reduced/printed/reset, mirroring Pwall/Pabs/Pcoll/Pinj.
+    real(real64), allocatable :: mom_loss(:,:,:,:)
+    real(real64), allocatable :: mom_RF(:,:,:)
+
     ! RF antenna (inductive) heating - flag_RFant==1 only. gams: dynamic
     ! skin depth (m), refined every ns_RF steps by update_rf_convergence
     ! from the actual local electron density. P_RF(ptype,iproc): power
@@ -236,8 +246,14 @@ contains
     allocate(self%P_loss(4, self%ntype, self%nproc))
     self%P_loss = 0.0_real64
 
+    allocate(self%mom_loss(3, 4, self%ntype, self%nproc))
+    self%mom_loss = 0.0_real64
+
     allocate(self%P_RF(self%ntype, self%nproc))
     self%P_RF = 0.0_real64
+
+    allocate(self%mom_RF(3, self%ntype, self%nproc))
+    self%mom_RF = 0.0_real64
 
     allocate(self%p_mac(self%ntype, 2, 0:self%cfg%ngrid, self%nproc))
     self%p_mac = 0.0_real64
@@ -708,6 +724,7 @@ contains
     see%igrid_sec = int(self%cfg%igrid_sec, int32)
     see%zg_sec    = self%dom%zg_sec
     see%Nm_e      = self%params%Nm(1)
+    see%mass_e    = self%chem%mass(1)
     see%vt_sec    = 0.0_real64
     if (self%cfg%THm /= 0.0_real64 .and. self%chem%mass(1) /= 0.0_real64) then
       see%vt_sec = sqrt(2.0_real64 * qe * abs(self%cfg%THm) / abs(self%chem%mass(1)))
@@ -784,7 +801,12 @@ contains
                   time           = time_rf, &
                   P_RF_local     = self%P_RF(ptype,iproc), &
                   flag_planar_ant = self%cfg%flag_planar_ant, &
-                  x0             = x0_rf )
+                  x0             = x0_rf, &
+                  mom_loss_wall  = self%mom_loss(:,1,ptype,iproc), &
+                  mom_loss_see   = self%mom_loss(:,4,1,iproc), &
+                  mom_RF_local   = self%mom_RF(:,ptype,iproc), &
+                  P_loss_coll    = self%P_loss(3,ptype,iproc), &
+                  mom_loss_coll  = self%mom_loss(:,3,ptype,iproc) )
             else
               call move_and_bc_boris( &
                   part           = self%part(ptype,iproc), &
@@ -829,7 +851,12 @@ contains
                   time           = time_rf, &
                   P_RF_local     = self%P_RF(ptype,iproc), &
                   flag_planar_ant = self%cfg%flag_planar_ant, &
-                  x0             = x0_rf )
+                  x0             = x0_rf, &
+                  mom_loss_wall  = self%mom_loss(:,1,ptype,iproc), &
+                  mom_loss_see   = self%mom_loss(:,4,1,iproc), &
+                  mom_RF_local   = self%mom_RF(:,ptype,iproc), &
+                  P_loss_coll    = self%P_loss(3,ptype,iproc), &
+                  mom_loss_coll  = self%mom_loss(:,3,ptype,iproc) )
             end if
           else if (use_fast_electrostatic) then
             ! ptype==1 split out - see the move_and_bc_boris call above.
@@ -861,7 +888,11 @@ contains
                   Nm_species     = self%params%Nm(ptype), &
                   see            = see, &
                   iseed          = self%params%iseed(iproc), &
-                  P_loss_see     = self%P_loss(4,1,iproc) )
+                  P_loss_see     = self%P_loss(4,1,iproc), &
+                  mom_loss_wall  = self%mom_loss(:,1,ptype,iproc), &
+                  mom_loss_see   = self%mom_loss(:,4,1,iproc), &
+                  P_loss_coll    = self%P_loss(3,ptype,iproc), &
+                  mom_loss_coll  = self%mom_loss(:,3,ptype,iproc) )
             else
               call move_and_bc_electrostatic_fast( &
                   part           = self%part(ptype,iproc), &
@@ -891,7 +922,11 @@ contains
                   see            = see, &
                   part_electrons = self%part(1,iproc), &
                   iseed          = self%params%iseed(iproc), &
-                  P_loss_see     = self%P_loss(4,1,iproc) )
+                  P_loss_see     = self%P_loss(4,1,iproc), &
+                  mom_loss_wall  = self%mom_loss(:,1,ptype,iproc), &
+                  mom_loss_see   = self%mom_loss(:,4,1,iproc), &
+                  P_loss_coll    = self%P_loss(3,ptype,iproc), &
+                  mom_loss_coll  = self%mom_loss(:,3,ptype,iproc) )
             end if
           else
             ! ptype==1 split out - see the move_and_bc_boris call above.
@@ -935,7 +970,12 @@ contains
                   time           = time_rf, &
                   P_RF_local     = self%P_RF(ptype,iproc), &
                   flag_planar_ant = self%cfg%flag_planar_ant, &
-                  x0             = x0_rf )
+                  x0             = x0_rf, &
+                  mom_loss_wall  = self%mom_loss(:,1,ptype,iproc), &
+                  mom_loss_see   = self%mom_loss(:,4,1,iproc), &
+                  mom_RF_local   = self%mom_RF(:,ptype,iproc), &
+                  P_loss_coll    = self%P_loss(3,ptype,iproc), &
+                  mom_loss_coll  = self%mom_loss(:,3,ptype,iproc) )
             else
               call move_and_bc_electrostatic( &
                   part           = self%part(ptype,iproc), &
@@ -977,7 +1017,12 @@ contains
                   time           = time_rf, &
                   P_RF_local     = self%P_RF(ptype,iproc), &
                   flag_planar_ant = self%cfg%flag_planar_ant, &
-                  x0             = x0_rf )
+                  x0             = x0_rf, &
+                  mom_loss_wall  = self%mom_loss(:,1,ptype,iproc), &
+                  mom_loss_see   = self%mom_loss(:,4,1,iproc), &
+                  mom_RF_local   = self%mom_RF(:,ptype,iproc), &
+                  P_loss_coll    = self%P_loss(3,ptype,iproc), &
+                  mom_loss_coll  = self%mom_loss(:,3,ptype,iproc) )
             end if
           end if
         else
@@ -1010,7 +1055,11 @@ contains
               see            = see, &
               part_electrons = self%part(1,iproc), &
               iseed          = self%params%iseed(iproc), &
-              P_loss_see     = self%P_loss(4,1,iproc) )
+              P_loss_see     = self%P_loss(4,1,iproc), &
+              mom_loss_wall  = self%mom_loss(:,1,ptype,iproc), &
+              mom_loss_see   = self%mom_loss(:,4,1,iproc), &
+              P_loss_coll    = self%P_loss(3,ptype,iproc), &
+              mom_loss_coll  = self%mom_loss(:,3,ptype,iproc) )
         end if
         tw1 = omp_get_wtime()
         t_move_thread(iproc) = t_move_thread(iproc) + (tw1 - tw0)
@@ -1232,7 +1281,8 @@ contains
     ! Fold into the same power-loss counter print_diagnostics already
     ! reports as "Pabs (W)" - reuses P_loss(2,:,:), matching legacy's own
     ! reuse (Src/main.f90:923).
-    self%P_loss(2,:,:) = self%P_loss(2,:,:) + self%P_RF(:,:)
+    self%P_loss(2,:,:)   = self%P_loss(2,:,:)   + self%P_RF(:,:)
+    self%mom_loss(:,2,:,:) = self%mom_loss(:,2,:,:) + self%mom_RF(:,:,:)
 
     ! Iterative E0_RF toward the target cfg%Pabs.
     if (P_RFtot > 0.0_real64) then
@@ -1249,7 +1299,8 @@ contains
         ', skin depth gam(cm)=', self%gams*1.0e2_real64
     end if
 
-    self%P_RF = 0.0_real64
+    self%P_RF   = 0.0_real64
+    self%mom_RF = 0.0_real64
   end subroutine update_rf_convergence
 
 
@@ -1340,7 +1391,9 @@ contains
     if (allocated(self%sum_q_xz))     deallocate(self%sum_q_xz)
     if (allocated(self%sum_q_yz))     deallocate(self%sum_q_yz)
     if (allocated(self%P_loss))       deallocate(self%P_loss)
+    if (allocated(self%mom_loss))     deallocate(self%mom_loss)
     if (allocated(self%P_RF))         deallocate(self%P_RF)
+    if (allocated(self%mom_RF))       deallocate(self%mom_RF)
     if (allocated(self%p_mac))        deallocate(self%p_mac)
     if (allocated(self%sour_xy))      deallocate(self%sour_xy)
     if (allocated(self%sour_xz))      deallocate(self%sour_xz)

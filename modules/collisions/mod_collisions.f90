@@ -16,7 +16,7 @@ contains
       sigv_mx, sig, sig_Er, sig_Eex, ni0, ns_coll, dt, nu_uplim, iseed, &
       mpi_rank, Pcoll, dom_volume, np_red, bcnd, &
       ix_plane, iy_plane, iz_plane, sour_xy, sour_xz, sour_yz, &
-      sink_xy, sink_xz, sink_yz)
+      sink_xy, sink_xz, sink_yz, mom_loss)
 
     type(ParticleSet), intent(inout) :: part(:,:)
     integer(int32), intent(in) :: n(3)
@@ -32,6 +32,7 @@ contains
     integer(int32), intent(inout) :: iseed(:)
     integer(int32), intent(in) :: mpi_rank
     real(real64), intent(inout) :: Pcoll(:,:)
+    real(real64), intent(inout) :: mom_loss(:,:,:)
     real(real64), intent(in) :: dom_volume
     real(real64), intent(in) :: np_red(0:,0:,0:,:)
     integer(int32), intent(in) :: bcnd(0:,0:,0:)
@@ -64,6 +65,7 @@ contains
         iseed         = iseed, &
         mpi_rank      = mpi_rank, &
         Pcoll         = Pcoll, &
+        mom_loss      = mom_loss, &
         dom_volume    = dom_volume, &
         np_red        = np_red, &
         bcnd          = bcnd, &

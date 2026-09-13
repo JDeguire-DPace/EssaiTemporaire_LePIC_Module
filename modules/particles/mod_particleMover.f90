@@ -191,7 +191,9 @@ contains
                                          iseed, P_loss_see, &
                                          flag_RFant, ixl_pow, ixr_pow, R_ahp, gams, &
                                          E0_RF, omega_RF, time, P_RF_local, &
-                                         flag_planar_ant, x0 )
+                                         flag_planar_ant, x0, &
+                                         mom_loss_wall, mom_loss_see, mom_RF_local, &
+                                         P_loss_coll, mom_loss_coll )
     ! Fused electrostatic push + boundary-condition/SEE pass: one read and
     ! one write of each live particle's position/velocity instead of two
     ! (push writing back into part%x/vx/..., then a separate BC pass
@@ -236,6 +238,16 @@ contains
     real(real64),       intent(inout) :: P_RF_local
     integer(int32),     intent(in)    :: flag_planar_ant
     real(real64),       intent(in)    :: x0
+    ! Momentum-conservation diagnostic - see mod_particleBC.f90's
+    ! apply_particle_bc header comment for what mom_loss_wall/mom_loss_see/
+    ! P_loss_coll+mom_loss_coll are for. mom_RF_local is the RF-antenna
+    ! impulse vector counterpart of P_RF_local (q*E_RF*dt, exact - no v
+    ! projection needed the way the power term needs v_theta).
+    real(real64),       intent(inout) :: mom_loss_wall(3)
+    real(real64),       intent(inout) :: mom_loss_see(3)
+    real(real64),       intent(inout) :: mom_RF_local(3)
+    real(real64),       intent(inout) :: P_loss_coll
+    real(real64),       intent(inout) :: mom_loss_coll(3)
 
     integer(int32) :: i, i_shift, i_see, ip_sec, n_sec
     integer(int32) :: ix, iy, iz
@@ -287,6 +299,15 @@ contains
       if (allocated(part%flag_dead)) then
         if (part%flag_dead(i) /= 0_int8) then
           np_lost = np_lost + 1_int32
+          ! Remove the energy/momentum this particle carried when a
+          ! collision flagged it dead last step (mirrors legacy
+          ! Src/part_expmover.f90:70-84) - otherwise it stays counted in
+          ! Pcoll/mom_loss(:,3,:) after this step quietly discards it.
+          P_loss_coll = P_loss_coll - Nm_species * 0.5_real64 * m * &
+              (part%vx(i)*part%vx(i) + part%vy(i)*part%vy(i) + part%vz(i)*part%vz(i))
+          mom_loss_coll(1) = mom_loss_coll(1) - Nm_species * m * part%vx(i)
+          mom_loss_coll(2) = mom_loss_coll(2) - Nm_species * m * part%vy(i)
+          mom_loss_coll(3) = mom_loss_coll(3) - Nm_species * m * part%vz(i)
           cycle
         end if
       end if
@@ -366,6 +387,13 @@ contains
         v_theta = -0.5_real64*(part%vy(i)+vpy_new)*sin(theta_rf) + &
                    0.5_real64*(part%vz(i)+vpz_new)*cos(theta_rf)
         P_RF_local = P_RF_local + Nm_species*q*EAth*v_theta*dt
+
+        ! Impulse delivered by the RF field alone (exact - no v-projection
+        ! needed the way the power term above needs v_theta, since impulse
+        ! is linear in E). No x-component: the prescribed RF field only has
+        ! azimuthal (y,z) components (EAy,EAz above).
+        mom_RF_local(2) = mom_RF_local(2) + Nm_species*q*EAy*dt
+        mom_RF_local(3) = mom_RF_local(3) + Nm_species*q*EAz*dt
       end if
 
       ! ---- boundary conditions / SEE, operating on the just-pushed state ----
@@ -463,6 +491,10 @@ contains
             (vpx_new*vpx_new + vpy_new*vpy_new + vpz_new*vpz_new)
         P_loss_wall = P_loss_wall + Nm_species * Ek_J
 
+        mom_loss_wall(1) = mom_loss_wall(1) + Nm_species * m * vpx_new
+        mom_loss_wall(2) = mom_loss_wall(2) + Nm_species * m * vpy_new
+        mom_loss_wall(3) = mom_loss_wall(3) + Nm_species * m * vpz_new
+
         ! Secondary electron emission (positive ions hitting igrid_sec)
         if (do_see .and. igrid == see%igrid_sec) then
           rnd(1) = ran2(iseed)
@@ -494,6 +526,10 @@ contains
 
               P_loss_see = P_loss_see + 0.5_real64 * see%Nm_e * &
                   (vx_sec*vx_sec + vy_sec*vy_sec + vz_sec*vz_sec)
+
+              mom_loss_see(1) = mom_loss_see(1) + see%Nm_e * see%mass_e * vx_sec
+              mom_loss_see(2) = mom_loss_see(2) + see%Nm_e * see%mass_e * vy_sec
+              mom_loss_see(3) = mom_loss_see(3) + see%Nm_e * see%mass_e * vz_sec
             end do
           end if
         end if
@@ -555,7 +591,9 @@ contains
                                               ptype, tag_neg, flag_die, dtype, qmacro, &
                                               sum_q_xz_local, sum_q_yz_local, p_mac_boundary, &
                                               P_loss_wall, Nm_species, see, part_electrons, &
-                                              iseed, P_loss_see )
+                                              iseed, P_loss_see, &
+                                              mom_loss_wall, mom_loss_see, &
+                                              P_loss_coll, mom_loss_coll )
     ! Lean fast path for move_and_bc_electrostatic, used whenever the
     ! energy-conserving pusher and RF-antenna heating are both off (the
     ! common case - both are opt-in features). Identical to the full
@@ -593,6 +631,12 @@ contains
     type(ParticleSet),  intent(inout), optional :: part_electrons
     integer(int32),     intent(inout) :: iseed
     real(real64),       intent(inout) :: P_loss_see
+    ! Momentum-conservation diagnostic - see move_and_bc_electrostatic's
+    ! header comment.
+    real(real64),       intent(inout) :: mom_loss_wall(3)
+    real(real64),       intent(inout) :: mom_loss_see(3)
+    real(real64),       intent(inout) :: P_loss_coll
+    real(real64),       intent(inout) :: mom_loss_coll(3)
 
     integer(int32) :: i, i_shift, i_see, ip_sec, n_sec
     integer(int32) :: ix, iy, iz
@@ -631,6 +675,15 @@ contains
       if (allocated(part%flag_dead)) then
         if (part%flag_dead(i) /= 0_int8) then
           np_lost = np_lost + 1_int32
+          ! Remove the energy/momentum this particle carried when a
+          ! collision flagged it dead last step (mirrors legacy
+          ! Src/part_expmover.f90:70-84) - otherwise it stays counted in
+          ! Pcoll/mom_loss(:,3,:) after this step quietly discards it.
+          P_loss_coll = P_loss_coll - Nm_species * 0.5_real64 * m * &
+              (part%vx(i)*part%vx(i) + part%vy(i)*part%vy(i) + part%vz(i)*part%vz(i))
+          mom_loss_coll(1) = mom_loss_coll(1) - Nm_species * m * part%vx(i)
+          mom_loss_coll(2) = mom_loss_coll(2) - Nm_species * m * part%vy(i)
+          mom_loss_coll(3) = mom_loss_coll(3) - Nm_species * m * part%vz(i)
           cycle
         end if
       end if
@@ -783,6 +836,10 @@ contains
             (vpx_new*vpx_new + vpy_new*vpy_new + vpz_new*vpz_new)
         P_loss_wall = P_loss_wall + Nm_species * Ek_J
 
+        mom_loss_wall(1) = mom_loss_wall(1) + Nm_species * m * vpx_new
+        mom_loss_wall(2) = mom_loss_wall(2) + Nm_species * m * vpy_new
+        mom_loss_wall(3) = mom_loss_wall(3) + Nm_species * m * vpz_new
+
         ! Secondary electron emission (positive ions hitting igrid_sec)
         if (do_see .and. igrid == see%igrid_sec) then
           rnd(1) = ran2(iseed)
@@ -814,6 +871,10 @@ contains
 
               P_loss_see = P_loss_see + 0.5_real64 * see%Nm_e * &
                   (vx_sec*vx_sec + vy_sec*vy_sec + vz_sec*vz_sec)
+
+              mom_loss_see(1) = mom_loss_see(1) + see%Nm_e * see%mass_e * vx_sec
+              mom_loss_see(2) = mom_loss_see(2) + see%Nm_e * see%mass_e * vy_sec
+              mom_loss_see(3) = mom_loss_see(3) + see%Nm_e * see%mass_e * vz_sec
             end do
           end if
         end if
@@ -879,7 +940,9 @@ contains
                                  iseed, P_loss_see, &
                                  flag_RFant, ixl_pow, ixr_pow, R_ahp, gams, &
                                  E0_RF, omega_RF, time, P_RF_local, &
-                                 flag_planar_ant, x0 )
+                                 flag_planar_ant, x0, &
+                                 mom_loss_wall, mom_loss_see, mom_RF_local, &
+                                 P_loss_coll, mom_loss_coll )
     ! Same fusion as move_and_bc_electrostatic, but with the Boris push
     ! (move_particles_boris) in place of the electrostatic one. See that
     ! routine's header comment for the rationale; the BC/SEE block below
@@ -919,6 +982,13 @@ contains
     real(real64),       intent(inout) :: P_RF_local
     integer(int32),     intent(in)    :: flag_planar_ant
     real(real64),       intent(in)    :: x0
+    ! Momentum-conservation diagnostic - see move_and_bc_electrostatic's
+    ! header comment.
+    real(real64),       intent(inout) :: mom_loss_wall(3)
+    real(real64),       intent(inout) :: mom_loss_see(3)
+    real(real64),       intent(inout) :: mom_RF_local(3)
+    real(real64),       intent(inout) :: P_loss_coll
+    real(real64),       intent(inout) :: mom_loss_coll(3)
 
     integer(int32) :: i, i_shift, i_see, ip_sec, n_sec
     integer(int32) :: ix, iy, iz
@@ -987,6 +1057,15 @@ contains
       if (allocated(part%flag_dead)) then
         if (part%flag_dead(i) /= 0_int8) then
           np_lost = np_lost + 1_int32
+          ! Remove the energy/momentum this particle carried when a
+          ! collision flagged it dead last step (mirrors legacy
+          ! Src/part_expmover.f90:70-84) - otherwise it stays counted in
+          ! Pcoll/mom_loss(:,3,:) after this step quietly discards it.
+          P_loss_coll = P_loss_coll - Nm_species * 0.5_real64 * m * &
+              (part%vx(i)*part%vx(i) + part%vy(i)*part%vy(i) + part%vz(i)*part%vz(i))
+          mom_loss_coll(1) = mom_loss_coll(1) - Nm_species * m * part%vx(i)
+          mom_loss_coll(2) = mom_loss_coll(2) - Nm_species * m * part%vy(i)
+          mom_loss_coll(3) = mom_loss_coll(3) - Nm_species * m * part%vz(i)
           cycle
         end if
       end if
@@ -1162,6 +1241,13 @@ contains
         v_theta = -0.5_real64*(part%vy(i)+vpy_new)*sin(theta_rf) + &
                    0.5_real64*(part%vz(i)+vpz_new)*cos(theta_rf)
         P_RF_local = P_RF_local + Nm_species*q*EAth*v_theta*dt
+
+        ! Impulse delivered by the RF field alone (exact - no v-projection
+        ! needed the way the power term above needs v_theta, since impulse
+        ! is linear in E). No x-component: the prescribed RF field only has
+        ! azimuthal (y,z) components (EAy,EAz above).
+        mom_RF_local(2) = mom_RF_local(2) + Nm_species*q*EAy*dt
+        mom_RF_local(3) = mom_RF_local(3) + Nm_species*q*EAz*dt
       end if
 
       ! ---- boundary conditions / SEE, operating on the just-pushed state ----
@@ -1259,6 +1345,10 @@ contains
             (vpx_new*vpx_new + vpy_new*vpy_new + vpz_new*vpz_new)
         P_loss_wall = P_loss_wall + Nm_species * Ek_J
 
+        mom_loss_wall(1) = mom_loss_wall(1) + Nm_species * m * vpx_new
+        mom_loss_wall(2) = mom_loss_wall(2) + Nm_species * m * vpy_new
+        mom_loss_wall(3) = mom_loss_wall(3) + Nm_species * m * vpz_new
+
         ! Secondary electron emission (positive ions hitting igrid_sec)
         if (do_see .and. igrid == see%igrid_sec) then
           rnd(1) = ran2(iseed)
@@ -1290,6 +1380,10 @@ contains
 
               P_loss_see = P_loss_see + 0.5_real64 * see%Nm_e * &
                   (vx_sec*vx_sec + vy_sec*vy_sec + vz_sec*vz_sec)
+
+              mom_loss_see(1) = mom_loss_see(1) + see%Nm_e * see%mass_e * vx_sec
+              mom_loss_see(2) = mom_loss_see(2) + see%Nm_e * see%mass_e * vy_sec
+              mom_loss_see(3) = mom_loss_see(3) + see%Nm_e * see%mass_e * vz_sec
             end do
           end if
         end if

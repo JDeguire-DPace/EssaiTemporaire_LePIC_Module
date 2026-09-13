@@ -101,7 +101,7 @@ contains
       col_info, sigv_mx, sig, sig_Er, sig_Eex, ni0, ns_coll, dt, nu_uplim, &
       iseed, mpi_rank, Pcoll, dom_volume, np_red, bcnd, &
       ix_plane, iy_plane, iz_plane, sour_xy, sour_xz, sour_yz, &
-      sink_xy, sink_xz, sink_yz)
+      sink_xy, sink_xz, sink_yz, mom_loss)
 
     type(ParticleSet), intent(inout) :: part(:,:)
     integer(int32), intent(in)    :: n(3)
@@ -117,6 +117,9 @@ contains
     integer(int32), intent(inout) :: iseed(:)
     integer(int32), intent(in)    :: mpi_rank
     real(real64),   intent(inout) :: Pcoll(:,:)
+    ! Momentum-conservation diagnostic - vector counterpart of Pcoll,
+    ! shaped (3, ntype, nproc): mom_loss(:,ptype,iproc).
+    real(real64),   intent(inout) :: mom_loss(:,:,:)
     real(real64),   intent(in)    :: dom_volume
     ! Deposited density grid (legacy np_red), ghosted like the field
     ! arrays: (0:n(1)+2, 0:n(2)+2, 0:n(3)+2, ntype_tracked).
@@ -261,7 +264,7 @@ contains
               p_ncol, sig_list, col_info, sig, sig_Er, sig_Eex, ni0, &
               np_red, np_mx, iseed(iproc), Pcoll, n_add, &
               ix_plane, iy_plane, iz_plane, sour_xy, sour_xz, sour_yz, &
-              sink_xy, sink_xz, sink_yz)
+              sink_xy, sink_xz, sink_yz, mom_loss)
         end block
 
       end do
@@ -290,7 +293,7 @@ contains
       ntype_tracked, ntype_all, mass, Ti, Nm, p_ncol, sig_list, col_info, &
       sig, sig_Er, sig_Eex, ni0, np_red, np_mx, iseed_local, Pcoll, n_add, &
       ix_plane, iy_plane, iz_plane, sour_xy, sour_xz, sour_yz, &
-      sink_xy, sink_xz, sink_yz)
+      sink_xy, sink_xz, sink_yz, mom_loss)
 
     type(ParticleSet), intent(inout) :: part(:,:)
     integer(int32), intent(in)    :: n(3)
@@ -307,6 +310,7 @@ contains
     real(real64),   intent(in)    :: np_mx(:)
     integer(int32), intent(inout) :: iseed_local
     real(real64),   intent(inout) :: Pcoll(:,:)
+    real(real64),   intent(inout) :: mom_loss(:,:,:)
     integer(int32), intent(inout) :: n_add(:,:)
     integer(int32), intent(in)    :: ix_plane, iy_plane, iz_plane
     real(real64),   intent(inout) :: sour_xy(0:,0:,:,:), sour_xz(0:,0:,:,:), sour_yz(0:,0:,:,:)
@@ -462,7 +466,7 @@ contains
           cache_it(ttype), cache_itproc(ttype), ntype_tracked, &
           c_ind, col_info, sig_Eex, mass, Nm, Pcoll, iseed_local, &
           ix_plane, iy_plane, iz_plane, sour_xy, sour_xz, sour_yz, &
-          sink_xy, sink_xz, sink_yz)
+          sink_xy, sink_xz, sink_yz, mom_loss)
 
     end do ! ic
 
@@ -477,7 +481,7 @@ contains
       part, n, h, n_add, ptype, iproc, ip, ttype, tvx, tvy, tvz, it, itproc, &
       ntype_tracked, c_ind, col_info, sig_Eex, mass, Nm, Pcoll, iseed_local, &
       ix_plane, iy_plane, iz_plane, sour_xy, sour_xz, sour_yz, &
-      sink_xy, sink_xz, sink_yz)
+      sink_xy, sink_xz, sink_yz, mom_loss)
 
     type(ParticleSet), intent(inout) :: part(:,:)
     integer(int32), intent(in)    :: n(3)
@@ -495,6 +499,9 @@ contains
     integer(int32), intent(in)    :: ix_plane, iy_plane, iz_plane
     real(real64),   intent(inout) :: sour_xy(0:,0:,:,:), sour_xz(0:,0:,:,:), sour_yz(0:,0:,:,:)
     real(real64),   intent(inout) :: sink_xy(0:,0:,:,:), sink_xz(0:,0:,:,:), sink_yz(0:,0:,:,:)
+    ! Momentum-conservation diagnostic - vector counterpart of Pcoll,
+    ! shaped (3, ntype, nproc): mom_loss(:,ptype,iproc).
+    real(real64),   intent(inout) :: mom_loss(:,:,:)
 
     integer(int32) :: n_re, n_by, rt, i_by, btype, ib, ibproc
     integer(int32) :: flag_proj_kept, flag_targ_kept
@@ -504,6 +511,7 @@ contains
     real(real64)   :: th, th_add, phi, cos_th, sin_th, cos_th_s, phi_s
     real(real64)   :: ex, ey, ez, ex1, ey1, ez1
     real(real64)   :: rnd1, rnd2, vp, v2old, v2new
+    real(real64)   :: bvx_old, bvy_old, bvz_old
 
     n_re = col_info(c_ind, 1)
     n_by = col_info(c_ind, 2)
@@ -516,8 +524,10 @@ contains
     if (rt == 4_int32) then
 
       ! Projectile takes on the target's (sampled or real) velocity.
-      v2old = part(ptype,iproc)%vx(ip)**2 + part(ptype,iproc)%vy(ip)**2 + &
-              part(ptype,iproc)%vz(ip)**2
+      vx1 = part(ptype,iproc)%vx(ip)
+      vy1 = part(ptype,iproc)%vy(ip)
+      vz1 = part(ptype,iproc)%vz(ip)
+      v2old = vx1*vx1 + vy1*vy1 + vz1*vz1
 
       part(ptype,iproc)%vx(ip) = tvx
       part(ptype,iproc)%vy(ip) = tvy
@@ -527,6 +537,10 @@ contains
 
       Pcoll(ptype,iproc) = Pcoll(ptype,iproc) + &
           0.5_real64*Nm(ptype)*abs(mass(ptype))*(v2new - v2old)
+
+      mom_loss(1,ptype,iproc) = mom_loss(1,ptype,iproc) + Nm(ptype)*abs(mass(ptype))*(tvx - vx1)
+      mom_loss(2,ptype,iproc) = mom_loss(2,ptype,iproc) + Nm(ptype)*abs(mass(ptype))*(tvy - vy1)
+      mom_loss(3,ptype,iproc) = mom_loss(3,ptype,iproc) + Nm(ptype)*abs(mass(ptype))*(tvz - vz1)
 
       ! If the target was itself a tracked charged particle, it would, in
       ! the general legacy formulation, receive the projectile's old
@@ -614,8 +628,10 @@ contains
 
       vp = sqrt(2.0_real64*(Erel_after/sum_mass_inv) / abs(mass(btype))**2)
 
-      v2old = part(btype,ibproc)%vx(ib)**2 + part(btype,ibproc)%vy(ib)**2 + &
-              part(btype,ibproc)%vz(ib)**2
+      bvx_old = part(btype,ibproc)%vx(ib)
+      bvy_old = part(btype,ibproc)%vy(ib)
+      bvz_old = part(btype,ibproc)%vz(ib)
+      v2old = bvx_old*bvx_old + bvy_old*bvy_old + bvz_old*bvz_old
 
       part(btype,ibproc)%vx(ib) = vx_cm + vp*ex1
       part(btype,ibproc)%vy(ib) = vy_cm + vp*ey1
@@ -626,6 +642,13 @@ contains
 
       Pcoll(btype,ibproc) = Pcoll(btype,ibproc) + &
           0.5_real64*Nm(btype)*abs(mass(btype))*(v2new - v2old)
+
+      mom_loss(1,btype,ibproc) = mom_loss(1,btype,ibproc) + &
+          Nm(btype)*abs(mass(btype))*(part(btype,ibproc)%vx(ib) - bvx_old)
+      mom_loss(2,btype,ibproc) = mom_loss(2,btype,ibproc) + &
+          Nm(btype)*abs(mass(btype))*(part(btype,ibproc)%vy(ib) - bvy_old)
+      mom_loss(3,btype,ibproc) = mom_loss(3,btype,ibproc) + &
+          Nm(btype)*abs(mass(btype))*(part(btype,ibproc)%vz(ib) - bvz_old)
 
       ! Legacy ss2D(1,...) equivalent: this reaction produced one btype
       ! macroparticle here (whether ib is a freshly-appended slot or a

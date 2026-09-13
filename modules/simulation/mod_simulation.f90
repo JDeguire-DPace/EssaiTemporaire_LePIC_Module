@@ -288,6 +288,7 @@ contains
         iseed         = self%state%params%iseed, &
         mpi_rank      = int(self%state%mpi_rank, int32), &
         Pcoll         = self%state%P_loss(3,:,:), &
+        mom_loss      = self%state%mom_loss(:,3,:,:), &
         dom_volume    = self%state%dom%h(1) * self%state%dom%h(2) * self%state%dom%h(3) * &
                         real(self%state%dom%n(1)*self%state%dom%n(2)*self%state%dom%n(3), real64), &
         np_red        = self%state%fld%np, &
@@ -881,7 +882,8 @@ contains
           sour_yz      = self%state%sour_yz, &
           iz_pl        = self%state%params%iz_plot_plane, &
           ix_pl        = self%state%params%ix_plot_plane, &
-          P_loss       = self%state%P_loss )
+          P_loss       = self%state%P_loss, &
+          mom_loss     = self%state%mom_loss )
       end do
       !$omp end parallel do
       self%state%N_inj = 0_int32
@@ -920,7 +922,8 @@ contains
         iz_pl        = self%state%params%iz_plot_plane, &
         ix_pl        = self%state%params%ix_plot_plane, &
         P_loss       = self%state%P_loss, &
-        N_flx        = self%state%N_flx )
+        N_flx        = self%state%N_flx, &
+        mom_loss     = self%state%mom_loss )
       self%state%N_flx = 0_int32
     end if
 
@@ -967,12 +970,33 @@ contains
     integer, intent(in) :: nsteps
 
     integer(int32) :: istep, istep_offset, istep_end
+    integer(int32) :: ptype
+    character(len=8) :: pnum
 
     if (self%state%mpi_rank == 0) then
       write(*,*) " "
       write(*,*) " "
       write(*,"(a)") ">>> Entering the PIC loop <<<"
       write(*,*) " "
+    end if
+
+    ! Fresh (non-restart) run: clear out any stale scalar time-series files
+    ! left over from a previous run in the same Output/ directory, so
+    ! print_diagnostics/output_step's own file_exists check (below) sees a
+    ! genuinely-absent file and starts each one anew (fresh header, time
+    ! series from t=0) instead of silently appending a new run's data onto
+    ! an old one. A real restart (flag_restart>0) must NOT do this - those
+    ! files are expected to already hold the original run's history and are
+    ! meant to just keep growing.
+    if (self%state%cfg%flag_restart == 0_int32 .and. self%state%mpi_rank == 0_int32) then
+      call reset_output_file('./Output/Ptot.dat')
+      call reset_output_file('./Output/Mtot.dat')
+      call reset_output_file('./Output/phi_Te_ne_cntr.dat')
+      do ptype = 1_int32, self%state%ntype
+        write(pnum,'(i0)') ptype
+        call reset_output_file('./Output/Iw'//trim(pnum)//'.dat')
+        call reset_output_file('./Output/Pw'//trim(pnum)//'.dat')
+      end do
     end if
 
     ! On restart, self%state%time is set from the backup file's stored
@@ -993,6 +1017,23 @@ contains
 
     end do
   end subroutine run
+
+
+  ! Deletes filename if it exists; a no-op otherwise. Used at the start of a
+  ! fresh (non-restart) run to clear stale Output/ scalar time-series files
+  ! from a previous run before the append-based writes further down
+  ! (print_diagnostics, output_step) start appending to them.
+  subroutine reset_output_file(filename)
+    character(len=*), intent(in) :: filename
+    integer :: unit
+    logical :: file_exists
+
+    inquire(file=filename, exist=file_exists)
+    if (file_exists) then
+      open(newunit=unit, file=filename, status='old', action='write')
+      close(unit, status='delete')
+    end if
+  end subroutine reset_output_file
 
 
   subroutine finalize(self)
@@ -1030,6 +1071,23 @@ contains
     real(real64), allocatable :: p_mac_global(:,:,:)
     integer(int32) :: igrid, kn_start
 
+    ! Momentum-conservation diagnostic - vector (x,y,z) counterpart of
+    ! Pwall/Pabs/Pcoll/Pinj, same two-step MPI reduction. raw_mom groups
+    ! by component: (1:3)=wall, (4:6)=abs/RF, (7:9)=coll, (10:12)=inj -
+    ! mirrors self%state%mom_loss's (axis,slot,ptype,iproc) layout.
+    ! mom_total is the instantaneous Sum(Nm*mass*v) over every live tracked
+    ! macroparticle: printed/written alongside Fwall/Fabs/Fcoll/Finj so the
+    ! balance Fwall*dtp + Fabs*dtp + Fcoll*dtp + Finj =~= Delta(mom_total)
+    ! between two prints can actually be checked, not just eyeballed -
+    ! same sign convention as Pwall/Pabs/Pcoll/Pinj (Fwall negated like
+    ! Pwall, so all four terms read as "signed contribution to the
+    ! plasma's momentum" and a plain sum over one period equals the
+    ! change in mom_total if the books are closed).
+    real(real64) :: raw_mom(12)
+    real(real64) :: mom_total(3)
+    real(real64) :: Fwall_mom(3), Fabs_mom(3), Fcoll_mom(3), Finj_mom(3)
+    integer(int32) :: iproc_m, ip_m
+
     nspecies_print   = self%state%rxn%ntype - self%state%rxn%n_neu
     simulation_time  = self%state%params%dt * real(istep, real64)
     allocate(npart_global(nspecies_print))
@@ -1057,10 +1115,49 @@ contains
     ! their own sums).
     raw(9) = sum(abs(self%state%p_mac(2:self%state%ntype,1,:,:)))
 
+    raw_mom(1)  = sum(self%state%mom_loss(1,1,:,:))
+    raw_mom(2)  = sum(self%state%mom_loss(2,1,:,:))
+    raw_mom(3)  = sum(self%state%mom_loss(3,1,:,:))
+    raw_mom(4)  = sum(self%state%mom_loss(1,2,:,:))
+    raw_mom(5)  = sum(self%state%mom_loss(2,2,:,:))
+    raw_mom(6)  = sum(self%state%mom_loss(3,2,:,:))
+    raw_mom(7)  = sum(self%state%mom_loss(1,3,:,:))
+    raw_mom(8)  = sum(self%state%mom_loss(2,3,:,:))
+    raw_mom(9)  = sum(self%state%mom_loss(3,3,:,:))
+    raw_mom(10) = sum(self%state%mom_loss(1,4,:,:))
+    raw_mom(11) = sum(self%state%mom_loss(2,4,:,:))
+    raw_mom(12) = sum(self%state%mom_loss(3,4,:,:))
+
+    ! Instantaneous total momentum of every live tracked macroparticle on
+    ! this rank (mass<=0 marks an untracked background species with no
+    ! ParticleSet storage - same guard the mover uses to skip the push).
+    mom_total = 0.0_real64
+    do ptype = 1_int32, self%state%ntype
+      if (self%state%chem%mass(ptype) <= 0.0_real64) cycle
+      do iproc_m = 1_int32, self%state%nproc
+        if (.not. allocated(self%state%part(ptype,iproc_m)%x)) cycle
+        do ip_m = 1_int32, self%state%part(ptype,iproc_m)%n
+          if (allocated(self%state%part(ptype,iproc_m)%flag_dead)) then
+            if (self%state%part(ptype,iproc_m)%flag_dead(ip_m) /= 0_int8) cycle
+          end if
+          mom_total(1) = mom_total(1) + self%state%params%Nm(ptype) * self%state%chem%mass(ptype) * &
+              self%state%part(ptype,iproc_m)%vx(ip_m)
+          mom_total(2) = mom_total(2) + self%state%params%Nm(ptype) * self%state%chem%mass(ptype) * &
+              self%state%part(ptype,iproc_m)%vy(ip_m)
+          mom_total(3) = mom_total(3) + self%state%params%Nm(ptype) * self%state%chem%mass(ptype) * &
+              self%state%part(ptype,iproc_m)%vz(ip_m)
+        end do
+      end do
+    end do
+
     if (self%state%mpi_size > 1_int32) then
       call MPI_Allreduce(MPI_IN_PLACE, npart_global, nspecies_print, &
                           MPI_INTEGER, MPI_SUM, self%state%comm, ierr)
       call MPI_Allreduce(MPI_IN_PLACE, raw, 9_int32, &
+                          MPI_DOUBLE_PRECISION, MPI_SUM, self%state%comm, ierr)
+      call MPI_Allreduce(MPI_IN_PLACE, raw_mom, 12_int32, &
+                          MPI_DOUBLE_PRECISION, MPI_SUM, self%state%comm, ierr)
+      call MPI_Allreduce(MPI_IN_PLACE, mom_total, 3_int32, &
                           MPI_DOUBLE_PRECISION, MPI_SUM, self%state%comm, ierr)
       call MPI_Allreduce(MPI_IN_PLACE, p_mac_global, &
                           size(p_mac_global, kind=int32), &
@@ -1095,6 +1192,17 @@ contains
 
     Ekw2 = 0.0_real64
     if (raw(9) > 0.0_real64) Ekw2 = raw(8) / raw(9)
+
+    Fwall_mom = -raw_mom(1:3) / &
+        (real(self%state%cfg%nsav - 1_int32, real64) * self%state%params%dt)
+
+    Fabs_mom = raw_mom(4:6) / &
+        (real(self%state%cfg%nsav - 1_int32, real64) * self%state%params%dt)
+
+    Fcoll_mom = raw_mom(7:9) / &
+        (real(self%state%cfg%nsav - 1_int32, real64) * self%state%params%dt)
+
+    Finj_mom = raw_mom(10:12)
 
     ! Everything below this point is output only (no further physics
     ! state is touched) - restrict it to rank 0, matching legacy's own
@@ -1144,6 +1252,14 @@ contains
     write(*,'(a,ES10.2,ES10.2)') ' I_w  (A)  = ', Iw1, Iw2
     write(*,'(a,ES10.2,ES10.2)') ' Ek_w (eV) = ', Ekw1, Ekw2
 
+    write(*,'(a)') " -------------------------"
+    write(*,"(a)") " Momentum diagnostics (x,y,z): "
+    write(*,'(A,3ES10.2)') ' Fwall (N)  = ', Fwall_mom
+    write(*,'(A,3ES10.2)') ' Fabs  (N)  = ', Fabs_mom
+    write(*,'(A,3ES10.2)') ' Fcoll (N)  = ', Fcoll_mom
+    write(*,'(A,3ES10.2)') ' Finj (kg.m/s) = ', Finj_mom
+    write(*,'(A,3ES10.2)') ' mom_total (kg.m/s) = ', mom_total
+
     ! --- legacy DATA/*.dat scalar time series, kept in Output/ instead
     ! (this is the modular tree, not legacy's DATA/ layout). I_inj and
     ! Vgrd(igrid_sec) (legacy's RF-antenna injected current and per-grid
@@ -1161,6 +1277,27 @@ contains
         write(ufile,'(a)') '# Time (s), Pwall (W), Pabs, Pcoll, Pinj, I_mw (A), I_pw, Ek_ew (eV), Ek_iw'
       end if
       write(ufile,'(20(1x,es16.8))') simulation_time, Pwall, Pabs, Pcoll, Pinj, Iw1, Iw2, Ekw1, Ekw2
+      close(ufile)
+    end block
+
+    ! --- momentum-conservation diagnostic: same signed-flux convention as
+    ! Ptot.dat above (Fwall negated like Pwall, Finj not time-normalized
+    ! like Pinj), plus mom_total so Fwall*dtp+Fabs*dtp+Fcoll*dtp+Finj can be
+    ! checked against the actual Delta(mom_total) between two rows.
+    block
+      integer :: ufile
+      logical :: file_exists
+
+      inquire(file='./Output/Mtot.dat', exist=file_exists)
+      open(newunit=ufile, file='./Output/Mtot.dat', status='unknown', &
+           position='append', action='write')
+      if (.not. file_exists) then
+        write(ufile,'(a)') '# Time (s), Fwall_x, Fwall_y, Fwall_z (N), '// &
+            'Fabs_x, Fabs_y, Fabs_z (N), Fcoll_x, Fcoll_y, Fcoll_z (N), '// &
+            'Finj_x, Finj_y, Finj_z (kg.m/s), mom_total_x, mom_total_y, mom_total_z (kg.m/s)'
+      end if
+      write(ufile,'(20(1x,es16.8))') simulation_time, &
+          Fwall_mom, Fabs_mom, Fcoll_mom, Finj_mom, mom_total
       close(ufile)
     end block
 
@@ -1285,6 +1422,7 @@ contains
       self%state%P_loss = 0.0_real64
       self%state%p_mac  = 0.0_real64
     end if
+    if (allocated(self%state%mom_loss)) self%state%mom_loss = 0.0_real64
 
     ! Reset timers
     self%t_Erho    = 0.0_real64

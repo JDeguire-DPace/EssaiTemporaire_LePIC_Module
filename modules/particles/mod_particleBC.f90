@@ -20,6 +20,7 @@ module mod_particleBC
     real(real64)   :: zg_sec(2) = 0.0_real64
     real(real64)   :: vt_sec    = 0.0_real64
     real(real64)   :: Nm_e      = 0.0_real64
+    real(real64)   :: mass_e    = 0.0_real64
   end type SeeParams
 
 contains
@@ -43,7 +44,9 @@ contains
                                 p_mac_boundary, mass_species,          &
                                 P_loss_wall, Nm_species,               &
                                 charge_species, see,                   &
-                                part_electrons, iseed, P_loss_see )
+                                part_electrons, iseed, P_loss_see,     &
+                                mom_loss_wall, mom_loss_see,           &
+                                P_loss_coll, mom_loss_coll )
 
     type(ParticleSet),  intent(inout) :: part
     integer(int32),     intent(in)    :: n(3)
@@ -66,6 +69,18 @@ contains
     type(ParticleSet),  intent(inout) :: part_electrons
     integer(int32),     intent(inout) :: iseed
     real(real64),       intent(inout) :: P_loss_see
+    ! Momentum-conservation diagnostic - vector counterparts of P_loss_wall/
+    ! P_loss_see, filled at the same call sites below. mom_loss_coll/
+    ! P_loss_coll additionally close a pre-existing gap: a particle a
+    ! collision flagged dead last step is discarded below with no energy/
+    ! momentum bookkeeping at all (unlike legacy Src/part_expmover.f90:70-84,
+    ! which subtracts it from P_loss(3)) - fixed here so Pcoll/mom_loss(:,3,:)
+    ! actually balance instead of quietly leaking the dead particle's energy
+    ! and momentum out of the books.
+    real(real64),       intent(inout) :: mom_loss_wall(3)
+    real(real64),       intent(inout) :: mom_loss_see(3)
+    real(real64),       intent(inout) :: P_loss_coll
+    real(real64),       intent(inout) :: mom_loss_coll(3)
 
     integer(int32) :: i, i_shift, i_see, ip_sec, n_sec
     integer(int32) :: ix, iy, iz
@@ -101,6 +116,11 @@ contains
       if (allocated(part%flag_dead)) then
         if (part%flag_dead(i) == 1_int8) then
           np_lost = np_lost + 1_int32
+          P_loss_coll = P_loss_coll - Nm_species * 0.5_real64 * mass_species * &
+              (vpx_new*vpx_new + vpy_new*vpy_new + vpz_new*vpz_new)
+          mom_loss_coll(1) = mom_loss_coll(1) - Nm_species * mass_species * vpx_new
+          mom_loss_coll(2) = mom_loss_coll(2) - Nm_species * mass_species * vpy_new
+          mom_loss_coll(3) = mom_loss_coll(3) - Nm_species * mass_species * vpz_new
           cycle
         end if
       end if
@@ -199,6 +219,10 @@ contains
             (vpx_new*vpx_new + vpy_new*vpy_new + vpz_new*vpz_new)
         P_loss_wall = P_loss_wall + Nm_species * Ek_J
 
+        mom_loss_wall(1) = mom_loss_wall(1) + Nm_species * mass_species * vpx_new
+        mom_loss_wall(2) = mom_loss_wall(2) + Nm_species * mass_species * vpy_new
+        mom_loss_wall(3) = mom_loss_wall(3) + Nm_species * mass_species * vpz_new
+
         ! Secondary electron emission (positive ions hitting igrid_sec)
         if (do_see .and. igrid == see%igrid_sec) then
           rnd(1) = ran2(iseed)
@@ -235,6 +259,10 @@ contains
 
               P_loss_see = P_loss_see + 0.5_real64 * see%Nm_e * &
                   (vx_sec*vx_sec + vy_sec*vy_sec + vz_sec*vz_sec)
+
+              mom_loss_see(1) = mom_loss_see(1) + see%Nm_e * see%mass_e * vx_sec
+              mom_loss_see(2) = mom_loss_see(2) + see%Nm_e * see%mass_e * vy_sec
+              mom_loss_see(3) = mom_loss_see(3) + see%Nm_e * see%mass_e * vz_sec
             end do
           end if
         end if

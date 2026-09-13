@@ -58,7 +58,7 @@ contains
       iseed, N_inj, &
       sour_xy, sour_xz, sour_yz, &
       iz_pl, ix_pl, &
-      P_loss )
+      P_loss, mom_loss )
 
     type(ParticleSet), intent(inout) :: part(ntype, nproc)
     integer(int32),    intent(in)    :: iproc
@@ -86,6 +86,11 @@ contains
     integer(int32),    intent(inout) :: sour_yz(0:n(2)+2, 0:n(3)+2, ntype, nproc)
     integer(int32),    intent(in)    :: iz_pl, ix_pl
     real(real64),      intent(inout) :: P_loss(4, ntype, nproc)
+    ! Momentum-conservation diagnostic - vector counterpart of P_loss(4,:,:),
+    ! filled alongside the kinetic-energy term below (no momentum
+    ! equivalent for the e-beam potential-energy term further down -
+    ! potential energy has no associated momentum vector).
+    real(real64),      intent(inout) :: mom_loss(3, 4, ntype, nproc)
 
     integer(int32) :: i, k, ptype, N_inj_tmp, ng_sec, ix, iy, iz
     real(real64)   :: rnd(3), x, y, z, vx, vy, vz, vt, vz_sav(ntype)
@@ -158,6 +163,16 @@ contains
       ix = floor(x / h(1)) + 1_int32
       iy = floor(y / h(2)) + 1_int32
       iz = floor(z / h(3)) + 1_int32
+
+      ! Guard against a candidate position landing outside the bcnd array
+      ! (e.g. a heating-region bound in conditions.inp - xl_pow/xr_pow/
+      ! yl_pow/yr_pow/zl_pow/zr_pow - that extends past the actual domain
+      ! box). Legacy's part_injection.f90 has no equivalent check and reads
+      ! out-of-bounds silently (usually landing in adjacent heap memory
+      ! without crashing); resample instead of risking a segfault here.
+      if (ix < 0_int32 .or. ix > n(1)+1_int32 .or. &
+          iy < 0_int32 .or. iy > n(2)+1_int32 .or. &
+          iz < 0_int32 .or. iz > n(3)+1_int32) goto 70
 
       ! Only inject in open domain (not inside solid boundaries)
       if (bcnd(ix,iy,iz) >= 1 .and. bcnd(ix+1,iy,iz) >= 1 .and. &
@@ -262,6 +277,10 @@ contains
         P_loss(4,ptype,iproc) = P_loss(4,ptype,iproc) + &
           0.5_real64 * Nm(ptype) * mass(ptype) * (vx*vx + vy*vy + vz*vz)
 
+        mom_loss(1,4,ptype,iproc) = mom_loss(1,4,ptype,iproc) + Nm(ptype)*mass(ptype)*vx
+        mom_loss(2,4,ptype,iproc) = mom_loss(2,4,ptype,iproc) + Nm(ptype)*mass(ptype)*vy
+        mom_loss(3,4,ptype,iproc) = mom_loss(3,4,ptype,iproc) + Nm(ptype)*mass(ptype)*vz
+
         ! For e-beam: also account for potential energy at injection point
         if (abs(cfg%opt_inj) == 3_int32) then
           px = (real(ix,real64)*h(1) - x) / h(1)
@@ -303,7 +322,7 @@ contains
       iseed, &
       sour_xy, sour_xz, sour_fx_yz, &
       iz_pl, ix_pl, &
-      P_loss, N_flx )
+      P_loss, N_flx, mom_loss )
 
     type(ParticleSet), intent(inout) :: part(ntype, nproc)
     type(Config),      intent(in)    :: cfg
@@ -324,6 +343,7 @@ contains
     integer(int32),    intent(in)    :: iz_pl, ix_pl
     real(real64),      intent(inout) :: P_loss(4, ntype, nproc)
     integer(int32),    intent(inout) :: N_flx(ntype, nproc)
+    real(real64),      intent(inout) :: mom_loss(3, 4, ntype, nproc)
 
     integer(int32) :: iproc, ptype, Nh, Nh_tmp_shared
     real(real64)   :: jH, dNh, rnd, vt_neg
@@ -375,7 +395,8 @@ contains
         sour_xy    = sour_xy, &
         sour_xz    = sour_xz, &
         sour_fx_yz = sour_fx_yz, &
-        P_loss_inj = P_loss(4, ptype, iproc) )
+        P_loss_inj = P_loss(4, ptype, iproc), &
+        mom_loss_inj = mom_loss(:, 4, ptype, iproc) )
     end do
     !$omp end parallel do
 
@@ -403,7 +424,7 @@ contains
       Nm_p, mass_p, vt, dt, &
       xg1, Lgy, Lgz, ymax, zmax, ix_inj, iz_pl, &
       tag_neu, ntype_s, nproc_s, &
-      sour_xy, sour_xz, sour_fx_yz, P_loss_inj )
+      sour_xy, sour_xz, sour_fx_yz, P_loss_inj, mom_loss_inj )
 
     type(ParticleSet), intent(inout) :: part
     integer(int32),    intent(in)    :: n(3)
@@ -418,6 +439,7 @@ contains
     integer(int32),    intent(inout) :: sour_xz(0:n(1)+2, 0:n(3)+2, ntype_s, nproc_s)
     integer(int32),    intent(inout) :: sour_fx_yz(0:n(2)+2, 0:n(3)+2, ntype_s, nproc_s)
     real(real64),      intent(inout) :: P_loss_inj
+    real(real64),      intent(inout) :: mom_loss_inj(3)
 
     integer(int32) :: i, k, iy, iz
     real(real64)   :: rnd(2), y_inj, z_inj, vx, vy, vz, x_inj, dt_tmp
@@ -478,6 +500,10 @@ contains
         sour_xz(ix_inj, iz, ptype, iproc) = sour_xz(ix_inj, iz, ptype, iproc) + 1_int32
 
       P_loss_inj = P_loss_inj + 0.5_real64 * Nm_p * mass_p * (vx*vx + vy*vy + vz*vz)
+
+      mom_loss_inj(1) = mom_loss_inj(1) + Nm_p * mass_p * vx
+      mom_loss_inj(2) = mom_loss_inj(2) + Nm_p * mass_p * vy
+      mom_loss_inj(3) = mom_loss_inj(3) + Nm_p * mass_p * vz
 
     end do
 
