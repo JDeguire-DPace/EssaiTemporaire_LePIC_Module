@@ -229,7 +229,7 @@ def plot_array(
     # -----------------------------
     # 2D MAP
     # -----------------------------
-    if(name[0] == 'n'):
+    if(name[0] == 'w'):
         np.where((arr < np.max(arr)/10**3) & (arr > np.max(arr)/10**6) , arr, np.max(arr)/10**3)
         im = axes[0].imshow(
             arr,

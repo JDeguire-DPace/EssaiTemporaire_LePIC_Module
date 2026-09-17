@@ -13,8 +13,8 @@ subroutine read_input(n,tmax,xl_pow,xr_pow,yl_pow,yr_pow,zl_pow,zr_pow,&
   integer:: iB,n(3),nsav,flag_read,ngrid,i_rg,ng,mpi_rank,flag_avg3D,n_B(3)
   real(kind=8):: eps,tmax,kt,xl_pow,xr_pow,yl_pow,yr_pow,zl_pow,zr_pow,&
        xl_rg(nm_rg),xr_rg(nm_rg),yl_rg,yr_rg,zl_rg,zr_rg,omega,I_inj,Ca,np_dup,&
-       phi0_RF,f0_RF,phi1_RF,f1_RF
-  character:: end_file*3,ans*1,rname*20
+       phi0_RF,f0_RF,phi1_RF,f1_RF,yo
+  character:: end_file*3,ans*1,rname*20, pusher*4
 
   ! Initialize variables & arrays
   xl_rg=0.d0
@@ -128,7 +128,7 @@ subroutine read_input(n,tmax,xl_pow,xr_pow,yl_pow,yr_pow,zl_pow,zr_pow,&
 
   read(10,*,err=999) jne,THm,num_grd,Ca ! jH-(mA/cm2) from H on PE surface, TH-(eV), characteristics of neg. ions on grid # [index], dielectric capacitance Ca/S (Fd/m2)
 
-  read(10,*,err=999) gam_sec,igrid_sec,ans,phi0_RF,f0_RF,phi1_RF,f1_RF ! secondary emission coeff, grid index (<0, fixed Is instead), phi0(V), f0(Hz), phi1(V), f1(Hz)
+  read(10,*,err=999) gam_sec,igrid_sec,ans,phi0_RF,f0_RF,phi1_RF,f1_RF,yo ! secondary emission coeff, grid index (<0, fixed Is instead), phi0(V), f0(Hz), phi1(V), f1(Hz)
   
   flag_RFpot=0
   if(ans.eq.'y'.or.ans.eq.'Y') flag_RFpot=1
@@ -138,6 +138,10 @@ subroutine read_input(n,tmax,xl_pow,xr_pow,yl_pow,yr_pow,zl_pow,zr_pow,&
      call stop_calculation
   endif
   
+  read(10,*,err=999) ans
+  read(10,*,err=999) pusher
+
+
   flag_read=0
   do while( flag_read.eq.0 )
      read(10,*,err=999) end_file
