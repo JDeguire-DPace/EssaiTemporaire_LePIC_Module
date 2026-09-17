@@ -109,17 +109,29 @@ contains
     call self%state%init(comm_in)
 
     ! The energy-conserving push_scheme (mod_config.f90) supports plain wall
-    ! boundaries and y/z-periodic (flag_pbc/flag_pbcz) - see the ghost
-    ! fix-up in calc_Efield_energy_conserving (mod_electricField.f90).
-    ! Neumann (flag_nmn) and dielectric (flag_die) are still unimplemented.
-    ! Fail fast at startup rather than silently produce wrong physics for
-    ! an untested boundary combination.
+    ! boundaries, y/z-periodic (flag_pbc/flag_pbcz - see the ghost fix-up in
+    ! calc_Efield_energy_conserving, mod_electricField.f90), and dielectric
+    ! (flag_die) walls. Dielectric needs no special-casing in the E-field
+    ! calc or particle mover: apply_dielectric_bc_to_phi (mod_state.f90)
+    ! folds each dielectric node's accumulated-charge potential into phi
+    ! BEFORE the Poisson solve/E-field calc run, every step, regardless of
+    ! push_scheme - so by the time calc_Efield_energy_conserving differences
+    ! phi across faces, a dielectric node's phi is just another already-
+    ! correct nodal value, indistinguishable from a fixed Dirichlet wall's.
+    ! The face-centered gather (gather_E_energy_conserving,
+    ! mod_particleMover.f90) and the dielectric surface-charge deposit
+    ! (move_and_bc_electrostatic's flag_die branch) are likewise shared,
+    ! unbranched code for both push schemes. Neumann (flag_nmn) is the one
+    ! still-unimplemented case: calc_Efield_modular gives bcnd==-2 nodes a
+    ! dedicated one-sided ghost formula that calc_Efield_energy_conserving
+    ! has no counterpart for. Fail fast at startup rather than silently
+    ! produce wrong physics for that untested combination.
     if (trim(self%state%cfg%push_scheme) == 'energy') then
-      if (self%state%dom%flag_nmn == 1 .or. self%state%dom%flag_die  == 1) then
+      if (self%state%dom%flag_nmn == 1) then
         if (self%state%mpi_rank == 0) then
           write(*,'(a)') "ERROR: cfg%push_scheme = 'energy' does not support " // &
-            "Neumann or dielectric boundaries (flag_nmn=flag_die=0 required). " // &
-            "Plain walls and periodic (flag_pbc/flag_pbcz) are supported."
+            "Neumann boundaries (flag_nmn=0 required). Plain walls, " // &
+            "periodic (flag_pbc/flag_pbcz), and dielectric (flag_die) are supported."
         end if
         error stop 1
       end if
@@ -1176,7 +1188,8 @@ contains
     Pcoll = raw(3) / &
         (real(self%state%cfg%nsav - 1_int32, real64) * self%state%params%dt)
 
-    Pinj  = raw(4)
+    Pinj  = raw(4) / &
+        (real(self%state%cfg%nsav - 1_int32, real64) * self%state%params%dt)
 
     Pwall = -raw(1) / &
         (real(self%state%cfg%nsav - 1_int32, real64) * self%state%params%dt)
@@ -1202,7 +1215,8 @@ contains
     Fcoll_mom = raw_mom(7:9) / &
         (real(self%state%cfg%nsav - 1_int32, real64) * self%state%params%dt)
 
-    Finj_mom = raw_mom(10:12)
+    Finj_mom = raw_mom(10:12) / &
+        (real(self%state%cfg%nsav - 1_int32, real64) * self%state%params%dt)
 
     ! Everything below this point is output only (no further physics
     ! state is touched) - restrict it to rank 0, matching legacy's own

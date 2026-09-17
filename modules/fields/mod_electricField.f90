@@ -177,14 +177,18 @@ contains
     ! Unlike calc_Efield_modular, no one-sided wall extrapolation is needed:
     ! a face value only ever reads the two nodal potentials either side of
     ! it, and phi is already well-defined at every node touched by a wall
-    ! (interior-solved or fixed at its Dirichlet wall value) - x is never
-    ! periodic in this codebase (always wall/Neumann), so the x-direction
-    ! (E(1,...)'s own values, and every component's x-ghost planes) never
-    ! needs special-casing regardless of flag_pbc/flag_pbcz below. bcnd is
-    ! accepted (matching calc_Efield_modular's signature so callers can
-    ! select between the two uniformly) but not used - flag_die/flag_nmn
-    ! are still rejected by the push_scheme guard in mod_simulation.f90's
-    ! init(), so there is no dielectric/Neumann case to special-case here.
+    ! (interior-solved, fixed at its Dirichlet wall value, or - for a
+    ! dielectric node - set to its accumulated-charge potential by
+    ! apply_dielectric_bc_to_phi, mod_state.f90, before this is called) - x
+    ! is never periodic in this codebase (always wall/Neumann), so the
+    ! x-direction (E(1,...)'s own values, and every component's x-ghost
+    ! planes) never needs special-casing regardless of flag_pbc/flag_pbcz
+    ! below. bcnd is accepted (matching calc_Efield_modular's signature so
+    ! callers can select between the two uniformly) but not used - a
+    ! dielectric node's phi already carries the right value by the time it
+    ! gets here, so flag_die needs no branch. flag_nmn is still rejected by
+    ! the push_scheme guard in mod_simulation.f90's init(), so there is no
+    ! Neumann case to special-case here.
     !
     ! flag_pbc/flag_pbcz (y/z periodic - see mod_generateBoundary.f90;
     ! flag_pbcz=1 always implies flag_pbc=1 too, never z-only) trigger the

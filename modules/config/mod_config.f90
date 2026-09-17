@@ -73,9 +73,10 @@ module mod_config
     !   'energy'   - explicit energy-conserving scheme (Powis & Kaganovich,
     !                Phys. Plasmas 31, 023901 (2024)): face-centered E,
     !                nearest-grid-point gather normal to each component,
-    !                linear gather tangentially. Only supports plain wall
-    !                boundaries (flag_pbc=flag_pbcz=flag_nmn=flag_die=0) -
-    !                see mod_simulation.f90's push_scheme guard.
+    !                linear gather tangentially. Supports plain wall,
+    !                y/z-periodic (flag_pbc/flag_pbcz), and dielectric
+    !                (flag_die) boundaries. Neumann (flag_nmn) is not yet
+    !                supported - see mod_simulation.f90's push_scheme guard.
     ! Read from conditions.inp (mod_readConditions.f90), the last line
     ! before END - REQUIRED, not optional: a conditions.inp missing this
     ! line makes the read hit EOF, which is a hard failure (err=999 ->
