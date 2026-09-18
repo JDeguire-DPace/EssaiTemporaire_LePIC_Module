@@ -225,7 +225,7 @@ contains
       ! --- total particle count for ptype, this rank (no MPI reduction)
       sum_np_tot = 0.0_real64
       do iproc = 1_int32, nproc
-        if (allocated(part(ptype,iproc)%x)) sum_np_tot = sum_np_tot + real(part(ptype,iproc)%n, real64)
+        if (allocated(part(ptype,iproc)%pv)) sum_np_tot = sum_np_tot + real(part(ptype,iproc)%n, real64)
       end do
 
       ! --- per-thread trial quota Nc_tmp, legacy stochastic round-up
@@ -245,7 +245,7 @@ contains
       !$omp parallel do default(shared) private(iproc) schedule(static)
       do iproc = 1_int32, nproc
 
-        if (.not. allocated(part(ptype,iproc)%x)) cycle
+        if (.not. allocated(part(ptype,iproc)%pv)) cycle
 
         block
           integer(int32) :: n_total_local
@@ -351,9 +351,9 @@ contains
       ip = int(real(n_total, real64) * rnd1, int32) + 1_int32
       if (ip > n_total) ip = n_total
 
-      vx1 = part(ptype,iproc)%vx(ip)
-      vy1 = part(ptype,iproc)%vy(ip)
-      vz1 = part(ptype,iproc)%vz(ip)
+      vx1 = part(ptype,iproc)%pv(4,ip)
+      vy1 = part(ptype,iproc)%pv(5,ip)
+      vz1 = part(ptype,iproc)%pv(6,ip)
 
       visited       = .false.
       search_failed = .false.
@@ -382,7 +382,7 @@ contains
             ! ----- tracked charged target (legacy "DSMC" branch) -----
             call find_charged_target( &
                 part, ttype, nproc, n, h, &
-                part(ptype,iproc)%x(ip), part(ptype,iproc)%y(ip), part(ptype,iproc)%z(ip), &
+                part(ptype,iproc)%pv(1,ip), part(ptype,iproc)%pv(2,ip), part(ptype,iproc)%pv(3,ip), &
                 iseed_local, cache_it(ttype), cache_itproc(ttype))
 
             if (cache_it(ttype) <= 0_int32) then
@@ -392,9 +392,9 @@ contains
             end if
             if (dbg_sample) call record_target_search(ttype, .true.)
 
-            cache_tvx(ttype) = part(ttype, cache_itproc(ttype))%vx(cache_it(ttype))
-            cache_tvy(ttype) = part(ttype, cache_itproc(ttype))%vy(cache_it(ttype))
-            cache_tvz(ttype) = part(ttype, cache_itproc(ttype))%vz(cache_it(ttype))
+            cache_tvx(ttype) = part(ttype, cache_itproc(ttype))%pv(4,cache_it(ttype))
+            cache_tvy(ttype) = part(ttype, cache_itproc(ttype))%pv(5,cache_it(ttype))
+            cache_tvz(ttype) = part(ttype, cache_itproc(ttype))%pv(6,cache_it(ttype))
           end if
 
           cache_mu(ttype) = abs(mass(ptype))*abs(mass(ttype)) / &
@@ -426,8 +426,8 @@ contains
             np_t = ni0(ttype)
           else
             np_t = local_density_8pt(np_red, ttype, &
-                       part(ptype,iproc)%x(ip), part(ptype,iproc)%y(ip), &
-                       part(ptype,iproc)%z(ip), n, h)
+                       part(ptype,iproc)%pv(1,ip), part(ptype,iproc)%pv(2,ip), &
+                       part(ptype,iproc)%pv(3,ip), n, h)
             if (dbg_sample) call record_npt(ttype, np_t, np_mx(ttype))
           end if
 
@@ -524,14 +524,14 @@ contains
     if (rt == 4_int32) then
 
       ! Projectile takes on the target's (sampled or real) velocity.
-      vx1 = part(ptype,iproc)%vx(ip)
-      vy1 = part(ptype,iproc)%vy(ip)
-      vz1 = part(ptype,iproc)%vz(ip)
+      vx1 = part(ptype,iproc)%pv(4,ip)
+      vy1 = part(ptype,iproc)%pv(5,ip)
+      vz1 = part(ptype,iproc)%pv(6,ip)
       v2old = vx1*vx1 + vy1*vy1 + vz1*vz1
 
-      part(ptype,iproc)%vx(ip) = tvx
-      part(ptype,iproc)%vy(ip) = tvy
-      part(ptype,iproc)%vz(ip) = tvz
+      part(ptype,iproc)%pv(4,ip) = tvx
+      part(ptype,iproc)%pv(5,ip) = tvy
+      part(ptype,iproc)%pv(6,ip) = tvz
 
       v2new = tvx*tvx + tvy*tvy + tvz*tvz
 
@@ -556,9 +556,9 @@ contains
     ! All other reaction types (elastic, excitation, ionization,
     ! dissociation, recombination, ...).
     !-----------------------------------------------------------------
-    vx1 = part(ptype,iproc)%vx(ip)
-    vy1 = part(ptype,iproc)%vy(ip)
-    vz1 = part(ptype,iproc)%vz(ip)
+    vx1 = part(ptype,iproc)%pv(4,ip)
+    vy1 = part(ptype,iproc)%pv(5,ip)
+    vz1 = part(ptype,iproc)%pv(6,ip)
 
     mu = abs(mass(ptype))*abs(mass(ttype)) / (abs(mass(ptype)) + abs(mass(ttype)))
     vr = sqrt((vx1-tvx)**2 + (vy1-tvy)**2 + (vz1-tvz)**2)
@@ -619,8 +619,8 @@ contains
         flag_targ_kept = 1_int32
       else if (btype <= ntype_tracked) then
         call append_deferred(part, n_add, btype, iproc, &
-                              part(ptype,iproc)%x(ip), part(ptype,iproc)%y(ip), &
-                              part(ptype,iproc)%z(ip), ib)
+                              part(ptype,iproc)%pv(1,ip), part(ptype,iproc)%pv(2,ip), &
+                              part(ptype,iproc)%pv(3,ip), ib)
         ibproc = iproc
       else
         cycle   ! btype > ntype_tracked: untracked background-neutral byproduct, no ParticleSet to write into
@@ -628,33 +628,33 @@ contains
 
       vp = sqrt(2.0_real64*(Erel_after/sum_mass_inv) / abs(mass(btype))**2)
 
-      bvx_old = part(btype,ibproc)%vx(ib)
-      bvy_old = part(btype,ibproc)%vy(ib)
-      bvz_old = part(btype,ibproc)%vz(ib)
+      bvx_old = part(btype,ibproc)%pv(4,ib)
+      bvy_old = part(btype,ibproc)%pv(5,ib)
+      bvz_old = part(btype,ibproc)%pv(6,ib)
       v2old = bvx_old*bvx_old + bvy_old*bvy_old + bvz_old*bvz_old
 
-      part(btype,ibproc)%vx(ib) = vx_cm + vp*ex1
-      part(btype,ibproc)%vy(ib) = vy_cm + vp*ey1
-      part(btype,ibproc)%vz(ib) = vz_cm + vp*ez1
+      part(btype,ibproc)%pv(4,ib) = vx_cm + vp*ex1
+      part(btype,ibproc)%pv(5,ib) = vy_cm + vp*ey1
+      part(btype,ibproc)%pv(6,ib) = vz_cm + vp*ez1
 
-      v2new = part(btype,ibproc)%vx(ib)**2 + part(btype,ibproc)%vy(ib)**2 + &
-              part(btype,ibproc)%vz(ib)**2
+      v2new = part(btype,ibproc)%pv(4,ib)**2 + part(btype,ibproc)%pv(5,ib)**2 + &
+              part(btype,ibproc)%pv(6,ib)**2
 
       Pcoll(btype,ibproc) = Pcoll(btype,ibproc) + &
           0.5_real64*Nm(btype)*abs(mass(btype))*(v2new - v2old)
 
       mom_loss(1,btype,ibproc) = mom_loss(1,btype,ibproc) + &
-          Nm(btype)*abs(mass(btype))*(part(btype,ibproc)%vx(ib) - bvx_old)
+          Nm(btype)*abs(mass(btype))*(part(btype,ibproc)%pv(4,ib) - bvx_old)
       mom_loss(2,btype,ibproc) = mom_loss(2,btype,ibproc) + &
-          Nm(btype)*abs(mass(btype))*(part(btype,ibproc)%vy(ib) - bvy_old)
+          Nm(btype)*abs(mass(btype))*(part(btype,ibproc)%pv(5,ib) - bvy_old)
       mom_loss(3,btype,ibproc) = mom_loss(3,btype,ibproc) + &
-          Nm(btype)*abs(mass(btype))*(part(btype,ibproc)%vz(ib) - bvz_old)
+          Nm(btype)*abs(mass(btype))*(part(btype,ibproc)%pv(6,ib) - bvz_old)
 
       ! Legacy ss2D(1,...) equivalent: this reaction produced one btype
       ! macroparticle here (whether ib is a freshly-appended slot or a
       ! reused reactant slot doesn't change the physical production rate).
       call deposit_plane_event( &
-          part(btype,ibproc)%x(ib), part(btype,ibproc)%y(ib), part(btype,ibproc)%z(ib), &
+          part(btype,ibproc)%pv(1,ib), part(btype,ibproc)%pv(2,ib), part(btype,ibproc)%pv(3,ib), &
           n, h, ix_plane, iy_plane, iz_plane, btype, ibproc, Nm(btype), &
           sour_xy, sour_xz, sour_yz)
 
@@ -667,14 +667,14 @@ contains
     if (flag_proj_kept == 0_int32) then
       if (allocated(part(ptype,iproc)%flag_dead)) part(ptype,iproc)%flag_dead(ip) = 1_int8
       call deposit_plane_event( &
-          part(ptype,iproc)%x(ip), part(ptype,iproc)%y(ip), part(ptype,iproc)%z(ip), &
+          part(ptype,iproc)%pv(1,ip), part(ptype,iproc)%pv(2,ip), part(ptype,iproc)%pv(3,ip), &
           n, h, ix_plane, iy_plane, iz_plane, ptype, iproc, Nm(ptype), &
           sink_xy, sink_xz, sink_yz)
     end if
     if (flag_targ_kept == 0_int32 .and. ttype <= ntype_tracked .and. it > 0_int32) then
       if (allocated(part(ttype,itproc)%flag_dead)) part(ttype,itproc)%flag_dead(it) = 1_int8
       call deposit_plane_event( &
-          part(ttype,itproc)%x(it), part(ttype,itproc)%y(it), part(ttype,itproc)%z(it), &
+          part(ttype,itproc)%pv(1,it), part(ttype,itproc)%pv(2,it), part(ttype,itproc)%pv(3,it), &
           n, h, ix_plane, iy_plane, iz_plane, ttype, itproc, Nm(ttype), &
           sink_xy, sink_xz, sink_yz)
     end if
@@ -808,7 +808,7 @@ contains
     ! legacy's cnt_proc loop), then a uniformly random particle within it.
     target_proc = 0_int32
     do jproc = 1_int32, nproc
-      if (.not. allocated(part(ttype,jproc)%x)) cycle
+      if (.not. allocated(part(ttype,jproc)%pv)) cycle
       if (ict < 1_int32 .or. ict > size(part(ttype,jproc)%cell_count)) cycle
       if (part(ttype,jproc)%cell_count(ict) > 0_int32) then
         target_proc = jproc
@@ -833,7 +833,7 @@ contains
     cnt = 0_int32
     if (icell <= 0_int32) return
     do jproc = 1_int32, nproc
-      if (.not. allocated(part(ttype,jproc)%x)) cycle
+      if (.not. allocated(part(ttype,jproc)%pv)) cycle
       if (.not. allocated(part(ttype,jproc)%cell_count)) cycle
       if (icell > size(part(ttype,jproc)%cell_count)) cycle
       cnt = cnt + part(ttype,jproc)%cell_count(icell)
@@ -890,12 +890,12 @@ contains
       call part(btype,iproc)%ensure_capacity(ib)
     end if
 
-    part(btype,iproc)%x(ib) = xp
-    part(btype,iproc)%y(ib) = yp
-    part(btype,iproc)%z(ib) = zp
-    part(btype,iproc)%vx(ib) = 0.0_real64
-    part(btype,iproc)%vy(ib) = 0.0_real64
-    part(btype,iproc)%vz(ib) = 0.0_real64
+    part(btype,iproc)%pv(1,ib) = xp
+    part(btype,iproc)%pv(2,ib) = yp
+    part(btype,iproc)%pv(3,ib) = zp
+    part(btype,iproc)%pv(4,ib) = 0.0_real64
+    part(btype,iproc)%pv(5,ib) = 0.0_real64
+    part(btype,iproc)%pv(6,ib) = 0.0_real64
     if (allocated(part(btype,iproc)%flag_dead)) part(btype,iproc)%flag_dead(ib) = 0_int8
     if (allocated(part(btype,iproc)%flag_cex))  part(btype,iproc)%flag_cex(ib)  = 0_int32
 

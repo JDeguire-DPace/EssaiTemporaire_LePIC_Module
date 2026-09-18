@@ -134,15 +134,15 @@ contains
 
     do ptype = 1_int32, ntype
       do iproc = 1_int32, nproc
-        if (.not. allocated(part(ptype,iproc)%vx)) cycle
+        if (.not. allocated(part(ptype,iproc)%pv)) cycle
         nlive = 0_int32
         do i = 1_int32, part(ptype,iproc)%n
           if (part(ptype,iproc)%flag_dead(i) /= 0_int8) cycle
           nlive = nlive + 1_int32
           v2sum(ptype) = v2sum(ptype) + &
-            part(ptype,iproc)%vx(i)**2 + &
-            part(ptype,iproc)%vy(i)**2 + &
-            part(ptype,iproc)%vz(i)**2
+            part(ptype,iproc)%pv(4,i)**2 + &
+            part(ptype,iproc)%pv(5,i)**2 + &
+            part(ptype,iproc)%pv(6,i)**2
         end do
         N_global(ptype) = N_global(ptype) + nlive
       end do
@@ -247,7 +247,7 @@ contains
     ! --- Count live particles per species in this iproc ---
     N_local = 0_int32
     do ptype = 1_int32, ntype
-      if (.not. allocated(part(ptype,iproc)%vx)) cycle
+      if (.not. allocated(part(ptype,iproc)%pv)) cycle
       N_local(ptype) = count_live(part(ptype,iproc))
     end do
     N_local_tot = sum(N_local(1:ntype))
@@ -375,9 +375,9 @@ contains
     real(real64) :: mass_ratio_a, mass_ratio_b
     real(real64) :: rnd, dv(3)
 
-    g(1) = pa%vx(ii) - pb%vx(itg)
-    g(2) = pa%vy(ii) - pb%vy(itg)
-    g(3) = pa%vz(ii) - pb%vz(itg)
+    g(1) = pa%pv(4,ii) - pb%pv(4,itg)
+    g(2) = pa%pv(5,ii) - pb%pv(5,itg)
+    g(3) = pa%pv(6,ii) - pb%pv(6,itg)
 
     g2_perp = g(2)**2 + g(3)**2
     g_norm  = sqrt(g(1)**2 + g2_perp)
@@ -411,13 +411,13 @@ contains
     dv(2) = g(2)*(1.0_real64 - cos_chi) + h(2)*sin_chi
     dv(3) = g(3)*(1.0_real64 - cos_chi) + h(3)*sin_chi
 
-    pa%vx(ii) = pa%vx(ii) - mass_ratio_b * dv(1)
-    pa%vy(ii) = pa%vy(ii) - mass_ratio_b * dv(2)
-    pa%vz(ii) = pa%vz(ii) - mass_ratio_b * dv(3)
+    pa%pv(4,ii) = pa%pv(4,ii) - mass_ratio_b * dv(1)
+    pa%pv(5,ii) = pa%pv(5,ii) - mass_ratio_b * dv(2)
+    pa%pv(6,ii) = pa%pv(6,ii) - mass_ratio_b * dv(3)
 
-    pb%vx(itg) = pb%vx(itg) + mass_ratio_a * dv(1)
-    pb%vy(itg) = pb%vy(itg) + mass_ratio_a * dv(2)
-    pb%vz(itg) = pb%vz(itg) + mass_ratio_a * dv(3)
+    pb%pv(4,itg) = pb%pv(4,itg) + mass_ratio_a * dv(1)
+    pb%pv(5,itg) = pb%pv(5,itg) + mass_ratio_a * dv(2)
+    pb%pv(6,itg) = pb%pv(6,itg) + mass_ratio_a * dv(3)
 
   end subroutine nanbu_scatter
 
@@ -480,7 +480,7 @@ contains
     type(ParticleSet), intent(in) :: p
     integer(int32) :: i
     count_live = 0_int32
-    if (.not. allocated(p%vx)) return
+    if (.not. allocated(p%pv)) return
     do i = 1_int32, p%n
       if (p%flag_dead(i) == 0_int8) count_live = count_live + 1_int32
     end do

@@ -133,7 +133,7 @@ contains
       !$omp reduction(+:selected_total,accepted)
       do iproc = 1_int32, nproc
 
-        if (.not. allocated(part(ptype,iproc)%x)) cycle
+        if (.not. allocated(part(ptype,iproc)%pv)) cycle
 
         n_total = part(ptype,iproc)%n
         if (n_total <= 0_int32) cycle
@@ -249,9 +249,9 @@ contains
     target_vy = 0.0_real64
     target_vz = 0.0_real64
 
-    vx1 = p%vx(ip)
-    vy1 = p%vy(ip)
-    vz1 = p%vz(ip)
+    vx1 = p%pv(4,ip)
+    vy1 = p%pv(5,ip)
+    vz1 = p%pv(6,ip)
 
     vr_base = sqrt(vx1*vx1 + vy1*vy1 + vz1*vz1)
 

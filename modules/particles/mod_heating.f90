@@ -33,7 +33,7 @@ contains
     ixl_pow = int(xl_pow / h(1), int32) + 1_int32
     ixr_pow = int(xr_pow / h(1), int32) + 1_int32
 
-    if (.not. allocated(part%x)) return
+    if (.not. allocated(part%pv)) return
     if (part%n <= 0_int32) return
 
     vz_sav = 0.0_real64
@@ -44,14 +44,14 @@ contains
         if (part%flag_dead(i) /= 0_int8) cycle
       end if
 
-      xp_new = part%x(i)
+      xp_new = part%pv(1,i)
       ix = int(xp_new / h(1), int32) + 1_int32
 
       if (ix < ixl_pow .or. ix > ixr_pow) cycle
 
       if (flag_circxh == 1_int32) then
-        yp_new = part%y(i)
-        zp_new = part%z(i)
+        yp_new = part%pv(2,i)
+        zp_new = part%pv(3,i)
 
         if (flag_ahp == 0_int32) then
           if ( ((yp_new - ymax/2.0_real64)**2 + (zp_new - zmax/2.0_real64)**2) > R_ahp**2 ) cycle
@@ -63,23 +63,23 @@ contains
       rnd(1) = ran2(iseed)
       if (rnd(1) > nudt) cycle
 
-      v2old = part%vx(i)*part%vx(i) + part%vy(i)*part%vy(i) + part%vz(i)*part%vz(i)
+      v2old = part%pv(4,i)*part%pv(4,i) + part%pv(5,i)*part%pv(5,i) + part%pv(6,i)*part%pv(6,i)
 
       rnd(1) = ran2(iseed)
       rnd(2) = ran2(iseed)
-      call load_gauss_local(part%vx(i), part%vy(i), vt, rnd)
+      call load_gauss_local(part%pv(4,i), part%pv(5,i), vt, rnd)
 
       if (vz_sav == 0.0_real64) then
         rnd(1) = ran2(iseed)
         rnd(2) = ran2(iseed)
-        call load_gauss_local(part%vz(i), vz_sav, vt, rnd)
+        call load_gauss_local(part%pv(6,i), vz_sav, vt, rnd)
       else
-        part%vz(i) = vz_sav
+        part%pv(6,i) = vz_sav
         vz_sav = 0.0_real64
       end if
 
       p_loss_heating = p_loss_heating + 0.5_real64 * Nm_e * mass_e * &
-            (part%vx(i)*part%vx(i) + part%vy(i)*part%vy(i) + part%vz(i)*part%vz(i) - v2old)
+            (part%pv(4,i)*part%pv(4,i) + part%pv(5,i)*part%pv(5,i) + part%pv(6,i)*part%pv(6,i) - v2old)
 
     end do
 

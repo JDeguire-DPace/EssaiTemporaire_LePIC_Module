@@ -14,7 +14,10 @@ OBJ=main.o load_part.o pdesolver.o part_expmover.o calc_rho.o ran2.o utils.o col
 EXEBIN=3dphpic.exe
 DIR =../.
 
-all: $(EXEBIN) install clean
+all:
+	$(MAKE) $(EXEBIN)
+	$(MAKE) install
+	$(MAKE) clean
 
 clean: 
 	rm -f  *~ *.o *.il *genmod* $(EXEBIN)

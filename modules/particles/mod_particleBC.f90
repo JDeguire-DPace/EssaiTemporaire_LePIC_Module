@@ -97,7 +97,7 @@ contains
 
     logical :: do_see
 
-    if (.not. allocated(part%x)) return
+    if (.not. allocated(part%pv)) return
     if (part%n <= 0_int32) return
 
     do_see = (see%gam_sec > 0.0_real64) .and. (charge_species > 0.0_real64)
@@ -106,12 +106,12 @@ contains
 
     do i = 1, part%n
 
-      xp_new  = part%x(i)
-      yp_new  = part%y(i)
-      zp_new  = part%z(i)
-      vpx_new = part%vx(i)
-      vpy_new = part%vy(i)
-      vpz_new = part%vz(i)
+      xp_new  = part%pv(1,i)
+      yp_new  = part%pv(2,i)
+      zp_new  = part%pv(3,i)
+      vpx_new = part%pv(4,i)
+      vpy_new = part%pv(5,i)
+      vpz_new = part%pv(6,i)
 
       if (allocated(part%flag_dead)) then
         if (part%flag_dead(i) == 1_int8) then
@@ -248,12 +248,12 @@ contains
 
               part_electrons%n    = part_electrons%n + 1_int32
               i_see               = part_electrons%n
-              part_electrons%x(i_see)  = xp_new
-              part_electrons%y(i_see)  = yp_new
-              part_electrons%z(i_see)  = merge(see%zg_sec(1), see%zg_sec(2), vpz_new < 0.0_real64)
-              part_electrons%vx(i_see) = vx_sec
-              part_electrons%vy(i_see) = vy_sec
-              part_electrons%vz(i_see) = vz_sec
+              part_electrons%pv(1,i_see)  = xp_new
+              part_electrons%pv(2,i_see)  = yp_new
+              part_electrons%pv(3,i_see)  = merge(see%zg_sec(1), see%zg_sec(2), vpz_new < 0.0_real64)
+              part_electrons%pv(4,i_see) = vx_sec
+              part_electrons%pv(5,i_see) = vy_sec
+              part_electrons%pv(6,i_see) = vz_sec
               if (allocated(part_electrons%flag_dead)) part_electrons%flag_dead(i_see) = 0_int8
               if (allocated(part_electrons%flag_cex))  part_electrons%flag_cex(i_see)  = 0_int32
 
@@ -288,12 +288,12 @@ contains
 
       i_shift = i - np_lost
 
-      part%x(i_shift)  = xp_new
-      part%y(i_shift)  = yp_new
-      part%z(i_shift)  = zp_new
-      part%vx(i_shift) = vpx_new
-      part%vy(i_shift) = vpy_new
-      part%vz(i_shift) = vpz_new
+      part%pv(1,i_shift)  = xp_new
+      part%pv(2,i_shift)  = yp_new
+      part%pv(3,i_shift)  = zp_new
+      part%pv(4,i_shift) = vpx_new
+      part%pv(5,i_shift) = vpy_new
+      part%pv(6,i_shift) = vpz_new
 
       if (allocated(part%w))         part%w(i_shift)         = part%w(i)
       if (allocated(part%sp))        part%sp(i_shift)        = part%sp(i)

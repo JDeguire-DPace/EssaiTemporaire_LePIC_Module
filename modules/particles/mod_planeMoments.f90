@@ -55,16 +55,16 @@ contains
     vx2_yz = 0.0_real64 ; vy2_yz = 0.0_real64 ; vz2_yz = 0.0_real64
 
     do iproc = 1, nproc
-      if (.not. allocated(part(iproc)%x)) cycle
+      if (.not. allocated(part(iproc)%pv)) cycle
       if (part(iproc)%n <= 0_int32) cycle
 
       do i = 1, part(iproc)%n
-        x = part(iproc)%x(i) - part(iproc)%vx(i) * params%dt * 0.5_real64
-        y = part(iproc)%y(i) - part(iproc)%vy(i) * params%dt * 0.5_real64
-        z = part(iproc)%z(i) - part(iproc)%vz(i) * params%dt * 0.5_real64
-        vx = part(iproc)%vx(i)
-        vy = part(iproc)%vy(i)
-        vz = part(iproc)%vz(i)
+        x = part(iproc)%pv(1,i) - part(iproc)%pv(4,i) * params%dt * 0.5_real64
+        y = part(iproc)%pv(2,i) - part(iproc)%pv(5,i) * params%dt * 0.5_real64
+        z = part(iproc)%pv(3,i) - part(iproc)%pv(6,i) * params%dt * 0.5_real64
+        vx = part(iproc)%pv(4,i)
+        vy = part(iproc)%pv(5,i)
+        vz = part(iproc)%pv(6,i)
         v2 = vx*vx + vy*vy + vz*vz
 
         ix = int(x / h(1), int32) + 1_int32

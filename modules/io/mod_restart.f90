@@ -417,12 +417,12 @@ contains
           if (n0 <= 0_int32) cycle
           call part(ptype, iproc)%ensure_capacity(n0 * nint(abs(np_dup)))
           do k = 1_int32, nint(abs(np_dup)) - 1_int32
-            part(ptype,iproc)%x(k*n0+1:(k+1)*n0)  = part(ptype,iproc)%x(1:n0)
-            part(ptype,iproc)%y(k*n0+1:(k+1)*n0)  = part(ptype,iproc)%y(1:n0)
-            part(ptype,iproc)%z(k*n0+1:(k+1)*n0)  = part(ptype,iproc)%z(1:n0)
-            part(ptype,iproc)%vx(k*n0+1:(k+1)*n0) = part(ptype,iproc)%vx(1:n0)
-            part(ptype,iproc)%vy(k*n0+1:(k+1)*n0) = part(ptype,iproc)%vy(1:n0)
-            part(ptype,iproc)%vz(k*n0+1:(k+1)*n0) = part(ptype,iproc)%vz(1:n0)
+            part(ptype,iproc)%pv(1,k*n0+1:(k+1)*n0)  = part(ptype,iproc)%pv(1,1:n0)
+            part(ptype,iproc)%pv(2,k*n0+1:(k+1)*n0)  = part(ptype,iproc)%pv(2,1:n0)
+            part(ptype,iproc)%pv(3,k*n0+1:(k+1)*n0)  = part(ptype,iproc)%pv(3,1:n0)
+            part(ptype,iproc)%pv(4,k*n0+1:(k+1)*n0) = part(ptype,iproc)%pv(4,1:n0)
+            part(ptype,iproc)%pv(5,k*n0+1:(k+1)*n0) = part(ptype,iproc)%pv(5,1:n0)
+            part(ptype,iproc)%pv(6,k*n0+1:(k+1)*n0) = part(ptype,iproc)%pv(6,1:n0)
             part(ptype,iproc)%w(k*n0+1:(k+1)*n0)  = part(ptype,iproc)%w(1:n0)
             part(ptype,iproc)%sp(k*n0+1:(k+1)*n0) = part(ptype,iproc)%sp(1:n0)
             part(ptype,iproc)%flag_dead(k*n0+1:(k+1)*n0) = part(ptype,iproc)%flag_dead(1:n0)
@@ -445,12 +445,12 @@ contains
             if (rnd <= abs(np_dup)) then
               n_keep = n_keep + 1_int32
               if (n_keep /= i) then
-                part(ptype,iproc)%x(n_keep)  = part(ptype,iproc)%x(i)
-                part(ptype,iproc)%y(n_keep)  = part(ptype,iproc)%y(i)
-                part(ptype,iproc)%z(n_keep)  = part(ptype,iproc)%z(i)
-                part(ptype,iproc)%vx(n_keep) = part(ptype,iproc)%vx(i)
-                part(ptype,iproc)%vy(n_keep) = part(ptype,iproc)%vy(i)
-                part(ptype,iproc)%vz(n_keep) = part(ptype,iproc)%vz(i)
+                part(ptype,iproc)%pv(1,n_keep)  = part(ptype,iproc)%pv(1,i)
+                part(ptype,iproc)%pv(2,n_keep)  = part(ptype,iproc)%pv(2,i)
+                part(ptype,iproc)%pv(3,n_keep)  = part(ptype,iproc)%pv(3,i)
+                part(ptype,iproc)%pv(4,n_keep) = part(ptype,iproc)%pv(4,i)
+                part(ptype,iproc)%pv(5,n_keep) = part(ptype,iproc)%pv(5,i)
+                part(ptype,iproc)%pv(6,n_keep) = part(ptype,iproc)%pv(6,i)
                 part(ptype,iproc)%w(n_keep)  = part(ptype,iproc)%w(i)
                 part(ptype,iproc)%sp(n_keep) = part(ptype,iproc)%sp(i)
                 part(ptype,iproc)%flag_dead(n_keep) = part(ptype,iproc)%flag_dead(i)
@@ -474,12 +474,12 @@ contains
     real(real64),      intent(out) :: vxp_buf(6, npar)
     integer(int32) :: i
     do i = 1_int32, npar
-      vxp_buf(1,i) = part%x(i)
-      vxp_buf(2,i) = part%y(i)
-      vxp_buf(3,i) = part%z(i)
-      vxp_buf(4,i) = part%vx(i)
-      vxp_buf(5,i) = part%vy(i)
-      vxp_buf(6,i) = part%vz(i)
+      vxp_buf(1,i) = part%pv(1,i)
+      vxp_buf(2,i) = part%pv(2,i)
+      vxp_buf(3,i) = part%pv(3,i)
+      vxp_buf(4,i) = part%pv(4,i)
+      vxp_buf(5,i) = part%pv(5,i)
+      vxp_buf(6,i) = part%pv(6,i)
     end do
   end subroutine pset_to_vxp
 
@@ -492,12 +492,12 @@ contains
     integer(int32),    intent(in)    :: n1, npar, species_id
     integer(int32) :: i
     do i = 1_int32, npar
-      part%x(n1+i)  = vxp_buf(1,i)
-      part%y(n1+i)  = vxp_buf(2,i)
-      part%z(n1+i)  = vxp_buf(3,i)
-      part%vx(n1+i) = vxp_buf(4,i)
-      part%vy(n1+i) = vxp_buf(5,i)
-      part%vz(n1+i) = vxp_buf(6,i)
+      part%pv(1,n1+i)  = vxp_buf(1,i)
+      part%pv(2,n1+i)  = vxp_buf(2,i)
+      part%pv(3,n1+i)  = vxp_buf(3,i)
+      part%pv(4,n1+i) = vxp_buf(4,i)
+      part%pv(5,n1+i) = vxp_buf(5,i)
+      part%pv(6,n1+i) = vxp_buf(6,i)
       part%w(n1+i)  = 1.0_real64
       part%sp(n1+i) = species_id
       part%flag_dead(n1+i) = 0_int8

@@ -79,6 +79,14 @@ module mod_simulation
     real(real64) :: t_dep_loop_min   = 0.0_real64
     real(real64) :: t_dep_loop_avg   = 0.0_real64
 
+    ! TEMPORARY diagnostic - see move_and_bc_boris's header comment
+    ! (mod_particleMover.f90): tallies how many live particles ran the full
+    ! Boris rotation vs. hit the negligible-|B| electrostatic fallback,
+    ! summed over the steps between diagnostic prints (same
+    ! accumulate-then-reset pattern as t_mover_push etc above).
+    integer(int32) :: n_boris_used  = 0_int32
+    integer(int32) :: n_boris_total = 0_int32
+
     ! Toggles DATA.BAK/ <-> DATA.BAK2/ on each backup write, matching
     ! legacy's flag_wrt (so a crash mid-write never destroys the only
     ! valid backup - the other directory still has the previous one).
@@ -614,6 +622,7 @@ contains
     real(real64)   :: t0, t1, tstep0
     real(real64)   :: t_move_dbg, t_bc_dbg, t_deposit_dbg
     real(real64)   :: t_move_min_dbg, t_move_avg_dbg, t_deposit_min_dbg, t_deposit_avg_dbg
+    integer(int32) :: n_boris_used_dbg, n_boris_total_dbg
     integer(int32) :: iproc_h, i_h, ix_h, ixl_h, ixr_h
     real(real64)   :: xp_h, yp_h, zp_h, Eki_h, yhalf_h, zhalf_h
 
@@ -753,8 +762,11 @@ contains
     t0 = MPI_Wtime()
     call advance_particles_local(self%state, istep, t_move_dbg, t_bc_dbg, t_deposit_dbg, &
                                   t_move_min_dbg, t_move_avg_dbg, &
-                                  t_deposit_min_dbg, t_deposit_avg_dbg)
+                                  t_deposit_min_dbg, t_deposit_avg_dbg, &
+                                  n_boris_used_dbg, n_boris_total_dbg)
     t1 = MPI_Wtime()
+    self%n_boris_used  = self%n_boris_used  + n_boris_used_dbg
+    self%n_boris_total = self%n_boris_total + n_boris_total_dbg
     self%t_mover_push = self%t_mover_push + t_move_dbg
     self%t_mover_bc   = self%t_mover_bc   + t_bc_dbg
     self%t_dep_loop   = self%t_dep_loop   + t_deposit_dbg
@@ -782,7 +794,7 @@ contains
 
       !$omp parallel do private(iproc_h,i_h,ix_h,ixl_h,ixr_h,xp_h,yp_h,zp_h,Eki_h,yhalf_h,zhalf_h) schedule(static)
       do iproc_h = 1, self%state%nproc
-        if (.not. allocated(self%state%part(1,iproc_h)%x)) cycle
+        if (.not. allocated(self%state%part(1,iproc_h)%pv)) cycle
         if (self%state%part(1,iproc_h)%n <= 0_int32) cycle
 
         ixl_h  = int(self%state%cfg%xl_pow / self%state%dom%h(1), int32) + 1_int32
@@ -792,13 +804,13 @@ contains
 
         do i_h = 1_int32, self%state%part(1,iproc_h)%n
           if (self%state%part(1,iproc_h)%flag_dead(i_h) /= 0_int8) cycle
-          xp_h = self%state%part(1,iproc_h)%x(i_h)
+          xp_h = self%state%part(1,iproc_h)%pv(1,i_h)
           ix_h = int(xp_h / self%state%dom%h(1), int32) + 1_int32
           if (ix_h < ixl_h .or. ix_h > ixr_h) cycle
 
           if (self%state%cfg%flag_circxh == 1_int32) then
-            yp_h = self%state%part(1,iproc_h)%y(i_h)
-            zp_h = self%state%part(1,iproc_h)%z(i_h)
+            yp_h = self%state%part(1,iproc_h)%pv(2,i_h)
+            zp_h = self%state%part(1,iproc_h)%pv(3,i_h)
             if (self%state%cfg%flag_ahp == 0_int32) then
               if (((yp_h-yhalf_h)**2 + (zp_h-zhalf_h)**2) > self%state%cfg%R_ahp**2) cycle
             else
@@ -807,9 +819,9 @@ contains
           end if
 
           Eki_h = 0.5_real64 * self%state%params%Nm(1) * self%state%chem%mass(1) * &
-                (self%state%part(1,iproc_h)%vx(i_h)**2 + &
-                 self%state%part(1,iproc_h)%vy(i_h)**2 + &
-                 self%state%part(1,iproc_h)%vz(i_h)**2)
+                (self%state%part(1,iproc_h)%pv(4,i_h)**2 + &
+                 self%state%part(1,iproc_h)%pv(5,i_h)**2 + &
+                 self%state%part(1,iproc_h)%pv(6,i_h)**2)
 
           self%state%sum_dEk(iproc_h) = self%state%sum_dEk(iproc_h) + Eki_h
           self%state%Nh(iproc_h)      = self%state%Nh(iproc_h) + 1_int32
@@ -1147,17 +1159,17 @@ contains
     do ptype = 1_int32, self%state%ntype
       if (self%state%chem%mass(ptype) <= 0.0_real64) cycle
       do iproc_m = 1_int32, self%state%nproc
-        if (.not. allocated(self%state%part(ptype,iproc_m)%x)) cycle
+        if (.not. allocated(self%state%part(ptype,iproc_m)%pv)) cycle
         do ip_m = 1_int32, self%state%part(ptype,iproc_m)%n
           if (allocated(self%state%part(ptype,iproc_m)%flag_dead)) then
             if (self%state%part(ptype,iproc_m)%flag_dead(ip_m) /= 0_int8) cycle
           end if
           mom_total(1) = mom_total(1) + self%state%params%Nm(ptype) * self%state%chem%mass(ptype) * &
-              self%state%part(ptype,iproc_m)%vx(ip_m)
+              self%state%part(ptype,iproc_m)%pv(4,ip_m)
           mom_total(2) = mom_total(2) + self%state%params%Nm(ptype) * self%state%chem%mass(ptype) * &
-              self%state%part(ptype,iproc_m)%vy(ip_m)
+              self%state%part(ptype,iproc_m)%pv(5,ip_m)
           mom_total(3) = mom_total(3) + self%state%params%Nm(ptype) * self%state%chem%mass(ptype) * &
-              self%state%part(ptype,iproc_m)%vz(ip_m)
+              self%state%part(ptype,iproc_m)%pv(6,ip_m)
         end do
       end do
     end do
@@ -1377,6 +1389,17 @@ contains
       write(*,'(a,f8.2,a,f8.2)') &
         "  mover_push(ms)=", 1000.0_real64*self%t_mover_push/real(self%t_count,real64), &
         "  mover_bc(ms)=",   1000.0_real64*self%t_mover_bc/real(self%t_count,real64)
+
+      ! TEMPORARY diagnostic - see move_and_bc_boris's header comment
+      ! (mod_particleMover.f90). Only meaningful when the Boris pusher ran
+      ! at all this window (n_boris_total==0 otherwise, e.g. an
+      ! electrostatic-only case).
+      if (self%n_boris_total > 0_int32) then
+        write(*,'(a,i0,a,i0,a,f6.2,a)') &
+          "  boris used=", self%n_boris_used, " / ", self%n_boris_total, &
+          "  (", 100.0_real64*real(self%n_boris_used,real64)/real(self%n_boris_total,real64), &
+          "% ran full Boris rotation, rest hit the negligible-|B| fallback)"
+      end if
       write(*,'(a,f8.2,a,f8.2,a,f8.2)') &
         "  dep_clear(ms)=",  1000.0_real64*self%t_dep_clear/real(self%t_count,real64), &
         "  dep_loop(ms)=",   1000.0_real64*self%t_dep_loop/real(self%t_count,real64), &
@@ -1455,6 +1478,8 @@ contains
     self%t_mover_push_avg = 0.0_real64
     self%t_dep_loop_min   = 0.0_real64
     self%t_dep_loop_avg   = 0.0_real64
+    self%n_boris_used  = 0_int32
+    self%n_boris_total = 0_int32
     self%t_bck     = 0.0_real64
     self%t_total   = 0.0_real64
     self%t_count   = 0_int32

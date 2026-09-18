@@ -17,8 +17,20 @@
 #      safe without checking.
 #
 # Usage: sbatch runModular_trillium_calibrate.sh
+#    or: sbatch --export=ALL,SPLIT_TIMEOUT=300 runModular_trillium_calibrate.sh
+#        (per-split time budget, default 150s - this site's sbatch defaults
+#        to --export=NONE, i.e. it does NOT inherit your shell env, so
+#        `SPLIT_TIMEOUT=300 sbatch ...` silently has no effect here: you
+#        must pass --export=ALL,SPLIT_TIMEOUT=... explicitly. If you raise
+#        SPLIT_TIMEOUT a lot, also raise the #SBATCH -t above accordingly -
+#        4 splits x 2 codes x SPLIT_TIMEOUT is the worst-case sweep time.)
 # Then read calibrate_<jobid>.out - topology first, then one short timed
 # sample of the ITER case per candidate split, for legacy and modular both.
+# Each split also writes its full, unfiltered stdout+stderr to
+# fulllog_<jobid>_<modular|legacy>_<ranks>x<threads>.log in the submit dir -
+# calibrate_<jobid>.out itself only ever shows a grep'd summary plus a clear
+# completed/CRASHED/TIMED OUT verdict per split, so check the matching
+# fulllog_* file for the full picture (especially on CRASHED).
 #
 # EDIT BEFORE SUBMITTING: add whatever `module load` lines this cluster
 # needs for the Intel oneAPI/MPI toolchain (mpiifx, mpirun) - unknown from
@@ -61,7 +73,14 @@ if [ ! -x build/run_min ] || [ ! -x 3dphpic.exe ]; then
 fi
 
 ulimit -s unlimited
+# DATA/DATA_2D (no leading dot/Output) is legacy's own output convention;
+# Output/Output_2D is the modular code's (see mod_simulation.f90,
+# mod_generateBoundary.f90, mod_injection.f90) - both are needed since we
+# run both executables. Output/Output_2D is normally git-tracked via a
+# placeholder file so a real `git clone` already has it, but mkdir -p here
+# too in case this scratch checkout didn't preserve that.
 mkdir -p DATA/DATA_2D
+mkdir -p Output/Output_2D
 
 # --- swap in the ITER case, with the two known fixes applied on top ---
 cp input_dir/conditions.inp  input_dir/conditions.inp.bak
@@ -84,13 +103,38 @@ restore_inputs() {
 }
 trap restore_inputs EXIT
 
+# How long each split gets before being killed. Override with
+# SPLIT_TIMEOUT=<seconds> sbatch ...  if the ITER case turns out to need
+# longer than this for a single step (large-scale cases seen so far run
+# into the hundreds of millions of particles - step 1 in particular also
+# eats particle loading + an initial full Poisson solve, so it can be much
+# slower than the steady-state steps that follow).
+: "${SPLIT_TIMEOUT:=150}"
+
 run_split() {
   local label="$1" exe="$2" mpi_ranks="$3" omp_threads="$4"
-  echo "--- ${label}: MPI=${mpi_ranks} x OMP=${omp_threads} (= $((mpi_ranks*omp_threads)) cores) ---"
+  local logfile="fulllog_${SLURM_JOB_ID}_${label}_${mpi_ranks}x${omp_threads}.log"
+  echo "--- ${label}: MPI=${mpi_ranks} x OMP=${omp_threads} (= $((mpi_ranks*omp_threads)) cores) - full output: ${logfile} ---"
+  # Previous version of this script piped stdout+stderr straight through a
+  # grep filter and discarded mpirun's real exit code - a crash (MPI_Abort,
+  # segfault, OOM kill) produced a message that didn't match the filter, so
+  # it silently vanished and looked identical to "still computing". Always
+  # capture everything to a file first, THEN filter/report from that, so a
+  # real error is never lost.
   env OMP_NUM_THREADS="$omp_threads" OMP_PROC_BIND=true OMP_PLACES=cores \
       I_MPI_PIN_DOMAIN=omp \
-      timeout 90 mpirun -np "$mpi_ranks" "$exe" \
-      2>&1 | grep -E "TIME STEP|total      \(ms\)|mover      \(ms\)|poisson    \(ms\)|max/avg|^ it=|^ <t>"
+      timeout "$SPLIT_TIMEOUT" mpirun -np "$mpi_ranks" "$exe" \
+      > "$logfile" 2>&1
+  local rc=$?
+  if [ $rc -eq 124 ]; then
+    echo "  >>> TIMED OUT after ${SPLIT_TIMEOUT}s (was still running - may just be slow at this split, not broken; raise SPLIT_TIMEOUT to check) <<<"
+  elif [ $rc -ne 0 ]; then
+    echo "  >>> CRASHED, exit=${rc} - last lines of ${logfile}: <<<"
+    tail -20 "$logfile" | sed 's/^/  | /'
+  else
+    echo "  >>> completed normally, exit=0 <<<"
+  fi
+  grep -E "TIME STEP|total      \(ms\)|mover      \(ms\)|poisson    \(ms\)|max/avg|^ it=|^ <t>|boris used" "$logfile"
   echo
   # Safety net: earlier testing found that killing/timing-out the mpirun
   # wrapper does not reliably reap the actual worker ranks underneath it

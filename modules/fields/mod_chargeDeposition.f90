@@ -43,7 +43,7 @@ contains
     real(real64)   :: xmax_loc, ymax_loc, zmax_loc
     logical        :: has_dead
 
-    if (.not. allocated(part%x)) return
+    if (.not. allocated(part%pv)) return
     if (part%n <= 0_int32) return
 
     xmax_loc = real(n(1), real64) * h(1)
@@ -58,9 +58,9 @@ contains
         if (part%flag_dead(i) /= 0) cycle
       end if
 
-      x = part%x(i)
-      y = part%y(i)
-      z = part%z(i)
+      x = part%pv(1,i)
+      y = part%pv(2,i)
+      z = part%pv(3,i)
 
       ! Cheap guard kept for particles slightly outside due to roundoff.
       ! This matches the previous behavior where tiny excursions were skipped.

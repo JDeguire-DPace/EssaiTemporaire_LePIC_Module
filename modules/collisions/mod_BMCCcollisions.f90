@@ -90,7 +90,7 @@ contains
           real(real64)   :: saved_tvy(max_ncol)
           real(real64)   :: saved_tvz(max_ncol)
           real(real64)   :: nu_store(max_ncol)
-          if (.not. allocated(part(ptype,iproc)%x)) cycle
+          if (.not. allocated(part(ptype,iproc)%pv)) cycle
           n_total = part(ptype,iproc)%n
           if (n_total <= 0_int32) cycle
 
@@ -102,7 +102,7 @@ contains
             ttype   = col_info(ind_col, 2 + n_re)
             if (ttype < 1_int32 .or. ttype > ntype_tracked) cycle
             if (mass(ttype) == 0.0_real64) cycle
-            if (.not. allocated(part(ttype,iproc)%x)) cycle
+            if (.not. allocated(part(ttype,iproc)%pv)) cycle
             if (part(ttype,iproc)%n <= 0_int32) cycle
             n_ttype_avg = real(part(ttype,iproc)%n, real64) * Nm(ttype) / dom_volume
             nu_max = nu_max + n_ttype_avg * sigv_mx(ptype, ind_col)
@@ -127,9 +127,9 @@ contains
             ip  = int(real(n_total, real64) * rnd, int32) + 1_int32
             if (ip > n_total) ip = n_total
 
-            vx1 = part(ptype,iproc)%vx(ip)
-            vy1 = part(ptype,iproc)%vy(ip)
-            vz1 = part(ptype,iproc)%vz(ip)
+            vx1 = part(ptype,iproc)%pv(4,ip)
+            vy1 = part(ptype,iproc)%pv(5,ip)
+            vz1 = part(ptype,iproc)%pv(6,ip)
 
             sum_nu      = 0.0_real64
             nu_store    = 0.0_real64
@@ -144,22 +144,22 @@ contains
 
               if (ttype < 1_int32 .or. ttype > ntype_tracked) cycle
               if (mass(ttype) == 0.0_real64) cycle
-              if (.not. allocated(part(ttype,iproc)%x)) cycle
+              if (.not. allocated(part(ttype,iproc)%pv)) cycle
               if (part(ttype,iproc)%n <= 0_int32) cycle
 
               ! Random target particle
               call select_target_from_cell_list( &
                   part(ttype,iproc), &
-                  part(ptype,iproc)%x(ip), &
-                  part(ptype,iproc)%y(ip), &
-                  part(ptype,iproc)%z(ip), &
+                  part(ptype,iproc)%pv(1,ip), &
+                  part(ptype,iproc)%pv(2,ip), &
+                  part(ptype,iproc)%pv(3,ip), &
                   n, h, iseed(iproc), it, n_ttype_avg, Nm(ttype))
 
               if (it <= 0_int32) cycle
 
-              tvx = part(ttype,iproc)%vx(it)
-              tvy = part(ttype,iproc)%vy(it)
-              tvz = part(ttype,iproc)%vz(it)
+              tvx = part(ttype,iproc)%pv(4,it)
+              tvy = part(ttype,iproc)%pv(5,it)
+              tvz = part(ttype,iproc)%pv(6,it)
 
               vr    = sqrt((vx1-tvx)**2 + (vy1-tvy)**2 + (vz1-tvz)**2)
               mu    = abs(mass(ptype))*abs(mass(ttype)) / (abs(mass(ptype))+abs(mass(ttype)))
@@ -259,9 +259,9 @@ contains
     n_by = col_info(c_ind, 2)
     rt   = col_info(c_ind, 2 + n_re + n_by + 1)
 
-    vx1 = part(ptype,iproc)%vx(ip)
-    vy1 = part(ptype,iproc)%vy(ip)
-    vz1 = part(ptype,iproc)%vz(ip)
+    vx1 = part(ptype,iproc)%pv(4,ip)
+    vy1 = part(ptype,iproc)%pv(5,ip)
+    vz1 = part(ptype,iproc)%pv(6,ip)
 
     mu = abs(mass(ptype))*abs(mass(ttype)) / (abs(mass(ptype))+abs(mass(ttype)))
     vr = sqrt((vx1-tvx)**2 + (vy1-tvy)**2 + (vz1-tvz)**2)
@@ -342,17 +342,17 @@ contains
         vp = sqrt(vp*vp + 2.0_real64*dE_heavy*QE_ABS/abs(mass(btype)))
       end if
 
-      v2old = part(btype,iproc)%vx(ib)**2 + &
-              part(btype,iproc)%vy(ib)**2 + &
-              part(btype,iproc)%vz(ib)**2
+      v2old = part(btype,iproc)%pv(4,ib)**2 + &
+              part(btype,iproc)%pv(5,ib)**2 + &
+              part(btype,iproc)%pv(6,ib)**2
 
-      part(btype,iproc)%vx(ib) = vx_cm + vp*ex1
-      part(btype,iproc)%vy(ib) = vy_cm + vp*ey1
-      part(btype,iproc)%vz(ib) = vz_cm + vp*ez1
+      part(btype,iproc)%pv(4,ib) = vx_cm + vp*ex1
+      part(btype,iproc)%pv(5,ib) = vy_cm + vp*ey1
+      part(btype,iproc)%pv(6,ib) = vz_cm + vp*ez1
 
-      v2new = part(btype,iproc)%vx(ib)**2 + &
-              part(btype,iproc)%vy(ib)**2 + &
-              part(btype,iproc)%vz(ib)**2
+      v2new = part(btype,iproc)%pv(4,ib)**2 + &
+              part(btype,iproc)%pv(5,ib)**2 + &
+              part(btype,iproc)%pv(6,ib)**2
 
       Pcoll(btype,iproc) = Pcoll(btype,iproc) + &
           0.5_real64*Nm(btype)*abs(mass(btype))*(v2new - v2old)
@@ -378,12 +378,12 @@ contains
       return
     end if
     dst%n           = ip_new
-    dst%x(ip_new)   = src%x(ip_src)
-    dst%y(ip_new)   = src%y(ip_src)
-    dst%z(ip_new)   = src%z(ip_src)
-    dst%vx(ip_new)  = 0.0_real64
-    dst%vy(ip_new)  = 0.0_real64
-    dst%vz(ip_new)  = 0.0_real64
+    dst%pv(1,ip_new)   = src%pv(1,ip_src)
+    dst%pv(2,ip_new)   = src%pv(2,ip_src)
+    dst%pv(3,ip_new)   = src%pv(3,ip_src)
+    dst%pv(4,ip_new)  = 0.0_real64
+    dst%pv(5,ip_new)  = 0.0_real64
+    dst%pv(6,ip_new)  = 0.0_real64
     if (allocated(dst%flag_dead)) dst%flag_dead(ip_new) = 0_int8
     if (allocated(dst%flag_cex))  dst%flag_cex(ip_new)  = 0_int32
   end subroutine append_bmcc
@@ -396,8 +396,8 @@ contains
 
     if (ip < 1_int32 .or. ip > p%n) return
     if (ip < p%n) then
-      p%x(ip) = p%x(p%n);  p%y(ip) = p%y(p%n);  p%z(ip) = p%z(p%n)
-      p%vx(ip)= p%vx(p%n); p%vy(ip)= p%vy(p%n); p%vz(ip)= p%vz(p%n)
+      p%pv(1,ip) = p%pv(1,p%n);  p%pv(2,ip) = p%pv(2,p%n);  p%pv(3,ip) = p%pv(3,p%n)
+      p%pv(4,ip)= p%pv(4,p%n); p%pv(5,ip)= p%pv(5,p%n); p%pv(6,ip)= p%pv(6,p%n)
       if (allocated(p%flag_dead)) p%flag_dead(ip) = p%flag_dead(p%n)
       if (allocated(p%flag_cex))  p%flag_cex(ip)  = p%flag_cex(p%n)
     end if

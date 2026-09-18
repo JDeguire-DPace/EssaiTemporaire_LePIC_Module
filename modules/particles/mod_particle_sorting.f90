@@ -39,7 +39,7 @@ module mod_particle_sorting
   ! explicit loop that reads staging(pos) once and writes all 7 fields
   ! before moving to the next pos (see sort_particles_by_cell) - NOT as
   ! 7 separate whole-array-section statements
-  ! (part%x(1:np)=staging(1:np)%x, etc). The latter was tried first and
+  ! (part%pv(1,1:np)=staging(1:np)%x, etc). The latter was tried first and
   ! measured as a net regression (sorting ms roughly doubled on the
   ! matched benchmark): each field-extraction statement independently
   ! re-scans the ENTIRE staging array (which is far larger than any
@@ -161,7 +161,7 @@ contains
     if (part%n <= 0_int32) return
 
     do i = 1, part%n
-      ic = cell_index_from_position(part%x(i), part%y(i), part%z(i), h, n)
+      ic = cell_index_from_position(part%pv(1,i), part%pv(2,i), part%pv(3,i), h, n)
       part%cell_id(i)     = ic
       part%cell_count(ic) = part%cell_count(ic) + 1_int32
     end do
@@ -191,7 +191,7 @@ contains
     integer(int32) :: np, ncells
     integer(int32) :: i, ic, pos
 
-    if (.not. allocated(part%x)) return
+    if (.not. allocated(part%pv)) return
 
     np     = part%n
     ncells = n(1) * n(2) * n(3)
@@ -220,12 +220,12 @@ contains
       ic  = part%cell_id(i)
       pos = next_slot(ic)
 
-      staging(pos)%x   = part%x(i)
-      staging(pos)%y   = part%y(i)
-      staging(pos)%z   = part%z(i)
-      staging(pos)%vx  = part%vx(i)
-      staging(pos)%vy  = part%vy(i)
-      staging(pos)%vz  = part%vz(i)
+      staging(pos)%x   = part%pv(1,i)
+      staging(pos)%y   = part%pv(2,i)
+      staging(pos)%z   = part%pv(3,i)
+      staging(pos)%vx  = part%pv(4,i)
+      staging(pos)%vy  = part%pv(5,i)
+      staging(pos)%vz  = part%pv(6,i)
       staging(pos)%w   = part%w(i)
       cell_id_new(pos) = ic
 
@@ -239,12 +239,12 @@ contains
     ! module header comment for why this must not be split into separate
     ! whole-array-section statements per field.
     do pos = 1, np
-      part%x(pos)  = staging(pos)%x
-      part%y(pos)  = staging(pos)%y
-      part%z(pos)  = staging(pos)%z
-      part%vx(pos) = staging(pos)%vx
-      part%vy(pos) = staging(pos)%vy
-      part%vz(pos) = staging(pos)%vz
+      part%pv(1,pos)  = staging(pos)%x
+      part%pv(2,pos)  = staging(pos)%y
+      part%pv(3,pos)  = staging(pos)%z
+      part%pv(4,pos) = staging(pos)%vx
+      part%pv(5,pos) = staging(pos)%vy
+      part%pv(6,pos) = staging(pos)%vz
       part%w(pos)  = staging(pos)%w
     end do
 
@@ -264,7 +264,7 @@ contains
 
     ok = .true.
 
-    if (.not. allocated(part%x)) return
+    if (.not. allocated(part%pv)) return
     if (part%n <= 1_int32) return
 
     if (.not. allocated(part%cell_id)) then
@@ -304,7 +304,7 @@ contains
 
     ok = .true.
 
-    if (.not. allocated(part%x)) return
+    if (.not. allocated(part%pv)) return
     if (part%n <= 0_int32) return
 
     if (.not. allocated(part%cell_id)) then

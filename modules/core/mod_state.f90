@@ -470,7 +470,7 @@ contains
     !$omp parallel do collapse(2) private(ptype,iproc,ok_sorted,ok_cells) schedule(static)
     do ptype = 1, self%ntype
       do iproc = 1, self%nproc
-        if (.not. allocated(self%part(ptype,iproc)%x)) cycle
+        if (.not. allocated(self%part(ptype,iproc)%pv)) cycle
         if (self%part(ptype,iproc)%n <= 1_int32) cycle
 
         call sort_particles_by_cell( &
@@ -513,7 +513,7 @@ contains
 
     !$omp parallel do private(iproc) schedule(static)
     do iproc = 1, self%nproc
-      if (.not. allocated(self%part(1,iproc)%x)) cycle
+      if (.not. allocated(self%part(1,iproc)%pv)) cycle
       if (self%part(1,iproc)%n <= 0_int32) cycle
 
       call apply_electron_heating( &
@@ -598,7 +598,8 @@ contains
 
   subroutine advance_particles_local(self, istep, t_move_out, t_bc_out, t_deposit_out, &
                                       t_move_min_out, t_move_avg_out, &
-                                      t_deposit_min_out, t_deposit_avg_out)
+                                      t_deposit_min_out, t_deposit_avg_out, &
+                                      n_boris_used_out, n_boris_total_out)
     ! Fused push + boundary-condition/SEE + charge-deposition pass.
     !
     ! Not a type-bound procedure (called as advance_particles_local(self%state, ...)
@@ -656,6 +657,9 @@ contains
     real(real64), intent(out) :: t_move_out, t_bc_out, t_deposit_out
     real(real64), intent(out) :: t_move_min_out, t_move_avg_out
     real(real64), intent(out) :: t_deposit_min_out, t_deposit_avg_out
+    ! TEMPORARY diagnostic - see move_and_bc_boris's header comment
+    ! (mod_particleMover.f90) and mod_simulation.f90's diagnostic print.
+    integer(int32), intent(out) :: n_boris_used_out, n_boris_total_out
 
     integer(int32)  :: ptype, iproc
     integer(int32)  :: tag_neg_local, ispec
@@ -666,6 +670,8 @@ contains
     logical         :: use_fast_electrostatic
     type(SeeParams) :: see
     real(real64), allocatable :: t_move_thread(:), t_bc_thread(:), t_deposit_thread(:)
+    integer(int32), allocatable :: n_boris_used_thread(:), n_boris_total_thread(:)
+    integer(int32)  :: n_boris_used_call, n_boris_total_call
 
     ! RF antenna heating: quantities constant for the whole step, computed
     ! once here rather than per-particle inside the movers (mirrors legacy
@@ -681,6 +687,8 @@ contains
     t_move_avg_out    = 0.0_real64
     t_deposit_min_out = 0.0_real64
     t_deposit_avg_out = 0.0_real64
+    n_boris_used_out  = 0_int32
+    n_boris_total_out = 0_int32
 
     if (.not. allocated(self%part)) return
 
@@ -688,6 +696,10 @@ contains
     t_move_thread    = 0.0_real64
     t_bc_thread      = 0.0_real64
     t_deposit_thread = 0.0_real64
+
+    allocate(n_boris_used_thread(self%nproc), n_boris_total_thread(self%nproc))
+    n_boris_used_thread  = 0_int32
+    n_boris_total_thread = 0_int32
 
     dt_local = self%params%dt
     use_energy_conserving = (trim(self%cfg%push_scheme) == 'energy')
@@ -730,11 +742,12 @@ contains
       see%vt_sec = sqrt(2.0_real64 * qe * abs(self%cfg%THm) / abs(self%chem%mass(1)))
     end if
 
-    !$omp parallel do private(iproc,ptype,q_species,m_species,use_boris,qmacro,tw0,tw1) schedule(static)
+    !$omp parallel do private(iproc,ptype,q_species,m_species,use_boris,qmacro,tw0,tw1, &
+    !$omp&                    n_boris_used_call,n_boris_total_call) schedule(static)
     do iproc = 1, self%nproc
 
       do ptype = 1, self%ntype
-        if (.not. allocated(self%part(ptype,iproc)%x)) cycle
+        if (.not. allocated(self%part(ptype,iproc)%pv)) cycle
         if (self%part(ptype,iproc)%n <= 0_int32) cycle
 
         q_species = self%chem%charge(ptype)
@@ -806,7 +819,11 @@ contains
                   mom_loss_see   = self%mom_loss(:,4,1,iproc), &
                   mom_RF_local   = self%mom_RF(:,ptype,iproc), &
                   P_loss_coll    = self%P_loss(3,ptype,iproc), &
-                  mom_loss_coll  = self%mom_loss(:,3,ptype,iproc) )
+                  mom_loss_coll  = self%mom_loss(:,3,ptype,iproc), &
+                  n_boris_used   = n_boris_used_call, &
+                  n_boris_total  = n_boris_total_call )
+              n_boris_used_thread(iproc)  = n_boris_used_thread(iproc)  + n_boris_used_call
+              n_boris_total_thread(iproc) = n_boris_total_thread(iproc) + n_boris_total_call
             else
               call move_and_bc_boris( &
                   part           = self%part(ptype,iproc), &
@@ -856,7 +873,11 @@ contains
                   mom_loss_see   = self%mom_loss(:,4,1,iproc), &
                   mom_RF_local   = self%mom_RF(:,ptype,iproc), &
                   P_loss_coll    = self%P_loss(3,ptype,iproc), &
-                  mom_loss_coll  = self%mom_loss(:,3,ptype,iproc) )
+                  mom_loss_coll  = self%mom_loss(:,3,ptype,iproc), &
+                  n_boris_used   = n_boris_used_call, &
+                  n_boris_total  = n_boris_total_call )
+              n_boris_used_thread(iproc)  = n_boris_used_thread(iproc)  + n_boris_used_call
+              n_boris_total_thread(iproc) = n_boris_total_thread(iproc) + n_boris_total_call
             end if
           else if (use_fast_electrostatic) then
             ! ptype==1 split out - see the move_and_bc_boris call above.
@@ -1069,7 +1090,7 @@ contains
       do ptype = 1, self%ntype
         self%np_thread(:,:,:,ptype,iproc) = 0.0_real64
 
-        if (.not. allocated(self%part(ptype,iproc)%x)) cycle
+        if (.not. allocated(self%part(ptype,iproc)%pv)) cycle
         if (self%part(ptype,iproc)%n <= 0_int32) cycle
 
         call deposit_particle_set_to_np_thread( &
@@ -1094,7 +1115,11 @@ contains
     t_deposit_min_out = minval(t_deposit_thread)
     t_deposit_avg_out = sum(t_deposit_thread) / real(self%nproc, real64)
 
+    n_boris_used_out  = sum(n_boris_used_thread)
+    n_boris_total_out = sum(n_boris_total_thread)
+
     deallocate(t_move_thread, t_bc_thread, t_deposit_thread)
+    deallocate(n_boris_used_thread, n_boris_total_thread)
   end subroutine advance_particles_local
 
 
@@ -1116,18 +1141,18 @@ contains
 
     !$omp parallel do private(iproc,i,ix,x,y,z,v2) schedule(static)
     do iproc = 1, self%nproc
-      if (.not. allocated(self%part(1,iproc)%x)) cycle
+      if (.not. allocated(self%part(1,iproc)%pv)) cycle
       if (self%part(1,iproc)%n <= 0_int32) cycle
 
       do i = 1, self%part(1,iproc)%n
-        x  = self%part(1,iproc)%x(i)
+        x  = self%part(1,iproc)%pv(1,i)
         ix = int(x / self%dom%h(1), int32) + 1_int32
 
         if (ix < self%cfg%xl_pow/self%dom%h(1) .or. ix > self%cfg%xr_pow/self%dom%h(1)) cycle
 
         if (self%cfg%flag_circxh == 1) then
-          y = self%part(1,iproc)%y(i)
-          z = self%part(1,iproc)%z(i)
+          y = self%part(1,iproc)%pv(2,i)
+          z = self%part(1,iproc)%pv(3,i)
 
           if (self%cfg%flag_ahp == 0) then
             if (((y-ymax_half)**2 + (z-zmax_half)**2) > self%cfg%R_ahp**2) cycle
@@ -1136,9 +1161,9 @@ contains
           end if
         end if
 
-        v2 = self%part(1,iproc)%vx(i)**2 + &
-             self%part(1,iproc)%vy(i)**2 + &
-             self%part(1,iproc)%vz(i)**2
+        v2 = self%part(1,iproc)%pv(4,i)**2 + &
+             self%part(1,iproc)%pv(5,i)**2 + &
+             self%part(1,iproc)%pv(6,i)**2
 
         self%sum_dEk(iproc) = self%sum_dEk(iproc) + &
             0.5_real64 * self%params%Nm(1) * self%chem%mass(1) * v2

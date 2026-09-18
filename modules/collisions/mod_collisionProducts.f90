@@ -84,9 +84,9 @@ contains
     n_by = col_info(c_ind,2)
     rt   = col_info(c_ind,2+n_re+n_by+1)
 
-    vx1 = part(ptype,iproc)%vx(ip)
-    vy1 = part(ptype,iproc)%vy(ip)
-    vz1 = part(ptype,iproc)%vz(ip)
+    vx1 = part(ptype,iproc)%pv(4,ip)
+    vy1 = part(ptype,iproc)%pv(5,ip)
+    vz1 = part(ptype,iproc)%pv(6,ip)
 
     vx2 = target_vx
     vy2 = target_vy
@@ -174,26 +174,26 @@ contains
         call append_particle_like_position(part(ptype,iproc), part(btype,iproc), ip, ib)
       end if
 
-      v2old = part(btype,iproc)%vx(ib)**2 + &
-              part(btype,iproc)%vy(ib)**2 + &
-              part(btype,iproc)%vz(ib)**2
+      v2old = part(btype,iproc)%pv(4,ib)**2 + &
+              part(btype,iproc)%pv(5,ib)**2 + &
+              part(btype,iproc)%pv(6,ib)**2
 
       vp = sqrt(2.0_real64*(Erel_after/sum_mass) / abs(mass(btype))**2)
 
-      part(btype,iproc)%vx(ib) = vx_cm + vp*ex1
-      part(btype,iproc)%vy(ib) = vy_cm + vp*ey1
-      part(btype,iproc)%vz(ib) = vz_cm + vp*ez1
+      part(btype,iproc)%pv(4,ib) = vx_cm + vp*ex1
+      part(btype,iproc)%pv(5,ib) = vy_cm + vp*ey1
+      part(btype,iproc)%pv(6,ib) = vz_cm + vp*ez1
 
       if (dE_heavy > 0.0_real64 .and. abs(mass(btype)) > 10.0_real64*abs(mass(ptype))) then
-        call add_isotropic_energy(part(btype,iproc)%vx(ib), &
-                                  part(btype,iproc)%vy(ib), &
-                                  part(btype,iproc)%vz(ib), &
+        call add_isotropic_energy(part(btype,iproc)%pv(4,ib), &
+                                  part(btype,iproc)%pv(5,ib), &
+                                  part(btype,iproc)%pv(6,ib), &
                                   dE_heavy, mass(btype), iseed)
       end if
 
-      v2new = part(btype,iproc)%vx(ib)**2 + &
-              part(btype,iproc)%vy(ib)**2 + &
-              part(btype,iproc)%vz(ib)**2
+      v2new = part(btype,iproc)%pv(4,ib)**2 + &
+              part(btype,iproc)%pv(5,ib)**2 + &
+              part(btype,iproc)%pv(6,ib)**2
 
       Pcoll(btype,iproc) = Pcoll(btype,iproc) + &
           0.5_real64*Nm(btype)*mass(btype)*(v2new - v2old)
@@ -221,19 +221,19 @@ contains
 
     ip_new = dst%n + 1_int32
 
-    if (ip_new > size(dst%x)) then
+    if (ip_new > size(dst%pv, 2)) then
       error stop "append_particle_like_position: particle capacity exceeded"
     end if
 
     dst%n = ip_new
 
-    dst%x(ip_new) = src%x(ip_src)
-    dst%y(ip_new) = src%y(ip_src)
-    dst%z(ip_new) = src%z(ip_src)
+    dst%pv(1,ip_new) = src%pv(1,ip_src)
+    dst%pv(2,ip_new) = src%pv(2,ip_src)
+    dst%pv(3,ip_new) = src%pv(3,ip_src)
 
-    dst%vx(ip_new) = 0.0_real64
-    dst%vy(ip_new) = 0.0_real64
-    dst%vz(ip_new) = 0.0_real64
+    dst%pv(4,ip_new) = 0.0_real64
+    dst%pv(5,ip_new) = 0.0_real64
+    dst%pv(6,ip_new) = 0.0_real64
 
   end subroutine append_particle_like_position
 
@@ -245,12 +245,12 @@ contains
     ! Prefer your real flag_dead if ParticleSet has one.
     ! For now, remove by swap-with-last.
     if (ip < p%n) then
-      p%x(ip)  = p%x(p%n)
-      p%y(ip)  = p%y(p%n)
-      p%z(ip)  = p%z(p%n)
-      p%vx(ip) = p%vx(p%n)
-      p%vy(ip) = p%vy(p%n)
-      p%vz(ip) = p%vz(p%n)
+      p%pv(1,ip)  = p%pv(1,p%n)
+      p%pv(2,ip)  = p%pv(2,p%n)
+      p%pv(3,ip)  = p%pv(3,p%n)
+      p%pv(4,ip) = p%pv(4,p%n)
+      p%pv(5,ip) = p%pv(5,p%n)
+      p%pv(6,ip) = p%pv(6,p%n)
     end if
 
     p%n = p%n - 1_int32
@@ -345,13 +345,13 @@ contains
 
     real(real64) :: v2old, v2new
 
-    v2old = part(ptype,iproc)%vx(ip)**2 + &
-            part(ptype,iproc)%vy(ip)**2 + &
-            part(ptype,iproc)%vz(ip)**2
+    v2old = part(ptype,iproc)%pv(4,ip)**2 + &
+            part(ptype,iproc)%pv(5,ip)**2 + &
+            part(ptype,iproc)%pv(6,ip)**2
 
-    part(ptype,iproc)%vx(ip) = target_vx
-    part(ptype,iproc)%vy(ip) = target_vy
-    part(ptype,iproc)%vz(ip) = target_vz
+    part(ptype,iproc)%pv(4,ip) = target_vx
+    part(ptype,iproc)%pv(5,ip) = target_vy
+    part(ptype,iproc)%pv(6,ip) = target_vz
 
     v2new = target_vx**2 + target_vy**2 + target_vz**2
 

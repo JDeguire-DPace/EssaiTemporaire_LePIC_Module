@@ -252,12 +252,12 @@ contains
           end if
         end if
 
-        part(ptype,iproc)%x(k)  = x
-        part(ptype,iproc)%y(k)  = y
-        part(ptype,iproc)%z(k)  = z
-        part(ptype,iproc)%vx(k) = vx
-        part(ptype,iproc)%vy(k) = vy
-        part(ptype,iproc)%vz(k) = vz
+        part(ptype,iproc)%pv(1,k)  = x
+        part(ptype,iproc)%pv(2,k)  = y
+        part(ptype,iproc)%pv(3,k)  = z
+        part(ptype,iproc)%pv(4,k) = vx
+        part(ptype,iproc)%pv(5,k) = vy
+        part(ptype,iproc)%pv(6,k) = vz
         part(ptype,iproc)%w(k)  = 1.0_real64
         part(ptype,iproc)%sp(k) = ptype
         part(ptype,iproc)%flag_dead(k) = 0_int8
@@ -482,12 +482,12 @@ contains
       rnd(1) = ran2(iseed)
       dt_tmp = rnd(1) * dt
 
-      part%x(k)  = x_inj + vx * dt_tmp
-      part%y(k)  = y_inj
-      part%z(k)  = z_inj
-      part%vx(k) = vx
-      part%vy(k) = vy
-      part%vz(k) = vz
+      part%pv(1,k)  = x_inj + vx * dt_tmp
+      part%pv(2,k)  = y_inj
+      part%pv(3,k)  = z_inj
+      part%pv(4,k) = vx
+      part%pv(5,k) = vy
+      part%pv(6,k) = vz
       part%w(k)  = 1.0_real64
       part%sp(k) = ptype
       part%flag_dead(k) = 0_int8
@@ -530,7 +530,7 @@ contains
     k_norm = Nm_p / (h(1)*h(2)*h(3))
     write(pnum,'(i1)') ptype
 
-    open(14, file='./Output/DATA_2D/sour_fx'//pnum//'_yz.mco', status='REPLACE')
+    open(14, file='./Output/Output_2D/sour_fx'//pnum//'_yz.mco', status='REPLACE')
     write(14,*) ny, nz
     do iz = nz+1, 1, -1
       write(14,'(800(e18.6,1x))') &

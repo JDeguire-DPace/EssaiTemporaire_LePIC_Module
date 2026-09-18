@@ -273,7 +273,7 @@ contains
     logical      :: in_rf_region
     real(real64) :: EAy, EAz, EAth, theta_rf, v_theta
 
-    if (.not. allocated(part%x)) return
+    if (.not. allocated(part%pv)) return
     if (part%n <= 0_int32) return
 
     qmdt   = dt*q/m
@@ -304,18 +304,18 @@ contains
           ! Src/part_expmover.f90:70-84) - otherwise it stays counted in
           ! Pcoll/mom_loss(:,3,:) after this step quietly discards it.
           P_loss_coll = P_loss_coll - Nm_species * 0.5_real64 * m * &
-              (part%vx(i)*part%vx(i) + part%vy(i)*part%vy(i) + part%vz(i)*part%vz(i))
-          mom_loss_coll(1) = mom_loss_coll(1) - Nm_species * m * part%vx(i)
-          mom_loss_coll(2) = mom_loss_coll(2) - Nm_species * m * part%vy(i)
-          mom_loss_coll(3) = mom_loss_coll(3) - Nm_species * m * part%vz(i)
+              (part%pv(4,i)*part%pv(4,i) + part%pv(5,i)*part%pv(5,i) + part%pv(6,i)*part%pv(6,i))
+          mom_loss_coll(1) = mom_loss_coll(1) - Nm_species * m * part%pv(4,i)
+          mom_loss_coll(2) = mom_loss_coll(2) - Nm_species * m * part%pv(5,i)
+          mom_loss_coll(3) = mom_loss_coll(3) - Nm_species * m * part%pv(6,i)
           cycle
         end if
       end if
 
       ! ---- push ----
-      xp = part%x(i)
-      yp = part%y(i)
-      zp = part%z(i)
+      xp = part%pv(1,i)
+      yp = part%pv(2,i)
+      zp = part%pv(3,i)
 
       ix = int(xp / h(1), int32) + 1_int32
       iy = int(yp / h(2), int32) + 1_int32
@@ -374,9 +374,9 @@ contains
         end if
       end if
 
-      vpx_new = part%vx(i) + qmdt*Exp
-      vpy_new = part%vy(i) + qmdt*Eyp
-      vpz_new = part%vz(i) + qmdt*Ezp
+      vpx_new = part%pv(4,i) + qmdt*Exp
+      vpy_new = part%pv(5,i) + qmdt*Eyp
+      vpz_new = part%pv(6,i) + qmdt*Ezp
 
       xp_new = xp + dt*vpx_new
       yp_new = yp + dt*vpy_new
@@ -384,8 +384,8 @@ contains
 
       ! ---- RF antenna power absorbed (uses pre-update part%vy/vz(i)) ----
       if (in_rf_region) then
-        v_theta = -0.5_real64*(part%vy(i)+vpy_new)*sin(theta_rf) + &
-                   0.5_real64*(part%vz(i)+vpz_new)*cos(theta_rf)
+        v_theta = -0.5_real64*(part%pv(5,i)+vpy_new)*sin(theta_rf) + &
+                   0.5_real64*(part%pv(6,i)+vpz_new)*cos(theta_rf)
         P_RF_local = P_RF_local + Nm_species*q*EAth*v_theta*dt
 
         ! Impulse delivered by the RF field alone (exact - no v-projection
@@ -515,12 +515,12 @@ contains
 
               part_electrons%n    = part_electrons%n + 1_int32
               i_see               = part_electrons%n
-              part_electrons%x(i_see)  = xp_new
-              part_electrons%y(i_see)  = yp_new
-              part_electrons%z(i_see)  = merge(see%zg_sec(1), see%zg_sec(2), vpz_new < 0.0_real64)
-              part_electrons%vx(i_see) = vx_sec
-              part_electrons%vy(i_see) = vy_sec
-              part_electrons%vz(i_see) = vz_sec
+              part_electrons%pv(1,i_see)  = xp_new
+              part_electrons%pv(2,i_see)  = yp_new
+              part_electrons%pv(3,i_see)  = merge(see%zg_sec(1), see%zg_sec(2), vpz_new < 0.0_real64)
+              part_electrons%pv(4,i_see) = vx_sec
+              part_electrons%pv(5,i_see) = vy_sec
+              part_electrons%pv(6,i_see) = vz_sec
               if (allocated(part_electrons%flag_dead)) part_electrons%flag_dead(i_see) = 0_int8
               if (allocated(part_electrons%flag_cex))  part_electrons%flag_cex(i_see)  = 0_int32
 
@@ -555,12 +555,12 @@ contains
 
       i_shift = i - np_lost
 
-      part%x(i_shift)  = xp_new
-      part%y(i_shift)  = yp_new
-      part%z(i_shift)  = zp_new
-      part%vx(i_shift) = vpx_new
-      part%vy(i_shift) = vpy_new
-      part%vz(i_shift) = vpz_new
+      part%pv(1,i_shift)  = xp_new
+      part%pv(2,i_shift)  = yp_new
+      part%pv(3,i_shift)  = zp_new
+      part%pv(4,i_shift) = vpx_new
+      part%pv(5,i_shift) = vpy_new
+      part%pv(6,i_shift) = vpz_new
 
       if (allocated(part%w))         part%w(i_shift)         = part%w(i)
       if (allocated(part%sp))        part%sp(i_shift)        = part%sp(i)
@@ -659,7 +659,7 @@ contains
 
     logical :: do_see
 
-    if (.not. allocated(part%x)) return
+    if (.not. allocated(part%pv)) return
     if (part%n <= 0_int32) return
 
     qmdt   = dt*q/m
@@ -680,18 +680,18 @@ contains
           ! Src/part_expmover.f90:70-84) - otherwise it stays counted in
           ! Pcoll/mom_loss(:,3,:) after this step quietly discards it.
           P_loss_coll = P_loss_coll - Nm_species * 0.5_real64 * m * &
-              (part%vx(i)*part%vx(i) + part%vy(i)*part%vy(i) + part%vz(i)*part%vz(i))
-          mom_loss_coll(1) = mom_loss_coll(1) - Nm_species * m * part%vx(i)
-          mom_loss_coll(2) = mom_loss_coll(2) - Nm_species * m * part%vy(i)
-          mom_loss_coll(3) = mom_loss_coll(3) - Nm_species * m * part%vz(i)
+              (part%pv(4,i)*part%pv(4,i) + part%pv(5,i)*part%pv(5,i) + part%pv(6,i)*part%pv(6,i))
+          mom_loss_coll(1) = mom_loss_coll(1) - Nm_species * m * part%pv(4,i)
+          mom_loss_coll(2) = mom_loss_coll(2) - Nm_species * m * part%pv(5,i)
+          mom_loss_coll(3) = mom_loss_coll(3) - Nm_species * m * part%pv(6,i)
           cycle
         end if
       end if
 
       ! ---- push ----
-      xp = part%x(i)
-      yp = part%y(i)
-      zp = part%z(i)
+      xp = part%pv(1,i)
+      yp = part%pv(2,i)
+      zp = part%pv(3,i)
 
       ix = int(xp / h(1), int32) + 1_int32
       iy = int(yp / h(2), int32) + 1_int32
@@ -733,9 +733,9 @@ contains
             w5*E(3,ix  ,iy  ,iz+1) + w6*E(3,ix+1,iy  ,iz+1) + &
             w7*E(3,ix+1,iy+1,iz+1) + w8*E(3,ix  ,iy+1,iz+1)
 
-      vpx_new = part%vx(i) + qmdt*Exp
-      vpy_new = part%vy(i) + qmdt*Eyp
-      vpz_new = part%vz(i) + qmdt*Ezp
+      vpx_new = part%pv(4,i) + qmdt*Exp
+      vpy_new = part%pv(5,i) + qmdt*Eyp
+      vpz_new = part%pv(6,i) + qmdt*Ezp
 
       xp_new = xp + dt*vpx_new
       yp_new = yp + dt*vpy_new
@@ -860,12 +860,12 @@ contains
 
               part_electrons%n    = part_electrons%n + 1_int32
               i_see               = part_electrons%n
-              part_electrons%x(i_see)  = xp_new
-              part_electrons%y(i_see)  = yp_new
-              part_electrons%z(i_see)  = merge(see%zg_sec(1), see%zg_sec(2), vpz_new < 0.0_real64)
-              part_electrons%vx(i_see) = vx_sec
-              part_electrons%vy(i_see) = vy_sec
-              part_electrons%vz(i_see) = vz_sec
+              part_electrons%pv(1,i_see)  = xp_new
+              part_electrons%pv(2,i_see)  = yp_new
+              part_electrons%pv(3,i_see)  = merge(see%zg_sec(1), see%zg_sec(2), vpz_new < 0.0_real64)
+              part_electrons%pv(4,i_see) = vx_sec
+              part_electrons%pv(5,i_see) = vy_sec
+              part_electrons%pv(6,i_see) = vz_sec
               if (allocated(part_electrons%flag_dead)) part_electrons%flag_dead(i_see) = 0_int8
               if (allocated(part_electrons%flag_cex))  part_electrons%flag_cex(i_see)  = 0_int32
 
@@ -900,12 +900,12 @@ contains
 
       i_shift = i - np_lost
 
-      part%x(i_shift)  = xp_new
-      part%y(i_shift)  = yp_new
-      part%z(i_shift)  = zp_new
-      part%vx(i_shift) = vpx_new
-      part%vy(i_shift) = vpy_new
-      part%vz(i_shift) = vpz_new
+      part%pv(1,i_shift)  = xp_new
+      part%pv(2,i_shift)  = yp_new
+      part%pv(3,i_shift)  = zp_new
+      part%pv(4,i_shift) = vpx_new
+      part%pv(5,i_shift) = vpy_new
+      part%pv(6,i_shift) = vpz_new
 
       if (allocated(part%w))         part%w(i_shift)         = part%w(i)
       if (allocated(part%sp))        part%sp(i_shift)        = part%sp(i)
@@ -942,7 +942,8 @@ contains
                                  E0_RF, omega_RF, time, P_RF_local, &
                                  flag_planar_ant, x0, &
                                  mom_loss_wall, mom_loss_see, mom_RF_local, &
-                                 P_loss_coll, mom_loss_coll )
+                                 P_loss_coll, mom_loss_coll, &
+                                 n_boris_used, n_boris_total )
     ! Same fusion as move_and_bc_electrostatic, but with the Boris push
     ! (move_particles_boris) in place of the electrostatic one. See that
     ! routine's header comment for the rationale; the BC/SEE block below
@@ -989,6 +990,13 @@ contains
     real(real64),       intent(inout) :: mom_RF_local(3)
     real(real64),       intent(inout) :: P_loss_coll
     real(real64),       intent(inout) :: mom_loss_coll(3)
+    ! TEMPORARY diagnostic (see mod_state.f90's advance_particles_local and
+    ! mod_simulation.f90's diagnostic print): counts how many live particles
+    ! this call actually ran the full Boris rotation for vs. how many hit
+    ! the do_boris==.false. negligible-|B| fallback below, to check whether
+    ! that skip is firing at all on a given case before trusting it as a
+    ! performance explanation. Remove once that question is answered.
+    integer(int32),     intent(out)   :: n_boris_used, n_boris_total
 
     integer(int32) :: i, i_shift, i_see, ip_sec, n_sec
     integer(int32) :: ix, iy, iz
@@ -1017,7 +1025,7 @@ contains
     real(real64) :: sx, sy, sz
     real(real64) :: t2, inv_denom
 
-    logical :: uniform_B, same_grid_B
+    logical :: uniform_B, same_grid_B, do_boris
 
     real(real64) :: xp_new, yp_new, zp_new
     real(real64) :: vpx_new, vpy_new, vpz_new
@@ -1031,7 +1039,10 @@ contains
     logical      :: in_rf_region
     real(real64) :: EAy, EAz, EAth, theta_rf, v_theta
 
-    if (.not. allocated(part%x)) return
+    n_boris_used  = 0_int32
+    n_boris_total = 0_int32
+
+    if (.not. allocated(part%pv)) return
     if (part%n <= 0_int32) return
 
     qm2dt  = 0.5_real64 * dt * q / m
@@ -1062,18 +1073,18 @@ contains
           ! Src/part_expmover.f90:70-84) - otherwise it stays counted in
           ! Pcoll/mom_loss(:,3,:) after this step quietly discards it.
           P_loss_coll = P_loss_coll - Nm_species * 0.5_real64 * m * &
-              (part%vx(i)*part%vx(i) + part%vy(i)*part%vy(i) + part%vz(i)*part%vz(i))
-          mom_loss_coll(1) = mom_loss_coll(1) - Nm_species * m * part%vx(i)
-          mom_loss_coll(2) = mom_loss_coll(2) - Nm_species * m * part%vy(i)
-          mom_loss_coll(3) = mom_loss_coll(3) - Nm_species * m * part%vz(i)
+              (part%pv(4,i)*part%pv(4,i) + part%pv(5,i)*part%pv(5,i) + part%pv(6,i)*part%pv(6,i))
+          mom_loss_coll(1) = mom_loss_coll(1) - Nm_species * m * part%pv(4,i)
+          mom_loss_coll(2) = mom_loss_coll(2) - Nm_species * m * part%pv(5,i)
+          mom_loss_coll(3) = mom_loss_coll(3) - Nm_species * m * part%pv(6,i)
           cycle
         end if
       end if
 
       ! ---- push ----
-      xp = part%x(i)
-      yp = part%y(i)
-      zp = part%z(i)
+      xp = part%pv(1,i)
+      yp = part%pv(2,i)
+      zp = part%pv(3,i)
 
       ix = int(xp / h(1), int32) + 1_int32
       iy = int(yp / h(2), int32) + 1_int32
@@ -1133,8 +1144,19 @@ contains
       end if
 
       ! ------------------------------------------------------------
-      ! B-field interpolation
+      ! B-field interpolation - skipped where |B| is negligible.
+      ! Bi(4,:,:,:) = |B|[T] (mod_magneticField.f90) is precomputed
+      ! but was previously never read here, so this routine always
+      ! paid for a B gather + full Boris rotation even in field-free
+      ! regions. Legacy gates the same way (Bi(4,ix,iy,iz).gt.1.d-5,
+      ! i.e. >0.1G - Src/part_expmover.f90:158,214) and falls back to
+      ! the cheap electrostatic-only push below otherwise. A uniform
+      ! field (n_B all ==1, no spatial map) has no negligible region
+      ! to skip, so it is never gated - matching legacy, which also
+      ! always treats its "constant B-field" case as active.
       ! ------------------------------------------------------------
+      do_boris = .true.
+
       if (uniform_B) then
 
         Bpx = Bi(1,1,1,1)
@@ -1143,20 +1165,24 @@ contains
 
       else if (same_grid_B) then
 
-        Bpx = w1*Bi(1,ix  ,iy  ,iz  ) + w2*Bi(1,ix+1,iy  ,iz  ) + &
-              w3*Bi(1,ix+1,iy+1,iz  ) + w4*Bi(1,ix  ,iy+1,iz  ) + &
-              w5*Bi(1,ix  ,iy  ,iz+1) + w6*Bi(1,ix+1,iy  ,iz+1) + &
-              w7*Bi(1,ix+1,iy+1,iz+1) + w8*Bi(1,ix  ,iy+1,iz+1)
+        if (Bi(4,ix,iy,iz) > 1.0e-5_real64) then
+          Bpx = w1*Bi(1,ix  ,iy  ,iz  ) + w2*Bi(1,ix+1,iy  ,iz  ) + &
+                w3*Bi(1,ix+1,iy+1,iz  ) + w4*Bi(1,ix  ,iy+1,iz  ) + &
+                w5*Bi(1,ix  ,iy  ,iz+1) + w6*Bi(1,ix+1,iy  ,iz+1) + &
+                w7*Bi(1,ix+1,iy+1,iz+1) + w8*Bi(1,ix  ,iy+1,iz+1)
 
-        Bpy = w1*Bi(2,ix  ,iy  ,iz  ) + w2*Bi(2,ix+1,iy  ,iz  ) + &
-              w3*Bi(2,ix+1,iy+1,iz  ) + w4*Bi(2,ix  ,iy+1,iz  ) + &
-              w5*Bi(2,ix  ,iy  ,iz+1) + w6*Bi(2,ix+1,iy  ,iz+1) + &
-              w7*Bi(2,ix+1,iy+1,iz+1) + w8*Bi(2,ix  ,iy+1,iz+1)
+          Bpy = w1*Bi(2,ix  ,iy  ,iz  ) + w2*Bi(2,ix+1,iy  ,iz  ) + &
+                w3*Bi(2,ix+1,iy+1,iz  ) + w4*Bi(2,ix  ,iy+1,iz  ) + &
+                w5*Bi(2,ix  ,iy  ,iz+1) + w6*Bi(2,ix+1,iy  ,iz+1) + &
+                w7*Bi(2,ix+1,iy+1,iz+1) + w8*Bi(2,ix  ,iy+1,iz+1)
 
-        Bpz = w1*Bi(3,ix  ,iy  ,iz  ) + w2*Bi(3,ix+1,iy  ,iz  ) + &
-              w3*Bi(3,ix+1,iy+1,iz  ) + w4*Bi(3,ix  ,iy+1,iz  ) + &
-              w5*Bi(3,ix  ,iy  ,iz+1) + w6*Bi(3,ix+1,iy  ,iz+1) + &
-              w7*Bi(3,ix+1,iy+1,iz+1) + w8*Bi(3,ix  ,iy+1,iz+1)
+          Bpz = w1*Bi(3,ix  ,iy  ,iz  ) + w2*Bi(3,ix+1,iy  ,iz  ) + &
+                w3*Bi(3,ix+1,iy+1,iz  ) + w4*Bi(3,ix  ,iy+1,iz  ) + &
+                w5*Bi(3,ix  ,iy  ,iz+1) + w6*Bi(3,ix+1,iy  ,iz+1) + &
+                w7*Bi(3,ix+1,iy+1,iz+1) + w8*Bi(3,ix  ,iy+1,iz+1)
+        else
+          do_boris = .false.
+        end if
 
       else
 
@@ -1168,69 +1194,89 @@ contains
         iyB = max(0_int32, min(n_B(2)+1_int32, iyB))
         izB = max(0_int32, min(n_B(3)+1_int32, izB))
 
-        pxB = (real(ixB, real64)*h_B(1) - xp) / h_B(1)
-        pyB = (real(iyB, real64)*h_B(2) - yp) / h_B(2)
-        pzB = (real(izB, real64)*h_B(3) - zp) / h_B(3)
+        if (Bi(4,ixB,iyB,izB) > 1.0e-5_real64) then
+          pxB = (real(ixB, real64)*h_B(1) - xp) / h_B(1)
+          pyB = (real(iyB, real64)*h_B(2) - yp) / h_B(2)
+          pzB = (real(izB, real64)*h_B(3) - zp) / h_B(3)
 
-        wx2B = 1.0_real64 - pxB
-        wy2B = 1.0_real64 - pyB
-        wz2B = 1.0_real64 - pzB
+          wx2B = 1.0_real64 - pxB
+          wy2B = 1.0_real64 - pyB
+          wz2B = 1.0_real64 - pzB
 
-        b1 = pxB  * pyB  * pzB
-        b2 = wx2B * pyB  * pzB
-        b3 = wx2B * wy2B * pzB
-        b4 = pxB  * wy2B * pzB
-        b5 = pxB  * pyB  * wz2B
-        b6 = wx2B * pyB  * wz2B
-        b7 = wx2B * wy2B * wz2B
-        b8 = pxB  * wy2B * wz2B
+          b1 = pxB  * pyB  * pzB
+          b2 = wx2B * pyB  * pzB
+          b3 = wx2B * wy2B * pzB
+          b4 = pxB  * wy2B * pzB
+          b5 = pxB  * pyB  * wz2B
+          b6 = wx2B * pyB  * wz2B
+          b7 = wx2B * wy2B * wz2B
+          b8 = pxB  * wy2B * wz2B
 
-        Bpx = b1*Bi(1,ixB  ,iyB  ,izB  ) + b2*Bi(1,ixB+1,iyB  ,izB  ) + &
-              b3*Bi(1,ixB+1,iyB+1,izB  ) + b4*Bi(1,ixB  ,iyB+1,izB  ) + &
-              b5*Bi(1,ixB  ,iyB  ,izB+1) + b6*Bi(1,ixB+1,iyB  ,izB+1) + &
-              b7*Bi(1,ixB+1,iyB+1,izB+1) + b8*Bi(1,ixB  ,iyB+1,izB+1)
+          Bpx = b1*Bi(1,ixB  ,iyB  ,izB  ) + b2*Bi(1,ixB+1,iyB  ,izB  ) + &
+                b3*Bi(1,ixB+1,iyB+1,izB  ) + b4*Bi(1,ixB  ,iyB+1,izB  ) + &
+                b5*Bi(1,ixB  ,iyB  ,izB+1) + b6*Bi(1,ixB+1,iyB  ,izB+1) + &
+                b7*Bi(1,ixB+1,iyB+1,izB+1) + b8*Bi(1,ixB  ,iyB+1,izB+1)
 
-        Bpy = b1*Bi(2,ixB  ,iyB  ,izB  ) + b2*Bi(2,ixB+1,iyB  ,izB  ) + &
-              b3*Bi(2,ixB+1,iyB+1,izB  ) + b4*Bi(2,ixB  ,iyB+1,izB  ) + &
-              b5*Bi(2,ixB  ,iyB  ,izB+1) + b6*Bi(2,ixB+1,iyB  ,izB+1) + &
-              b7*Bi(2,ixB+1,iyB+1,izB+1) + b8*Bi(2,ixB  ,iyB+1,izB+1)
+          Bpy = b1*Bi(2,ixB  ,iyB  ,izB  ) + b2*Bi(2,ixB+1,iyB  ,izB  ) + &
+                b3*Bi(2,ixB+1,iyB+1,izB  ) + b4*Bi(2,ixB  ,iyB+1,izB  ) + &
+                b5*Bi(2,ixB  ,iyB  ,izB+1) + b6*Bi(2,ixB+1,iyB  ,izB+1) + &
+                b7*Bi(2,ixB+1,iyB+1,izB+1) + b8*Bi(2,ixB  ,iyB+1,izB+1)
 
-        Bpz = b1*Bi(3,ixB  ,iyB  ,izB  ) + b2*Bi(3,ixB+1,iyB  ,izB  ) + &
-              b3*Bi(3,ixB+1,iyB+1,izB  ) + b4*Bi(3,ixB  ,iyB+1,izB  ) + &
-              b5*Bi(3,ixB  ,iyB  ,izB+1) + b6*Bi(3,ixB+1,iyB  ,izB+1) + &
-              b7*Bi(3,ixB+1,iyB+1,izB+1) + b8*Bi(3,ixB  ,iyB+1,izB+1)
+          Bpz = b1*Bi(3,ixB  ,iyB  ,izB  ) + b2*Bi(3,ixB+1,iyB  ,izB  ) + &
+                b3*Bi(3,ixB+1,iyB+1,izB  ) + b4*Bi(3,ixB  ,iyB+1,izB  ) + &
+                b5*Bi(3,ixB  ,iyB  ,izB+1) + b6*Bi(3,ixB+1,iyB  ,izB+1) + &
+                b7*Bi(3,ixB+1,iyB+1,izB+1) + b8*Bi(3,ixB  ,iyB+1,izB+1)
+        else
+          do_boris = .false.
+        end if
 
       end if
 
+      n_boris_total = n_boris_total + 1_int32
+      if (do_boris) n_boris_used = n_boris_used + 1_int32
+
       ! ------------------------------------------------------------
-      ! Boris push without sqrt(|B|^2)
+      ! Boris push without sqrt(|B|^2) where B is present; otherwise
+      ! the same electrostatic-only leapfrog update used by
+      ! move_and_bc_electrostatic_fast above (mirrors legacy's own
+      ! fallback, Src/part_expmover.f90:235-239).
       ! ------------------------------------------------------------
-      vminus_x = part%vx(i) + qm2dt*Exp
-      vminus_y = part%vy(i) + qm2dt*Eyp
-      vminus_z = part%vz(i) + qm2dt*Ezp
+      if (do_boris) then
 
-      tx = qm2dt * Bpx
-      ty = qm2dt * Bpy
-      tz = qm2dt * Bpz
+        vminus_x = part%pv(4,i) + qm2dt*Exp
+        vminus_y = part%pv(5,i) + qm2dt*Eyp
+        vminus_z = part%pv(6,i) + qm2dt*Ezp
 
-      t2        = tx*tx + ty*ty + tz*tz
-      inv_denom = 1.0_real64 / (1.0_real64 + t2)
+        tx = qm2dt * Bpx
+        ty = qm2dt * Bpy
+        tz = qm2dt * Bpz
 
-      sx = 2.0_real64 * tx * inv_denom
-      sy = 2.0_real64 * ty * inv_denom
-      sz = 2.0_real64 * tz * inv_denom
+        t2        = tx*tx + ty*ty + tz*tz
+        inv_denom = 1.0_real64 / (1.0_real64 + t2)
 
-      vprime_x = vminus_x + (vminus_y*tz - vminus_z*ty)
-      vprime_y = vminus_y + (vminus_z*tx - vminus_x*tz)
-      vprime_z = vminus_z + (vminus_x*ty - vminus_y*tx)
+        sx = 2.0_real64 * tx * inv_denom
+        sy = 2.0_real64 * ty * inv_denom
+        sz = 2.0_real64 * tz * inv_denom
 
-      vplus_x = vminus_x + (vprime_y*sz - vprime_z*sy)
-      vplus_y = vminus_y + (vprime_z*sx - vprime_x*sz)
-      vplus_z = vminus_z + (vprime_x*sy - vprime_y*sx)
+        vprime_x = vminus_x + (vminus_y*tz - vminus_z*ty)
+        vprime_y = vminus_y + (vminus_z*tx - vminus_x*tz)
+        vprime_z = vminus_z + (vminus_x*ty - vminus_y*tx)
 
-      vpx_new = vplus_x + qm2dt*Exp
-      vpy_new = vplus_y + qm2dt*Eyp
-      vpz_new = vplus_z + qm2dt*Ezp
+        vplus_x = vminus_x + (vprime_y*sz - vprime_z*sy)
+        vplus_y = vminus_y + (vprime_z*sx - vprime_x*sz)
+        vplus_z = vminus_z + (vprime_x*sy - vprime_y*sx)
+
+        vpx_new = vplus_x + qm2dt*Exp
+        vpy_new = vplus_y + qm2dt*Eyp
+        vpz_new = vplus_z + qm2dt*Ezp
+
+      else
+
+        vpx_new = part%pv(4,i) + 2.0_real64*qm2dt*Exp
+        vpy_new = part%pv(5,i) + 2.0_real64*qm2dt*Eyp
+        vpz_new = part%pv(6,i) + 2.0_real64*qm2dt*Ezp
+
+      end if
 
       xp_new = xp + dt*vpx_new
       yp_new = yp + dt*vpy_new
@@ -1238,8 +1284,8 @@ contains
 
       ! ---- RF antenna power absorbed (uses pre-update part%vy/vz(i)) ----
       if (in_rf_region) then
-        v_theta = -0.5_real64*(part%vy(i)+vpy_new)*sin(theta_rf) + &
-                   0.5_real64*(part%vz(i)+vpz_new)*cos(theta_rf)
+        v_theta = -0.5_real64*(part%pv(5,i)+vpy_new)*sin(theta_rf) + &
+                   0.5_real64*(part%pv(6,i)+vpz_new)*cos(theta_rf)
         P_RF_local = P_RF_local + Nm_species*q*EAth*v_theta*dt
 
         ! Impulse delivered by the RF field alone (exact - no v-projection
@@ -1369,12 +1415,12 @@ contains
 
               part_electrons%n    = part_electrons%n + 1_int32
               i_see               = part_electrons%n
-              part_electrons%x(i_see)  = xp_new
-              part_electrons%y(i_see)  = yp_new
-              part_electrons%z(i_see)  = merge(see%zg_sec(1), see%zg_sec(2), vpz_new < 0.0_real64)
-              part_electrons%vx(i_see) = vx_sec
-              part_electrons%vy(i_see) = vy_sec
-              part_electrons%vz(i_see) = vz_sec
+              part_electrons%pv(1,i_see)  = xp_new
+              part_electrons%pv(2,i_see)  = yp_new
+              part_electrons%pv(3,i_see)  = merge(see%zg_sec(1), see%zg_sec(2), vpz_new < 0.0_real64)
+              part_electrons%pv(4,i_see) = vx_sec
+              part_electrons%pv(5,i_see) = vy_sec
+              part_electrons%pv(6,i_see) = vz_sec
               if (allocated(part_electrons%flag_dead)) part_electrons%flag_dead(i_see) = 0_int8
               if (allocated(part_electrons%flag_cex))  part_electrons%flag_cex(i_see)  = 0_int32
 
@@ -1409,12 +1455,12 @@ contains
 
       i_shift = i - np_lost
 
-      part%x(i_shift)  = xp_new
-      part%y(i_shift)  = yp_new
-      part%z(i_shift)  = zp_new
-      part%vx(i_shift) = vpx_new
-      part%vy(i_shift) = vpy_new
-      part%vz(i_shift) = vpz_new
+      part%pv(1,i_shift)  = xp_new
+      part%pv(2,i_shift)  = yp_new
+      part%pv(3,i_shift)  = zp_new
+      part%pv(4,i_shift) = vpx_new
+      part%pv(5,i_shift) = vpy_new
+      part%pv(6,i_shift) = vpz_new
 
       if (allocated(part%w))         part%w(i_shift)         = part%w(i)
       if (allocated(part%sp))        part%sp(i_shift)        = part%sp(i)
