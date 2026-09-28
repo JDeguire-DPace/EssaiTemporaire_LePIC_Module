@@ -406,7 +406,7 @@ program main
 
         ! B-field map from gaussian profile/PG current
         if( B_file(i).eq.'n'.or. B_file(i).eq.'N' ) then 
-           call find_B_dir(B_info,B_dir)
+           call find_B_dir(B_info(i),B_dir)
            if( name(1:1).eq. 'g' .or. name(1:1).eq. 'G' ) then
               if(mpi_rank.eq.0) print*, 'Gaussian magnetic filter field profile' 
               call gaussian_Bfield(Bi,n_B,h_B,B0(i),x0(i),dL(i),B_dir)
