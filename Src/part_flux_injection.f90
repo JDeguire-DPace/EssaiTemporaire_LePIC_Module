@@ -173,7 +173,15 @@ subroutine  load_flux_OMP(vxp,n,h,ntype,nmax,bcnd,sour_xy,sour_xz,sour_fx_yz,&
      np_tot(ptype,iproc)= np_tot(ptype,iproc) + 1
      np_tot_tmp= np_tot(ptype,iproc)
 
-     ! Do not reset sour 
+     ! Same guard as part_injection.f90/load_part.f90 - missing here,
+     ! so this write could silently run past vxp's fixed nmax allocation.
+     if(np_tot_tmp.gt.nmax) then
+        print*, 'np_tot_tmp > nmax in load_flux_OMP (part_flux_injection)'
+        print*, 'Abort calculation ...'
+        call stop_calculation
+     endif
+
+     ! Do not reset sour
      sour_fx_yz(iy,iz,ptype,iproc)= sour_fx_yz(iy,iz,ptype,iproc) + 1
      if(iz.eq.iz_pl) &
           sour_xy(ix,iy,ptype,iproc)= sour_xy(ix,iy,ptype,iproc) + 1

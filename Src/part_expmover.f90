@@ -360,7 +360,17 @@ subroutine part_mover(n,h,Ei,Bi,p_mac,P_loss,vxp,&
                  ! Create a new electron
                  np_tot(1,iproc)= np_tot(1,iproc) + 1
                  i_shift= np_tot(1,iproc)
-                 
+
+                 ! Same guard as load_part.f90's initial load - never
+                 ! added here for particles created mid-run (secondary
+                 ! electron emission), so this write could silently run
+                 ! past vxp's fixed nmax allocation with no warning.
+                 if(i_shift.gt.nmax) then
+                    print*, 'i_shift > nmax in part_mover (secondary electron emission)'
+                    print*, 'Abort calculation ...'
+                    call stop_calculation
+                 endif
+
                  ! Use THm for electron temperature
                  vt= dsqrt(2.d0*qe*ABS(THm)/ABS(mass(1))) 
                  rnd(1)=ran2(iseed)
