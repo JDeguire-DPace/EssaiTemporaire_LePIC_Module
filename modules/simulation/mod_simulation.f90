@@ -1426,13 +1426,33 @@ contains
         dep_imbalance = 0.0_real64
         if (dep_avg_ms > 0.0_real64) dep_imbalance = dep_max_ms / dep_avg_ms
 
-        write(*,'(a)') " ----- OMP load imbalance across iproc (min/avg/max, max/avg ratio) -----"
+        write(*,'(a,i0,a)') " ----- OMP load imbalance across iproc (nproc=", self%state%nproc, &
+          ", min/avg/max, max/avg ratio) -----"
         write(*,'(a,f8.2,a,f8.2,a,f8.2,a,f6.3)') &
           "  mover_push(ms) min=", push_min_ms, " avg=", push_avg_ms, &
           " max=", push_max_ms, " max/avg=", push_imbalance
         write(*,'(a,f8.2,a,f8.2,a,f8.2,a,f6.3)') &
           "  dep_loop(ms)   min=", dep_min_ms, " avg=", dep_avg_ms, &
           " max=", dep_max_ms, " max/avg=", dep_imbalance
+
+        ! Per-iproc live particle counts (species 1) alongside the timing
+        ! ratios above - min/avg/max alone can't distinguish "one thread
+        ! genuinely owns ~0 particles" (self%part(ptype,iproc)%n <= 0, the
+        ! mover_push cycle guard in advance_particles_local) from "every
+        ! thread has particles but one is just slower". Printed every call
+        ! since it's O(nproc), negligible next to the timing block above.
+        block
+          integer(int32) :: iproc_dbg
+          ! Written value-by-value (not accumulated into one fixed-length
+          ! internal-write buffer) since nproc can reach 192 on some
+          ! machines - a bounded buffer overflowed here ("output statement
+          ! overflows record") the first time this was tried at nproc=32.
+          write(*,'(a)',advance='no') " npart[iproc] (species 1) ="
+          do iproc_dbg = 1, self%state%nproc
+            write(*,'(1x,i0)',advance='no') self%state%part(1,iproc_dbg)%n
+          end do
+          write(*,*)
+        end block
       end block
 
       write(*,'(a)') " ---------------------------------------------"

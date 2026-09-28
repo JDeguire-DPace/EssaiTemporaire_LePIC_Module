@@ -126,16 +126,23 @@ echo "===== - the sweeps already answered that separately)."
 export OMP_NUM_THREADS=16 OMP_PROC_BIND=true OMP_PLACES=cores I_MPI_PIN_DOMAIN=omp
 
 PERFDATA="perf_modular_1x16_${JOBID}.data"
+# perf record MUST wrap the actual target, launched from INSIDE mpirun -
+# NOT the other way around (`perf record -- mpirun ...`). Tested both on
+# this dev box: `perf record -- mpirun -np 1 ./run_min` only ever captured
+# mpirun/mpiexec.hydra itself plus SLURM's PMI/munge/dynamic-loader calls -
+# run_min never appeared in the profile at all, presumably because this
+# site's SLURM-integrated MPI launch hands the actual rank process off
+# through a path perf's default descendant-tracking doesn't see as a
+# direct child of the traced process. `mpirun -np 1 perf record -- ./run_min`
+# (perf launched AS the per-rank command) reliably captured real run_min
+# samples with correct symbol resolution instead.
 # --call-graph dwarf: unwinds via the -g debug info instead of frame
-# pointers, which -O3 may have omitted. perf record follows mpirun's
-# forked/exec'd Hydra proxy and MPI rank children by default (no extra
-# flag needed) - it does NOT need root/-a for that, only for true
-# system-wide profiling of processes outside this one's descendant tree.
+# pointers, which -O3 may have omitted.
 # -F 49: deliberately low frequency (default max is often 4000+) - see the
 # file-size note above. timeout is a safety net; a SIGTERM here still lets
 # perf flush a valid (if truncated) data file.
-timeout 90 perf record -g --call-graph dwarf -F 49 -o "$PERFDATA" -- \
-    mpirun -np 1 ./build_prof/run_min > "run_output_${JOBID}.log" 2>&1
+timeout 90 mpirun -np 1 perf record -g --call-graph dwarf -F 49 -o "$PERFDATA" -- \
+    ./build_prof/run_min > "run_output_${JOBID}.log" 2>&1
 rc=$?
 echo "perf record + run exit code: $rc (124 = hit the 90s timeout - still fine, data up to that point is valid)"
 echo "perf.data size: $(du -h "$PERFDATA" 2>/dev/null | cut -f1)"
