@@ -1,7 +1,7 @@
 subroutine part_mover(n,h,Ei,Bi,p_mac,P_loss,vxp,&
      bcnd,nmax,ntype,ngrid,flag_dead,nproc,np_tot,&
      iproc,ptype,flag_cex,cnt_cex,cnt_dead,beam_div,sum_q_xz,&
-     sum_q_yz,dtype,iseed,n_B,h_B,dbg_loss_xright_s1,dbg_loss_xright_s2, dbg_ran_mover)
+     sum_q_yz,dtype,iseed,n_B,h_B)
 !     ==============================================================
 !     VERSION:         0.4
 !     LAST MOD:      Dec/23
@@ -26,7 +26,6 @@ subroutine part_mover(n,h,Ei,Bi,p_mac,P_loss,vxp,&
   ! Field arrays
   real(kind=8):: Ei(3,0:n(1)+2,0:n(2)+2,0:n(3)+2),Exp,Eyp,Ezp,h(3), &
        Bi(4,0:n_B(1)+2,0:n_B(2)+2,0:n_B(3)+2),ki(8),h_B(3)
-  integer, intent(inout) :: dbg_loss_xright_s1,dbg_loss_xright_s2
   ! Particle arrays
   integer:: bcnd(0:n(1)+2,0:n(2)+2,0:n(3)+2),flag_cex(nmax,nproc),&
        cnt_cex(3,nproc)
@@ -43,7 +42,6 @@ subroutine part_mover(n,h,Ei,Bi,p_mac,P_loss,vxp,&
        d_ind,iseed,n_sec,ip_sec
   real(kind=8):: p_mac(ntype,2,0:ngrid,nproc),P_loss(4,ntype,nproc),theta,&
        ran2,rnd(2),vx_sec,vy_sec,vz_sec,vt
-   integer(kind=8) ,intent(inout) :: dbg_ran_mover
 
   np_lost(ptype,iproc)=0
 
@@ -353,7 +351,6 @@ subroutine part_mover(n,h,Ei,Bi,p_mac,P_loss,vxp,&
         if(charge(ptype).gt.0 .and. gam_sec.gt.0.d0) then
            if(igrid.eq.igrid_sec) then
               rnd(1)= ran2(iseed)
-              dbg_ran_mover = dbg_ran_mover+1
               n_sec= INT(gam_sec)
               if(rnd(1) .le. (gam_sec-n_sec)) n_sec= n_sec+1
               if(n_sec.eq.0) goto 130
@@ -367,13 +364,10 @@ subroutine part_mover(n,h,Ei,Bi,p_mac,P_loss,vxp,&
                  ! Use THm for electron temperature
                  vt= dsqrt(2.d0*qe*ABS(THm)/ABS(mass(1))) 
                  rnd(1)=ran2(iseed)
-                 dbg_ran_mover = dbg_ran_mover+1
                  !  dir== -sign(1.d0,vpz_new)
                  vz_sec = -sign(1.d0,vpz_new)*vt*dsqrt( -dlog(1-rnd(1)) )
                  rnd(1)= ran2(iseed)
-                 dbg_ran_mover = dbg_ran_mover+1
                  rnd(2)= ran2(iseed)
-                 dbg_ran_mover = dbg_ran_mover+1
                  ! Gaussian loading (flux normal to the grid surface)
                  call load_gauss(vx_sec,vy_sec,vt,rnd)
                  
@@ -397,15 +391,6 @@ subroutine part_mover(n,h,Ei,Bi,p_mac,P_loss,vxp,&
 130           continue
            endif
         endif
-        ! --- DEBUG XMAX LOSSES ---
-            if (ptype .eq. 1) then
-            if (xp_new .gt. xmax - h(1)) dbg_loss_xright_s1 = dbg_loss_xright_s1 + 1
-            endif
-
-            if (ptype .eq. 2) then
-            if (xp_new .gt. xmax - h(1)) dbg_loss_xright_s2 = dbg_loss_xright_s2 + 1
-            endif
-        
         ! Total number of particle lost at the wall per time step
         p_mac(ptype,np_loss,igrid,iproc)= p_mac(ptype,np_loss,igrid,iproc) + 1.
         
