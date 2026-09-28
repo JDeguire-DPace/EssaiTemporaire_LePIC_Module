@@ -121,7 +121,18 @@ run_split() {
   # it silently vanished and looked identical to "still computing". Always
   # capture everything to a file first, THEN filter/report from that, so a
   # real error is never lost.
-  env OMP_NUM_THREADS="$omp_threads" OMP_PROC_BIND=true OMP_PLACES=cores \
+  # OMP_STACKSIZE: OMP worker threads get their own stack, sized by this -
+  # completely separate from ulimit -s (which only covers the main
+  # thread). legacy's Makefile uses -auto (stack-allocated locals), so
+  # cheap insurance against a genuine stack-size problem on some other
+  # case/scale. NOT what caused job 2448619's ITER-scale SIGSEGV, despite
+  # first looking like exactly this - that turned out to be a real bug
+  # (part_mover called with 3 fewer args than its signature expects,
+  # corrupting memory via garbage argument addresses on every particle
+  # push - see the part_expmover.f90 fix). Left in anyway since it's
+  # harmless and a fatal stack overflow on -auto locals is a real
+  # possibility at large enough scale regardless.
+  env OMP_NUM_THREADS="$omp_threads" OMP_STACKSIZE=1G OMP_PROC_BIND=true OMP_PLACES=cores \
       I_MPI_PIN_DOMAIN=omp \
       timeout "$SPLIT_TIMEOUT" mpirun -np "$mpi_ranks" "$exe" \
       > "$logfile" 2>&1
