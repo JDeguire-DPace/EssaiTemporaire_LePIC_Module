@@ -98,7 +98,22 @@ echo "===== running debug legacy (8x24, bounds-checked) - expect it to be slow =
 # was a stack-size problem, not a real out-of-bounds bug (-CB would have
 # reported a specific bounds violation instead of a raw SIGSEGV if it
 # were the latter).
+# The gdb backtrace from job 2451481's core file showed rbp/rsp/rdx/r8/r9
+# all holding the SAME garbage 64-bit value (not a valid address), rip
+# faulting inside libc.so.6 with no symbol, and rax/rsi holding 0xffffffff
+# - the signature of glibc's malloc/free detecting corrupted chunk
+# metadata mid-unlink, not a stack overflow (ulimit -s was confirmed
+# "unlimited" and OMP_STACKSIZE doubling changed nothing). write_data()
+# does several allocate/deallocate calls every single time it runs
+# (ld_xy/ld_xz/ld_yz always, cnt_col_red/p_mac_red/P_loss_red whenever
+# nproc_mpi>1) - a small overflow into an adjacent chunk's header would
+# only surface later, in some unrelated malloc/free call, which matches
+# "crashes on the 9th it-mod-nsav call, not the 1st". MALLOC_CHECK_=3
+# makes glibc abort immediately WITH A DIAGNOSTIC the instant it detects
+# corrupted chunk metadata, instead of silently continuing until this
+# much later, harder-to-place crash - no rebuild needed to try this.
 env OMP_NUM_THREADS=24 OMP_STACKSIZE=4G OMP_PROC_BIND=true OMP_PLACES=cores I_MPI_PIN_DOMAIN=omp \
+  MALLOC_CHECK_=3 \
   timeout 900 mpirun -np 8 ./3dphpic.exe > "debuglegacy_run_${SLURM_JOB_ID}.log" 2>&1
 rc=$?
 echo "run exit code: $rc"
