@@ -144,6 +144,12 @@ contains
 
     integer(int32) :: s
 
+    ! Precomputed cross-thread cell-target lookup for find_charged_target -
+    ! see this subroutine's call to precompute_cell_target_info below for why.
+    integer(int32) :: ncells
+    integer(int32), allocatable :: total_cell_count(:,:)  ! (ncells, ntype_tracked)
+    integer(int32), allocatable :: first_proc(:,:)        ! (ncells, ntype_tracked)
+
     nproc   = int(size(part,2), int32)
     npt_sig = count_valid_pts(sig_Er)
     if (npt_sig < 2_int32) return
@@ -151,6 +157,25 @@ contains
     allocate(np_mx(ntype_all))
     allocate(n_add(ntype_tracked, nproc))
     n_add = 0_int32
+
+    ! find_charged_target used to re-sum part(ttype,:)%cell_count LIVE
+    ! (cell_count_all_procs, an O(nproc) loop) on every single trial that
+    ! needs a charged target, plus an identical O(nproc) "which proc holds
+    ! it" search right after - and Nc_tmp (trials/thread) measured in the
+    ! ~800K-900K range on the ITER case, x nproc threads x up to 7 cells
+    ! checked per trial (home + 6 neighbour fallback) = order a BILLION
+    ! redundant scalar sums per collision call. Every tracked target
+    ! species' per-cell/per-proc particle counts are frozen for this whole
+    ! call (any reactions are deferred via n_add, applied only after every
+    ! ptype's trial loop finishes - see this module's header comment,
+    ! point 4 in "Faithfully reproduced legacy mechanics"), so the sum is
+    ! call-invariant and only needs computing ONCE, as one vectorized pass
+    ! per (species, thread) instead of a scalar loop re-run per trial.
+    ncells = int(n(1), int32) * int(n(2), int32) * int(n(3), int32)
+    allocate(total_cell_count(ncells, ntype_tracked))
+    allocate(first_proc(ncells, ntype_tracked))
+    call precompute_cell_target_info(part, ntype_tracked, nproc, ncells, &
+                                      total_cell_count, first_proc)
 
     call init_debug_diagnostics(ntype_tracked)
 
@@ -264,7 +289,8 @@ contains
               p_ncol, sig_list, col_info, sig, sig_Er, sig_Eex, ni0, &
               np_red, np_mx, iseed(iproc), Pcoll, n_add, &
               ix_plane, iy_plane, iz_plane, sour_xy, sour_xz, sour_yz, &
-              sink_xy, sink_xz, sink_yz, mom_loss)
+              sink_xy, sink_xz, sink_yz, mom_loss, &
+              ncells, total_cell_count, first_proc)
         end block
 
       end do
@@ -293,7 +319,8 @@ contains
       ntype_tracked, ntype_all, mass, Ti, Nm, p_ncol, sig_list, col_info, &
       sig, sig_Er, sig_Eex, ni0, np_red, np_mx, iseed_local, Pcoll, n_add, &
       ix_plane, iy_plane, iz_plane, sour_xy, sour_xz, sour_yz, &
-      sink_xy, sink_xz, sink_yz, mom_loss)
+      sink_xy, sink_xz, sink_yz, mom_loss, &
+      ncells, total_cell_count, first_proc)
 
     type(ParticleSet), intent(inout) :: part(:,:)
     integer(int32), intent(in)    :: n(3)
@@ -315,6 +342,11 @@ contains
     integer(int32), intent(in)    :: ix_plane, iy_plane, iz_plane
     real(real64),   intent(inout) :: sour_xy(0:,0:,:,:), sour_xz(0:,0:,:,:), sour_yz(0:,0:,:,:)
     real(real64),   intent(inout) :: sink_xy(0:,0:,:,:), sink_xz(0:,0:,:,:), sink_yz(0:,0:,:,:)
+    ! Precomputed cross-thread cell-target lookup - see
+    ! perform_collisions_gwenael's precompute_cell_target_info call.
+    integer(int32), intent(in)    :: ncells
+    integer(int32), intent(in)    :: total_cell_count(ncells,ntype_tracked)
+    integer(int32), intent(in)    :: first_proc(ncells,ntype_tracked)
 
     integer(int32) :: ic, ip, icol, ind_col, n_re, ttype, c_ind
     integer(int32) :: npt_sig
@@ -383,7 +415,8 @@ contains
             call find_charged_target( &
                 part, ttype, nproc, n, h, &
                 part(ptype,iproc)%pv(1,ip), part(ptype,iproc)%pv(2,ip), part(ptype,iproc)%pv(3,ip), &
-                iseed_local, cache_it(ttype), cache_itproc(ttype))
+                iseed_local, cache_it(ttype), cache_itproc(ttype), &
+                ncells, total_cell_count(:,ttype), first_proc(:,ttype))
 
             if (cache_it(ttype) <= 0_int32) then
               search_failed(ttype) = .true.
@@ -759,7 +792,8 @@ contains
   ! uniformly-random pick within whichever iproc actually holds particles
   ! in the resolved cell (legacy's tproc walk).
   !=========================================================================
-  subroutine find_charged_target(part, ttype, nproc, n, h, xp, yp, zp, iseed_local, it, itproc)
+  subroutine find_charged_target(part, ttype, nproc, n, h, xp, yp, zp, iseed_local, it, itproc, &
+                                  ncells, total_cell_count, first_proc)
     type(ParticleSet), intent(in)    :: part(:,:)
     integer(int32),    intent(in)    :: ttype, nproc
     integer(int32),    intent(in)    :: n(3)
@@ -767,8 +801,19 @@ contains
     real(real64),      intent(in)    :: xp, yp, zp
     integer(int32),    intent(inout) :: iseed_local
     integer(int32),    intent(out)   :: it, itproc
+    ! Precomputed cross-thread cell-target lookup (this ttype's column of
+    ! perform_collisions_gwenael's arrays) - replaces two separate O(nproc)
+    ! live scans (cell_count_all_procs + the "which proc" search below)
+    ! with O(1) lookups. See perform_collisions_gwenael's
+    ! precompute_cell_target_info call for why this is safe (target
+    ! particle counts are frozen for the whole collision call). nproc is
+    ! no longer used in this body but kept in the signature to match the
+    ! call site unchanged.
+    integer(int32),    intent(in)    :: ncells
+    integer(int32),    intent(in)    :: total_cell_count(ncells)
+    integer(int32),    intent(in)    :: first_proc(ncells)
 
-    integer(int32) :: ix, iy, iz, ici, ict, idir, jproc
+    integer(int32) :: ix, iy, iz, ici, ict, idir
     integer(int32) :: cnt_total, cnt_proc, target_proc
     real(real64)   :: rnd
 
@@ -785,7 +830,7 @@ contains
     ici = (ix-1_int32) + n(1)*((iy-1_int32) + n(2)*(iz-1_int32)) + 1_int32
 
     ict = ici
-    cnt_total = cell_count_all_procs(part, ttype, nproc, ict)
+    cnt_total = total_cell_count(ict)
 
     if (cnt_total <= 0_int32) then
       do idir = 1_int32, 6_int32
@@ -797,25 +842,16 @@ contains
         case (5_int32); if (iz <  n(3)) ict = ici + n(1)*n(2)
         case (6_int32); if (iz >  1_int32) ict = ici - n(1)*n(2)
         end select
-        cnt_total = cell_count_all_procs(part, ttype, nproc, ict)
+        cnt_total = total_cell_count(ict)
         if (cnt_total > 0_int32) exit
       end do
     end if
 
     if (cnt_total <= 0_int32) return  ! search_failed for this ttype this trial
 
-    ! Pick which iproc actually holds the particle (cycle through procs,
-    ! legacy's cnt_proc loop), then a uniformly random particle within it.
-    target_proc = 0_int32
-    do jproc = 1_int32, nproc
-      if (.not. allocated(part(ttype,jproc)%pv)) cycle
-      if (ict < 1_int32 .or. ict > size(part(ttype,jproc)%cell_count)) cycle
-      if (part(ttype,jproc)%cell_count(ict) > 0_int32) then
-        target_proc = jproc
-        exit
-      end if
-    end do
-
+    ! Which iproc holds the particle - precomputed as the same "first proc
+    ! in 1..nproc order with cell_count>0" legacy's cnt_proc loop picked.
+    target_proc = first_proc(ict)
     if (target_proc <= 0_int32) return
 
     cnt_proc = part(ttype,target_proc)%cell_count(ict)
@@ -826,19 +862,42 @@ contains
   end subroutine find_charged_target
 
 
-  integer(int32) function cell_count_all_procs(part, ttype, nproc, icell) result(cnt)
-    type(ParticleSet), intent(in) :: part(:,:)
-    integer(int32),    intent(in) :: ttype, nproc, icell
-    integer(int32) :: jproc
-    cnt = 0_int32
-    if (icell <= 0_int32) return
-    do jproc = 1_int32, nproc
-      if (.not. allocated(part(ttype,jproc)%pv)) cycle
-      if (.not. allocated(part(ttype,jproc)%cell_count)) cycle
-      if (icell > size(part(ttype,jproc)%cell_count)) cycle
-      cnt = cnt + part(ttype,jproc)%cell_count(icell)
+  subroutine precompute_cell_target_info(part, ntype_tracked, nproc, ncells, &
+                                          total_cell_count, first_proc)
+    ! Once-per-call replacement for what used to be cell_count_all_procs
+    ! (an O(nproc) live re-sum) plus find_charged_target's own O(nproc)
+    ! "which proc holds it" search, both called from inside the per-trial
+    ! loop - see perform_collisions_gwenael's call site for the full
+    ! rationale and the "frozen during this call" argument that makes this
+    ! valid. Vectorized whole-array ops (Fortran array-section syntax), not
+    ! a scalar ncells-deep loop, so the compiler can SIMD this - the total
+    ! element count (ntype_tracked * nproc * ncells) is itself large for
+    ! ITER-scale grids, but each element op is a cheap add/compare, and
+    ! this only runs ONCE per collision call versus the up to ~10^9 scalar,
+    ! branchy, function-call-per-lookup ops the live version needed.
+    type(ParticleSet), intent(in)  :: part(:,:)
+    integer(int32),    intent(in)  :: ntype_tracked, nproc, ncells
+    integer(int32),    intent(out) :: total_cell_count(ncells,ntype_tracked)
+    integer(int32),    intent(out) :: first_proc(ncells,ntype_tracked)
+
+    integer(int32) :: s, jproc
+
+    total_cell_count = 0_int32
+    first_proc       = 0_int32
+
+    do s = 1_int32, ntype_tracked
+      do jproc = 1_int32, nproc
+        if (.not. allocated(part(s,jproc)%pv)) cycle
+        if (.not. allocated(part(s,jproc)%cell_count)) cycle
+        if (size(part(s,jproc)%cell_count) < ncells) cycle
+
+        total_cell_count(:,s) = total_cell_count(:,s) + part(s,jproc)%cell_count(1:ncells)
+        where (first_proc(:,s) == 0_int32 .and. part(s,jproc)%cell_count(1:ncells) > 0_int32)
+          first_proc(:,s) = jproc
+        end where
+      end do
     end do
-  end function cell_count_all_procs
+  end subroutine precompute_cell_target_info
 
 
   !=========================================================================
