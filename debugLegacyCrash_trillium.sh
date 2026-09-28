@@ -70,20 +70,48 @@ restore_inputs() {
 trap restore_inputs EXIT
 
 ulimit -s unlimited
+# A fully deterministic (bit-identical across separate job submissions,
+# different nodes/PIDs) SIGSEGV with ZERO forrtl/traceback output even
+# under -g -traceback -CB is the signature of a genuine stack exhaustion
+# (the OS can't deliver SIGSEGV to a handler cleanly once the stack
+# itself is gone) rather than a data race (which would not reproduce
+# byte-identically) or a simple bounds violation (-CB would have named
+# it). "ulimit -s unlimited" above only covers the MAIN thread - print
+# what's ACTUALLY in effect, since SLURM cgroups sometimes silently cap
+# the hard stack limit regardless of what the job script requests.
+echo "===== effective ulimits (SLURM may cap these below what was requested) ====="
+ulimit -a
+# Core dump, so a real backtrace (via gdb) is available even when the
+# Intel runtime's own -traceback handler can't run (e.g. if the crash
+# corrupts the stack pointer itself, not just data - jumping through a
+# wild/corrupted pointer or return address, which is also consistent
+# with "no forrtl output at all").
+ulimit -c unlimited
 mkdir -p DATA/DATA_2D
 
 echo "===== running debug legacy (8x24, bounds-checked) - expect it to be slow ====="
-# OMP_STACKSIZE=2G, generous: -O0 debug builds use MORE stack per frame
-# than the -O3 release build did, and OMP worker threads (where
+# OMP_STACKSIZE=4G (doubled from 2G): -O0 debug builds use MORE stack per
+# frame than the -O3 release build did, and OMP worker threads (where
 # collision_OMP runs, inside !$OMP PARALLEL) get their own stack sized by
 # this var - completely separate from ulimit -s above, which only covers
 # the main thread. If this build no longer crashes, the original SIGSEGV
 # was a stack-size problem, not a real out-of-bounds bug (-CB would have
 # reported a specific bounds violation instead of a raw SIGSEGV if it
 # were the latter).
-env OMP_NUM_THREADS=24 OMP_STACKSIZE=2G OMP_PROC_BIND=true OMP_PLACES=cores I_MPI_PIN_DOMAIN=omp \
+env OMP_NUM_THREADS=24 OMP_STACKSIZE=4G OMP_PROC_BIND=true OMP_PLACES=cores I_MPI_PIN_DOMAIN=omp \
   timeout 900 mpirun -np 8 ./3dphpic.exe > "debuglegacy_run_${SLURM_JOB_ID}.log" 2>&1
 rc=$?
 echo "run exit code: $rc"
 echo "===== tail of debuglegacy_run_${SLURM_JOB_ID}.log (the symbolized crash should be here) ====="
 tail -80 "debuglegacy_run_${SLURM_JOB_ID}.log"
+
+# --- try to get a real backtrace from a core file, if one was produced ---
+core_file=$(ls -t core* 2>/dev/null | head -1)
+if [ -n "$core_file" ] && command -v gdb >/dev/null 2>&1; then
+  echo "===== gdb backtrace from ${core_file} ====="
+  gdb -batch -ex "bt full" -ex "info registers" -ex "quit" ./3dphpic.exe "$core_file" 2>&1
+elif [ -n "$core_file" ]; then
+  echo "===== core file ${core_file} was produced but gdb is not available in PATH ====="
+else
+  echo "===== no core file found (check 'ulimit -c' above actually shows 'unlimited', not 0) ====="
+fi
