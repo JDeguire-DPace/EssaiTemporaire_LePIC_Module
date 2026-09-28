@@ -24,7 +24,7 @@ module mod_state
   use mod_restart,          only: restart_particles_modular
   use mod_particle_sorting, only: sort_particles_by_cell, check_particles_are_sorted, check_cell_indexing
   use mod_particleMover,    only: move_and_bc_electrostatic, move_and_bc_electrostatic_fast, &
-                                   move_and_bc_boris
+                                   move_and_bc_boris, move_and_bc_boris_fast
   use mod_particleBC,       only: apply_particle_bc, SeeParams
   use mod_chargeDeposition, only: deposit_particle_set_to_np_thread
   use mod_magneticField,    only: MagneticField
@@ -668,6 +668,7 @@ contains
     logical         :: use_boris
     logical         :: use_energy_conserving
     logical         :: use_fast_electrostatic
+    logical         :: use_fast_boris
     type(SeeParams) :: see
     real(real64), allocatable :: t_move_thread(:), t_bc_thread(:), t_deposit_thread(:)
     integer(int32), allocatable :: n_boris_used_thread(:), n_boris_total_thread(:)
@@ -708,6 +709,10 @@ contains
     ! - see move_and_bc_electrostatic_fast's header comment.
     use_fast_electrostatic = (.not. use_energy_conserving) .and. &
                               (self%cfg%flag_RFant /= 1_int32)
+    ! Same condition, Boris side - see move_and_bc_boris_fast's header
+    ! comment.
+    use_fast_boris = (.not. use_energy_conserving) .and. &
+                      (self%cfg%flag_RFant /= 1_int32)
 
     time_rf        = 0.0_real64
     omega_RF_local = 0.0_real64
@@ -771,113 +776,203 @@ contains
             ! header comment on move_and_bc_electrostatic for why the
             ! compiler can't use that runtime fact on its own to stop
             ! assuming the two INTENT(INOUT) ParticleSets might alias.
-            if (ptype == 1_int32) then
-              call move_and_bc_boris( &
-                  part           = self%part(ptype,iproc), &
-                  n              = int(self%dom%n, int32), &
-                  h              = self%dom%h, &
-                  E              = self%fld%E, &
-                  n_B            = self%magField%n_B, &
-                  h_B            = self%magField%h_B, &
-                  Bi             = self%magField%Bi, &
-                  q              = q_species, &
-                  m              = m_species, &
-                  dt             = dt_local, &
-                  use_energy_conserving = use_energy_conserving, &
-                  bcnd           = self%dom%bcnd, &
-                  wall_cell      = self%dom%wall_cell, &
-                  xmax           = self%dom%xmax, &
-                  ymax           = self%dom%ymax, &
-                  zmax           = self%dom%zmax, &
-                  flag_pbc       = int(self%dom%flag_pbc, int32), &
-                  flag_nmn       = int(self%dom%flag_nmn, int32), &
-                  ptype          = ptype, &
-                  tag_neg        = tag_neg_local, &
-                  flag_die       = int(self%dom%flag_die, int32), &
-                  dtype          = self%dom%dtype, &
-                  qmacro         = qmacro, &
-                  sum_q_xz_local = self%sum_q_xz(:,:,ptype,iproc), &
-                  sum_q_yz_local = self%sum_q_yz(:,:,:,ptype,iproc), &
-                  p_mac_boundary = self%p_mac(ptype,:,:,iproc), &
-                  P_loss_wall    = self%P_loss(1,ptype,iproc), &
-                  Nm_species     = self%params%Nm(ptype), &
-                  see            = see, &
-                  iseed          = self%params%iseed(iproc), &
-                  P_loss_see     = self%P_loss(4,1,iproc), &
-                  flag_RFant     = self%cfg%flag_RFant, &
-                  ixl_pow        = ixl_pow_rf, &
-                  ixr_pow        = ixr_pow_rf, &
-                  R_ahp          = self%cfg%R_ahp, &
-                  gams           = self%gams, &
-                  E0_RF          = self%cfg%E0_RF, &
-                  omega_RF       = omega_RF_local, &
-                  time           = time_rf, &
-                  P_RF_local     = self%P_RF(ptype,iproc), &
-                  flag_planar_ant = self%cfg%flag_planar_ant, &
-                  x0             = x0_rf, &
-                  mom_loss_wall  = self%mom_loss(:,1,ptype,iproc), &
-                  mom_loss_see   = self%mom_loss(:,4,1,iproc), &
-                  mom_RF_local   = self%mom_RF(:,ptype,iproc), &
-                  P_loss_coll    = self%P_loss(3,ptype,iproc), &
-                  mom_loss_coll  = self%mom_loss(:,3,ptype,iproc), &
-                  n_boris_used   = n_boris_used_call, &
-                  n_boris_total  = n_boris_total_call )
-              n_boris_used_thread(iproc)  = n_boris_used_thread(iproc)  + n_boris_used_call
-              n_boris_total_thread(iproc) = n_boris_total_thread(iproc) + n_boris_total_call
+            !
+            ! use_fast_boris picks move_and_bc_boris_fast (RF-antenna and
+            ! energy-conserving branches removed entirely, not just runtime-
+            ! skipped) over the general move_and_bc_boris whenever both are
+            ! off for this run - see move_and_bc_boris_fast's header comment.
+            if (use_fast_boris) then
+              if (ptype == 1_int32) then
+                call move_and_bc_boris_fast( &
+                    part           = self%part(ptype,iproc), &
+                    n              = int(self%dom%n, int32), &
+                    h              = self%dom%h, &
+                    E              = self%fld%E, &
+                    n_B            = self%magField%n_B, &
+                    h_B            = self%magField%h_B, &
+                    Bi             = self%magField%Bi, &
+                    q              = q_species, &
+                    m              = m_species, &
+                    dt             = dt_local, &
+                    bcnd           = self%dom%bcnd, &
+                    wall_cell      = self%dom%wall_cell, &
+                    xmax           = self%dom%xmax, &
+                    ymax           = self%dom%ymax, &
+                    zmax           = self%dom%zmax, &
+                    flag_pbc       = int(self%dom%flag_pbc, int32), &
+                    flag_nmn       = int(self%dom%flag_nmn, int32), &
+                    ptype          = ptype, &
+                    tag_neg        = tag_neg_local, &
+                    flag_die       = int(self%dom%flag_die, int32), &
+                    dtype          = self%dom%dtype, &
+                    qmacro         = qmacro, &
+                    sum_q_xz_local = self%sum_q_xz(:,:,ptype,iproc), &
+                    sum_q_yz_local = self%sum_q_yz(:,:,:,ptype,iproc), &
+                    p_mac_boundary = self%p_mac(ptype,:,:,iproc), &
+                    P_loss_wall    = self%P_loss(1,ptype,iproc), &
+                    Nm_species     = self%params%Nm(ptype), &
+                    see            = see, &
+                    iseed          = self%params%iseed(iproc), &
+                    P_loss_see     = self%P_loss(4,1,iproc), &
+                    mom_loss_wall  = self%mom_loss(:,1,ptype,iproc), &
+                    mom_loss_see   = self%mom_loss(:,4,1,iproc), &
+                    P_loss_coll    = self%P_loss(3,ptype,iproc), &
+                    mom_loss_coll  = self%mom_loss(:,3,ptype,iproc), &
+                    n_boris_used   = n_boris_used_call, &
+                    n_boris_total  = n_boris_total_call )
+                n_boris_used_thread(iproc)  = n_boris_used_thread(iproc)  + n_boris_used_call
+                n_boris_total_thread(iproc) = n_boris_total_thread(iproc) + n_boris_total_call
+              else
+                call move_and_bc_boris_fast( &
+                    part           = self%part(ptype,iproc), &
+                    n              = int(self%dom%n, int32), &
+                    h              = self%dom%h, &
+                    E              = self%fld%E, &
+                    n_B            = self%magField%n_B, &
+                    h_B            = self%magField%h_B, &
+                    Bi             = self%magField%Bi, &
+                    q              = q_species, &
+                    m              = m_species, &
+                    dt             = dt_local, &
+                    bcnd           = self%dom%bcnd, &
+                    wall_cell      = self%dom%wall_cell, &
+                    xmax           = self%dom%xmax, &
+                    ymax           = self%dom%ymax, &
+                    zmax           = self%dom%zmax, &
+                    flag_pbc       = int(self%dom%flag_pbc, int32), &
+                    flag_nmn       = int(self%dom%flag_nmn, int32), &
+                    ptype          = ptype, &
+                    tag_neg        = tag_neg_local, &
+                    flag_die       = int(self%dom%flag_die, int32), &
+                    dtype          = self%dom%dtype, &
+                    qmacro         = qmacro, &
+                    sum_q_xz_local = self%sum_q_xz(:,:,ptype,iproc), &
+                    sum_q_yz_local = self%sum_q_yz(:,:,:,ptype,iproc), &
+                    p_mac_boundary = self%p_mac(ptype,:,:,iproc), &
+                    P_loss_wall    = self%P_loss(1,ptype,iproc), &
+                    Nm_species     = self%params%Nm(ptype), &
+                    see            = see, &
+                    part_electrons = self%part(1,iproc), &
+                    iseed          = self%params%iseed(iproc), &
+                    P_loss_see     = self%P_loss(4,1,iproc), &
+                    mom_loss_wall  = self%mom_loss(:,1,ptype,iproc), &
+                    mom_loss_see   = self%mom_loss(:,4,1,iproc), &
+                    P_loss_coll    = self%P_loss(3,ptype,iproc), &
+                    mom_loss_coll  = self%mom_loss(:,3,ptype,iproc), &
+                    n_boris_used   = n_boris_used_call, &
+                    n_boris_total  = n_boris_total_call )
+                n_boris_used_thread(iproc)  = n_boris_used_thread(iproc)  + n_boris_used_call
+                n_boris_total_thread(iproc) = n_boris_total_thread(iproc) + n_boris_total_call
+              end if
             else
-              call move_and_bc_boris( &
-                  part           = self%part(ptype,iproc), &
-                  n              = int(self%dom%n, int32), &
-                  h              = self%dom%h, &
-                  E              = self%fld%E, &
-                  n_B            = self%magField%n_B, &
-                  h_B            = self%magField%h_B, &
-                  Bi             = self%magField%Bi, &
-                  q              = q_species, &
-                  m              = m_species, &
-                  dt             = dt_local, &
-                  use_energy_conserving = use_energy_conserving, &
-                  bcnd           = self%dom%bcnd, &
-                  wall_cell      = self%dom%wall_cell, &
-                  xmax           = self%dom%xmax, &
-                  ymax           = self%dom%ymax, &
-                  zmax           = self%dom%zmax, &
-                  flag_pbc       = int(self%dom%flag_pbc, int32), &
-                  flag_nmn       = int(self%dom%flag_nmn, int32), &
-                  ptype          = ptype, &
-                  tag_neg        = tag_neg_local, &
-                  flag_die       = int(self%dom%flag_die, int32), &
-                  dtype          = self%dom%dtype, &
-                  qmacro         = qmacro, &
-                  sum_q_xz_local = self%sum_q_xz(:,:,ptype,iproc), &
-                  sum_q_yz_local = self%sum_q_yz(:,:,:,ptype,iproc), &
-                  p_mac_boundary = self%p_mac(ptype,:,:,iproc), &
-                  P_loss_wall    = self%P_loss(1,ptype,iproc), &
-                  Nm_species     = self%params%Nm(ptype), &
-                  see            = see, &
-                  part_electrons = self%part(1,iproc), &
-                  iseed          = self%params%iseed(iproc), &
-                  P_loss_see     = self%P_loss(4,1,iproc), &
-                  flag_RFant     = self%cfg%flag_RFant, &
-                  ixl_pow        = ixl_pow_rf, &
-                  ixr_pow        = ixr_pow_rf, &
-                  R_ahp          = self%cfg%R_ahp, &
-                  gams           = self%gams, &
-                  E0_RF          = self%cfg%E0_RF, &
-                  omega_RF       = omega_RF_local, &
-                  time           = time_rf, &
-                  P_RF_local     = self%P_RF(ptype,iproc), &
-                  flag_planar_ant = self%cfg%flag_planar_ant, &
-                  x0             = x0_rf, &
-                  mom_loss_wall  = self%mom_loss(:,1,ptype,iproc), &
-                  mom_loss_see   = self%mom_loss(:,4,1,iproc), &
-                  mom_RF_local   = self%mom_RF(:,ptype,iproc), &
-                  P_loss_coll    = self%P_loss(3,ptype,iproc), &
-                  mom_loss_coll  = self%mom_loss(:,3,ptype,iproc), &
-                  n_boris_used   = n_boris_used_call, &
-                  n_boris_total  = n_boris_total_call )
-              n_boris_used_thread(iproc)  = n_boris_used_thread(iproc)  + n_boris_used_call
-              n_boris_total_thread(iproc) = n_boris_total_thread(iproc) + n_boris_total_call
+              if (ptype == 1_int32) then
+                call move_and_bc_boris( &
+                    part           = self%part(ptype,iproc), &
+                    n              = int(self%dom%n, int32), &
+                    h              = self%dom%h, &
+                    E              = self%fld%E, &
+                    n_B            = self%magField%n_B, &
+                    h_B            = self%magField%h_B, &
+                    Bi             = self%magField%Bi, &
+                    q              = q_species, &
+                    m              = m_species, &
+                    dt             = dt_local, &
+                    use_energy_conserving = use_energy_conserving, &
+                    bcnd           = self%dom%bcnd, &
+                    wall_cell      = self%dom%wall_cell, &
+                    xmax           = self%dom%xmax, &
+                    ymax           = self%dom%ymax, &
+                    zmax           = self%dom%zmax, &
+                    flag_pbc       = int(self%dom%flag_pbc, int32), &
+                    flag_nmn       = int(self%dom%flag_nmn, int32), &
+                    ptype          = ptype, &
+                    tag_neg        = tag_neg_local, &
+                    flag_die       = int(self%dom%flag_die, int32), &
+                    dtype          = self%dom%dtype, &
+                    qmacro         = qmacro, &
+                    sum_q_xz_local = self%sum_q_xz(:,:,ptype,iproc), &
+                    sum_q_yz_local = self%sum_q_yz(:,:,:,ptype,iproc), &
+                    p_mac_boundary = self%p_mac(ptype,:,:,iproc), &
+                    P_loss_wall    = self%P_loss(1,ptype,iproc), &
+                    Nm_species     = self%params%Nm(ptype), &
+                    see            = see, &
+                    iseed          = self%params%iseed(iproc), &
+                    P_loss_see     = self%P_loss(4,1,iproc), &
+                    flag_RFant     = self%cfg%flag_RFant, &
+                    ixl_pow        = ixl_pow_rf, &
+                    ixr_pow        = ixr_pow_rf, &
+                    R_ahp          = self%cfg%R_ahp, &
+                    gams           = self%gams, &
+                    E0_RF          = self%cfg%E0_RF, &
+                    omega_RF       = omega_RF_local, &
+                    time           = time_rf, &
+                    P_RF_local     = self%P_RF(ptype,iproc), &
+                    flag_planar_ant = self%cfg%flag_planar_ant, &
+                    x0             = x0_rf, &
+                    mom_loss_wall  = self%mom_loss(:,1,ptype,iproc), &
+                    mom_loss_see   = self%mom_loss(:,4,1,iproc), &
+                    mom_RF_local   = self%mom_RF(:,ptype,iproc), &
+                    P_loss_coll    = self%P_loss(3,ptype,iproc), &
+                    mom_loss_coll  = self%mom_loss(:,3,ptype,iproc), &
+                    n_boris_used   = n_boris_used_call, &
+                    n_boris_total  = n_boris_total_call )
+                n_boris_used_thread(iproc)  = n_boris_used_thread(iproc)  + n_boris_used_call
+                n_boris_total_thread(iproc) = n_boris_total_thread(iproc) + n_boris_total_call
+              else
+                call move_and_bc_boris( &
+                    part           = self%part(ptype,iproc), &
+                    n              = int(self%dom%n, int32), &
+                    h              = self%dom%h, &
+                    E              = self%fld%E, &
+                    n_B            = self%magField%n_B, &
+                    h_B            = self%magField%h_B, &
+                    Bi             = self%magField%Bi, &
+                    q              = q_species, &
+                    m              = m_species, &
+                    dt             = dt_local, &
+                    use_energy_conserving = use_energy_conserving, &
+                    bcnd           = self%dom%bcnd, &
+                    wall_cell      = self%dom%wall_cell, &
+                    xmax           = self%dom%xmax, &
+                    ymax           = self%dom%ymax, &
+                    zmax           = self%dom%zmax, &
+                    flag_pbc       = int(self%dom%flag_pbc, int32), &
+                    flag_nmn       = int(self%dom%flag_nmn, int32), &
+                    ptype          = ptype, &
+                    tag_neg        = tag_neg_local, &
+                    flag_die       = int(self%dom%flag_die, int32), &
+                    dtype          = self%dom%dtype, &
+                    qmacro         = qmacro, &
+                    sum_q_xz_local = self%sum_q_xz(:,:,ptype,iproc), &
+                    sum_q_yz_local = self%sum_q_yz(:,:,:,ptype,iproc), &
+                    p_mac_boundary = self%p_mac(ptype,:,:,iproc), &
+                    P_loss_wall    = self%P_loss(1,ptype,iproc), &
+                    Nm_species     = self%params%Nm(ptype), &
+                    see            = see, &
+                    part_electrons = self%part(1,iproc), &
+                    iseed          = self%params%iseed(iproc), &
+                    P_loss_see     = self%P_loss(4,1,iproc), &
+                    flag_RFant     = self%cfg%flag_RFant, &
+                    ixl_pow        = ixl_pow_rf, &
+                    ixr_pow        = ixr_pow_rf, &
+                    R_ahp          = self%cfg%R_ahp, &
+                    gams           = self%gams, &
+                    E0_RF          = self%cfg%E0_RF, &
+                    omega_RF       = omega_RF_local, &
+                    time           = time_rf, &
+                    P_RF_local     = self%P_RF(ptype,iproc), &
+                    flag_planar_ant = self%cfg%flag_planar_ant, &
+                    x0             = x0_rf, &
+                    mom_loss_wall  = self%mom_loss(:,1,ptype,iproc), &
+                    mom_loss_see   = self%mom_loss(:,4,1,iproc), &
+                    mom_RF_local   = self%mom_RF(:,ptype,iproc), &
+                    P_loss_coll    = self%P_loss(3,ptype,iproc), &
+                    mom_loss_coll  = self%mom_loss(:,3,ptype,iproc), &
+                    n_boris_used   = n_boris_used_call, &
+                    n_boris_total  = n_boris_total_call )
+                n_boris_used_thread(iproc)  = n_boris_used_thread(iproc)  + n_boris_used_call
+                n_boris_total_thread(iproc) = n_boris_total_thread(iproc) + n_boris_total_call
+              end if
             end if
           else if (use_fast_electrostatic) then
             ! ptype==1 split out - see the move_and_bc_boris call above.

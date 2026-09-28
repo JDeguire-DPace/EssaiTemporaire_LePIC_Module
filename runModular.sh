@@ -31,7 +31,11 @@
 # treating it as final.
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 export OMP_PROC_BIND=true
-export OMP_PLACES=cores
+# OMP_PLACES=threads, not cores: an overnight affinity sweep (OMP=48,
+# oversubscribed on the dev box) measured threads giving the best imbalance
+# ratio (1.091) vs cores (1.113) and sockets (1.84-2.06, much worse - avoid
+# entirely). Difference is modest at cores vs threads but free to take.
+export OMP_PLACES=threads
 export I_MPI_PIN_DOMAIN=omp
 
 echo "OMP_NUM_THREADS=$OMP_NUM_THREADS, MPI ranks=$SLURM_NTASKS"
