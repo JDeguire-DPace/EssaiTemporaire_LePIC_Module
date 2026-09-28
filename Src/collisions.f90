@@ -949,6 +949,17 @@ subroutine collision_OMP(vxp,n,h,ntype,nmax,sig,sig_Er, &
 
               ! Create new particle
               if(opt_add.eq.1) then
+                 ! bproc can be tproc (elastic/excitation, btype.eq.ttype,
+                 ! see above), i.e. a DIFFERENT OMP thread's own domain,
+                 ! not just this thread's own iproc. np_add/sour_xy/sour_xz/
+                 ! vxp indexed by bproc are therefore shared across threads
+                 ! here, unlike the common bproc.eq.iproc case - the
+                 ! reservation of a new particle slot (ib) and the shared
+                 ! accumulators below must be serialized, or concurrent
+                 ! threads racing on the same bproc can compute the same
+                 ! ib (lost update on np_add) and corrupt vxp/np_add
+                 ! bookkeeping with no bounds violation visible to -CB.
+                 !$OMP CRITICAL (collision_new_particle)
                  np_add(btype,bproc)= np_add(btype,bproc) + 1
                  ! New particle array index
                  ib= np_tot(btype,bproc) + np_add(btype,bproc)
@@ -967,6 +978,7 @@ subroutine collision_OMP(vxp,n,h,ntype,nmax,sig,sig_Er, &
                  vxp(1,ib,btype,bproc)= vxp(1,ip,ptype,bproc)
                  vxp(2,ib,btype,bproc)= vxp(2,ip,ptype,bproc)
                  vxp(3,ib,btype,bproc)= vxp(3,ip,ptype,bproc)
+                 !$OMP END CRITICAL (collision_new_particle)
                  ! Keep track of particle creation
                  flag_add(n_re+i_by)=1
               endif
