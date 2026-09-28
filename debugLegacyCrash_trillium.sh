@@ -35,7 +35,15 @@ echo "===== building legacy (3dphpic.exe) WITH bounds/uninit checking ====="
 # Removing it first means a failed build leaves NO binary, so the check
 # below is actually meaningful.
 rm -f 3dphpic.exe
-DEBUG_OPT="-O0 -g -traceback -CB -warn all,noexternal -check uninit -check pointers -check output_conversion -check format -fpe0 -qopenmp -auto"
+# -check uninit dropped: on ifx (LLVM-based) it apparently implements
+# uninitialized-value detection via MemorySanitizer instrumentation, which
+# requires EVERY linked library to be similarly instrumented or it
+# produces immediate false-positive crashes on the first call into any
+# uninstrumented one - confirmed exactly this (MSAN abort in a global
+# constructor, _GLOBAL__sub_I_fast_mem_ops.c, before main() even runs)
+# against Intel MPI's non-instrumented runtime libraries. -CB (bounds
+# checking) uses a different, non-MSAN mechanism and is unaffected.
+DEBUG_OPT="-O0 -g -traceback -CB -warn all,noexternal -check pointers -check output_conversion -check format -fpe0 -qopenmp -auto"
 ( cd Src && make clean >/dev/null 2>&1; make OPT="$DEBUG_OPT" -j8 ) || \
 ( cd Src && make OPT="$DEBUG_OPT" )
 
