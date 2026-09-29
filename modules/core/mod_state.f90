@@ -14,7 +14,7 @@ module mod_state
   use mod_poisson_decomp, only: PoissonDecomp
   use mod_charge_weights, only: build_kq
   use mod_debug_checks,   only: checkpoint_poisson_decomp, checkpoint_kq
-  use mod_density,        only: reduce_species_density
+  use mod_density,        only: reduce_species_density, sync_species_density
 
   use mod_chemistryState, only: ChemistryState
   use mod_reactionsDB,    only: ReactionsDB
@@ -61,6 +61,11 @@ module mod_state
     type(ParticleSet), allocatable :: part(:,:)
 
     real(real64), allocatable :: np_thread(:,:,:,:,:)
+
+    ! .false. while fld%np holds only this rank's density (the per-step
+    ! deposit leaves it rank-local and MPI-sums only rho); sync_np() makes
+    ! it global. Every reader of fld%np must call sync_np() first.
+    logical :: np_synced = .true.
     real(real64), allocatable :: sum_q_xz(:,:,:,:)
     real(real64), allocatable :: sum_q_yz(:,:,:,:,:)
 
@@ -148,6 +153,7 @@ module mod_state
     procedure :: compute_plane_moments_local
     procedure :: apply_dielectric_bc_to_phi
     procedure :: accumulate_2d_averages
+    procedure :: sync_np
 
     procedure :: finalize_particles_only
     procedure :: finalize
@@ -1382,6 +1388,8 @@ contains
     ! is harmless). Used directly as array indices below, an unclamped
     ! oversized bound reads self%fld%np far out of bounds. Mirrors legacy
     ! Src/main.f90:680-692.
+    call self%sync_np()
+
     xl_c = max(0.0_real64, self%cfg%xl_pow)
     xr_c = min(self%dom%xmax, self%cfg%xr_pow)
     yl_c = max(0.0_real64, self%cfg%yl_pow)
@@ -1492,12 +1500,25 @@ contains
     end do
   end subroutine compute_plane_moments_local
 
+  subroutine sync_np(self)
+    ! Collective: must be reached by every rank (np_synced changes in
+    ! lockstep on all ranks, so the Allreduce below is always matched).
+    class(State), intent(inout) :: self
+
+    if (self%np_synced) return
+    call sync_species_density(int(self%dom%n, int32), int(self%ntype), self%comm, self%fld%np)
+    self%np_synced = .true.
+  end subroutine sync_np
+
+
   subroutine accumulate_2d_averages(self)
     class(State), intent(inout) :: self
 
     integer(int32) :: ptype
     integer(int32) :: ix_plane, iy_density, iy_phi, iz_plane
     integer(int32) :: ny
+
+    call self%sync_np()
 
     ny = self%dom%n(2)
 

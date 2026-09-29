@@ -22,56 +22,154 @@ module mod_density
   private
 
   public :: reduce_species_density
+  public :: reduce_density_and_rho
+  public :: sync_species_density
   public :: build_rho_from_np
   public :: build_rho_from_np_thread
   public :: density_max_per_species
   public :: average_species_density
 
+  ! TEMPORARY diagnostic: split of the density reduction's wall time.
+  real(real64), public :: t_red_bc = 0.0_real64, t_red_zero = 0.0_real64
+  real(real64), public :: t_red_sum = 0.0_real64, t_red_mpi = 0.0_real64
+
 contains
 
   subroutine reduce_species_density(n, bcnd, np_thread, ntype, nproc, mpi_comm, np_red)
+    ! np_thread -> periodic stitching -> np_red, MPI-summed across ranks.
+    ! Used where the full per-species density must be globally valid
+    ! right away (initial load, restart). The per-step path uses
+    ! reduce_density_and_rho + a deferred sync_species_density instead.
     integer(int32), intent(in)    :: n(3)
     integer,        intent(in)    :: ntype, nproc, mpi_comm
     integer,        intent(in)    :: bcnd(0:n(1)+2,0:n(2)+2,0:n(3)+2)
     real(real64),   intent(inout) :: np_thread(0:n(1)+2,0:n(2)+2,0:n(3)+2,ntype,nproc)
     real(real64),   intent(out)   :: np_red(0:n(1)+2,0:n(2)+2,0:n(3)+2,ntype)
 
-    integer :: ierr, mpi_size
-    integer :: ix, iy, iz, ptype, iproc
-    real(real64) :: acc
-
-    call MPI_Comm_size(mpi_comm, mpi_size, ierr)
-
     ! Important: this is intentionally in-place.
     ! In your timestep, np_thread is rebuilt by deposition before this is called,
     ! so modifying its periodic/ghost planes here is equivalent to the old
     ! np_work = np_thread copy, but avoids the large allocation/copy.
     call apply_periodic_density_bc(n, bcnd, np_thread, ntype, nproc)
+    call sum_thread_density(n, np_thread, ntype, nproc, np_red)
+    call sync_species_density(n, ntype, mpi_comm, np_red)
+  end subroutine reduce_species_density
 
-    np_red = 0.0_real64
 
-    !$omp parallel do collapse(4) private(iproc,acc) schedule(static) default(shared)
-    do ptype = 1, ntype
-      do iz = 1, n(3)+1
-        do iy = 1, n(2)+1
-          do ix = 1, n(1)+1
-            acc = 0.0_real64
-            do iproc = 1, nproc
-              acc = acc + np_thread(ix,iy,iz,ptype,iproc)
-            end do
-            np_red(ix,iy,iz,ptype) = acc
-          end do
-        end do
-      end do
-    end do
-    !$omp end parallel do
+  subroutine reduce_density_and_rho(n, bcnd, np_thread, ntype, nproc, mpi_comm, charge, &
+                                    np_red, rho)
+    ! Per-step path, mirroring legacy calc_rho: rho is built from this
+    ! rank's thread sum and only rho (one grid) is MPI-summed. np_red is
+    ! left RANK-LOCAL - the caller must run sync_species_density on it
+    ! before anything reads it (legacy likewise only reduces the
+    ! per-species density, dens_red, on the steps that need it). Saves
+    ! allreducing ntype grids every step (~30 ms/step at ITER 2x16).
+    integer(int32), intent(in)    :: n(3)
+    integer,        intent(in)    :: ntype, nproc, mpi_comm
+    integer,        intent(in)    :: bcnd(0:n(1)+2,0:n(2)+2,0:n(3)+2)
+    real(real64),   intent(inout) :: np_thread(0:n(1)+2,0:n(2)+2,0:n(3)+2,ntype,nproc)
+    real(real64),   intent(in)    :: charge(ntype)
+    real(real64),   intent(out)   :: np_red(0:n(1)+2,0:n(2)+2,0:n(3)+2,ntype)
+    real(real64),   intent(out)   :: rho(0:n(1)+2,0:n(2)+2,0:n(3)+2)
 
+    integer :: ierr, mpi_size
+    real(real64) :: tq0, tq1
+
+    call MPI_Comm_size(mpi_comm, mpi_size, ierr)
+
+    tq0 = MPI_Wtime()
+    call apply_periodic_density_bc(n, bcnd, np_thread, ntype, nproc)
+    tq1 = MPI_Wtime(); t_red_bc = t_red_bc + (tq1-tq0); tq0 = tq1
+
+    call sum_thread_density(n, np_thread, ntype, nproc, np_red, charge, rho)
+    tq1 = MPI_Wtime(); t_red_sum = t_red_sum + (tq1-tq0); tq0 = tq1
+
+    if (mpi_size > 1) then
+      call MPI_Allreduce(MPI_IN_PLACE, rho, (n(1)+3)*(n(2)+3)*(n(3)+3), &
+          MPI_DOUBLE_PRECISION, MPI_SUM, mpi_comm, ierr)
+    end if
+    tq1 = MPI_Wtime(); t_red_mpi = t_red_mpi + (tq1-tq0)
+  end subroutine reduce_density_and_rho
+
+
+  subroutine sync_species_density(n, ntype, mpi_comm, np_red)
+    ! MPI-sum a rank-local np_red in place (no-op on a single rank).
+    integer(int32), intent(in)    :: n(3)
+    integer,        intent(in)    :: ntype, mpi_comm
+    real(real64),   intent(inout) :: np_red(0:n(1)+2,0:n(2)+2,0:n(3)+2,ntype)
+
+    integer :: ierr, mpi_size
+
+    call MPI_Comm_size(mpi_comm, mpi_size, ierr)
     if (mpi_size > 1) then
       call MPI_Allreduce(MPI_IN_PLACE, np_red, &
           (n(1)+3)*(n(2)+3)*(n(3)+3)*ntype, MPI_DOUBLE_PRECISION, MPI_SUM, mpi_comm, ierr)
     end if
+  end subroutine sync_species_density
 
-  end subroutine reduce_species_density
+
+  subroutine sum_thread_density(n, np_thread, ntype, nproc, np_red, charge, rho)
+    ! np_red = sum over iproc of np_thread on interior points 1..n+1,
+    ! zero on the ghost shell. If charge/rho are present, also
+    ! rho = -sum_s charge(s)*np_red(s) (same operation order as
+    ! build_rho_from_np). Works a row (fixed iy,iz) at a time with iproc
+    ! outside the contiguous ix loop, so every access is unit-stride and
+    ! vectorizable and the row being accumulated stays in L1 - the
+    ! previous per-point loop over iproc did nproc strided scalar loads per
+    ! point, and the full-array zero before it ran on one thread.
+    integer(int32), intent(in)  :: n(3)
+    integer,        intent(in)  :: ntype, nproc
+    real(real64),   intent(in)  :: np_thread(0:n(1)+2,0:n(2)+2,0:n(3)+2,ntype,nproc)
+    real(real64),   intent(out) :: np_red(0:n(1)+2,0:n(2)+2,0:n(3)+2,ntype)
+    real(real64),   intent(in),  optional :: charge(ntype)
+    real(real64),   intent(out), optional :: rho(0:n(1)+2,0:n(2)+2,0:n(3)+2)
+
+    integer :: ix, iy, iz, ptype, iproc, nx1
+    logical :: do_rho
+
+    do_rho = present(rho) .and. present(charge)
+    nx1 = n(1) + 1
+
+    !$omp parallel do collapse(2) private(iy,iz,ix,ptype,iproc) schedule(static) default(shared)
+    do iz = 0, n(3)+2
+      do iy = 0, n(2)+2
+        if (iz < 1 .or. iz > n(3)+1 .or. iy < 1 .or. iy > n(2)+1) then
+          do ptype = 1, ntype
+            np_red(:,iy,iz,ptype) = 0.0_real64
+          end do
+          if (do_rho) rho(:,iy,iz) = 0.0_real64
+          cycle
+        end if
+
+        do ptype = 1, ntype
+          np_red(0,iy,iz,ptype)      = 0.0_real64
+          np_red(nx1+1,iy,iz,ptype)  = 0.0_real64
+          do ix = 1, nx1
+            np_red(ix,iy,iz,ptype) = np_thread(ix,iy,iz,ptype,1)
+          end do
+          do iproc = 2, nproc
+            do ix = 1, nx1
+              np_red(ix,iy,iz,ptype) = np_red(ix,iy,iz,ptype) + np_thread(ix,iy,iz,ptype,iproc)
+            end do
+          end do
+        end do
+
+        if (do_rho) then
+          rho(0,iy,iz)     = 0.0_real64
+          rho(nx1+1,iy,iz) = 0.0_real64
+          do ix = 1, nx1
+            rho(ix,iy,iz) = 0.0_real64
+          end do
+          do ptype = 1, ntype
+            do ix = 1, nx1
+              rho(ix,iy,iz) = rho(ix,iy,iz) - charge(ptype) * np_red(ix,iy,iz,ptype)
+            end do
+          end do
+        end if
+      end do
+    end do
+    !$omp end parallel do
+  end subroutine sum_thread_density
 
 
   subroutine build_rho_from_np(n, np_red, charge, ntype, rho, bcnd, flag_pbc)

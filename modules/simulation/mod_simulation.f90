@@ -2,7 +2,9 @@ module mod_simulation
   use iso_fortran_env, only: int32, real64, int8
 
   use mod_state,                 only: State, advance_particles_local
-  use mod_density,               only: reduce_species_density, build_rho_from_np, average_species_density
+  use mod_density,               only: reduce_species_density, reduce_density_and_rho, &
+                                       build_rho_from_np, average_species_density, &
+                                       t_red_bc, t_red_zero, t_red_sum, t_red_mpi
   use mod_restart,               only: write_restart_modular
   use mod_injection,             only: inject_particles_volume, inject_flux_particles
   use mod_PoissonSolver_legacy,  only: solve_poisson_legacy, print_poisson_breakdown, reset_poisson_breakdown
@@ -276,15 +278,22 @@ contains
     self%t_dep_clear = self%t_dep_clear
     self%t_dep_loop  = self%t_dep_loop
 
+    ! Builds next step's rho here, right after the deposit (nothing else
+    ! writes rho or np in between), and MPI-sums only rho. fld%np is left
+    ! rank-local until a reader calls state%sync_np() - see
+    ! reduce_density_and_rho.
     dt0 = MPI_Wtime()
-    call reduce_species_density( &
+    call reduce_density_and_rho( &
       n         = int(self%state%dom%n, int32), &
       bcnd      = self%state%dom%bcnd, &
       np_thread = self%state%np_thread, &
       ntype     = int(self%state%ntype), &
       nproc     = int(self%state%nproc), &
       mpi_comm  = self%state%comm, &
-      np_red    = self%state%fld%np )
+      charge    = self%state%chem%charge(1:self%state%ntype), &
+      np_red    = self%state%fld%np, &
+      rho       = self%state%fld%rho )
+    self%state%np_synced = .false.
     dt1 = MPI_Wtime()
     self%t_dep_reduce = self%t_dep_reduce + (dt1 - dt0)
   end subroutine deposit_all_particles
@@ -292,6 +301,8 @@ contains
 
   subroutine collisions_step(self)
     class(Simulation), intent(inout) :: self
+
+    call self%state%sync_np()
 
     call perform_collisions_step( &
         part          = self%state%part, &
@@ -337,6 +348,8 @@ contains
 
   subroutine coulomb_step(self)
     class(Simulation), intent(inout) :: self
+
+    call self%state%sync_np()
 
     call perform_coulomb_step( &
         part   = self%state%part, &
@@ -651,25 +664,11 @@ contains
 
     ! E/rho
     !
-    ! No reduce_species_density call here: fld%np already holds the
-    ! reduction of np_thread as of the end of the PREVIOUS step's
-    ! deposit_all_particles (or, for istep==1, of build_initial_fields's
-    ! initial load). Nothing writes np_thread in between - the mover is
-    ! the only writer, and it runs later in THIS step (below) - so
-    ! re-reducing here would just recompute the same np_red bit-for-bit.
-    ! Matches build_initial_fields, which also calls build_rho_from_np
-    ! directly on fld%np with no preceding reduce.
-    t0 = MPI_Wtime()
-    call build_rho_from_np( &
-      n        = int(self%state%dom%n, int32), &
-      np_red   = self%state%fld%np, &
-      charge   = self%state%chem%charge(1:self%state%ntype), &
-      ntype    = int(self%state%ntype), &
-      rho      = self%state%fld%rho, &
-      bcnd     = self%state%dom%bcnd, &
-      flag_pbc = int(self%state%dom%flag_pbc, int32) )
-    t1 = MPI_Wtime()
-    self%t_Erho = self%t_Erho + (t1 - t0)
+    ! rho is already built: by the PREVIOUS step's deposit_all_particles
+    ! (reduce_density_and_rho), or for istep==1 by build_initial_fields.
+    ! Nothing writes rho in between, so rebuilding it here from fld%np
+    ! (as this used to) would only recompute it - and would need the full
+    ! per-species MPI sync that the per-step path now skips.
 
     ! Poisson + E field
     t0 = MPI_Wtime()
@@ -1381,6 +1380,11 @@ contains
         "  mover_wall(ms)=", 1000.0_real64*self%t_mover_wall/real(self%t_count,real64), &
         "  heat(ms)=",       1000.0_real64*self%t_heat/real(self%t_count,real64), &
         "  inj(ms)=",        1000.0_real64*self%t_inj/real(self%t_count,real64)
+      write(*,'(a,f8.2,a,f8.2,a,f8.2,a,f8.2)') &
+        "  red_bc(ms)=",   1000.0_real64*t_red_bc/real(self%t_count,real64), &
+        "  red_zero(ms)=", 1000.0_real64*t_red_zero/real(self%t_count,real64), &
+        "  red_sum(ms)=",  1000.0_real64*t_red_sum/real(self%t_count,real64), &
+        "  red_mpi(ms)=",  1000.0_real64*t_red_mpi/real(self%t_count,real64)
 
       ! OMP load-imbalance check across iproc: min/avg/max of the same
       ! per-thread timings mover_push(ms)/dep_loop(ms) above already
@@ -1474,6 +1478,8 @@ contains
     self%t_heat       = 0.0_real64
     self%t_inj        = 0.0_real64
     self%t_mover_wall = 0.0_real64
+    t_red_bc = 0.0_real64; t_red_zero = 0.0_real64
+    t_red_sum = 0.0_real64; t_red_mpi = 0.0_real64
     self%t_mover_push_min = 0.0_real64
     self%t_mover_push_avg = 0.0_real64
     self%t_dep_loop_min   = 0.0_real64
