@@ -26,7 +26,7 @@ module mod_state
   use mod_particleMover,    only: move_and_bc_electrostatic, move_and_bc_electrostatic_fast, &
                                    move_and_bc_boris, move_and_bc_boris_fast
   use mod_particleBC,       only: apply_particle_bc, SeeParams
-  use mod_chargeDeposition, only: deposit_particle_set_to_np_thread
+  use mod_chargeDeposition, only: deposit_particle_set_to_np_thread, HeatRegionTally
   use mod_magneticField,    only: MagneticField
   use mod_simParams,        only: SimParams
   use mod_heating,          only: apply_electron_heating
@@ -681,6 +681,12 @@ contains
     integer(int32) :: ixl_pow_rf, ixr_pow_rf
     real(real64)   :: x0_rf
 
+    ! Electron heating-region tally (Nh/sum_dEk), done inside the ptype==1
+    ! deposit below instead of a separate pass afterwards - see
+    ! HeatRegionTally in mod_chargeDeposition.f90.
+    logical               :: do_heat_tally
+    type(HeatRegionTally) :: heat_tpl, heat_loc
+
     t_move_out        = 0.0_real64
     t_bc_out          = 0.0_real64
     t_deposit_out     = 0.0_real64
@@ -747,8 +753,23 @@ contains
       see%vt_sec = sqrt(2.0_real64 * qe * abs(self%cfg%THm) / abs(self%chem%mass(1)))
     end if
 
+    do_heat_tally = self%cfg%Pabs > 0.0_real64 .and. self%cfg%flag_heat == 1 .and. &
+                    allocated(self%Nh) .and. allocated(self%sum_dEk)
+    if (do_heat_tally) then
+      heat_tpl%ixl         = int(self%cfg%xl_pow / self%dom%h(1), int32) + 1_int32
+      heat_tpl%ixr         = int(self%cfg%xr_pow / self%dom%h(1), int32) + 1_int32
+      heat_tpl%flag_circxh = int(self%cfg%flag_circxh, int32)
+      heat_tpl%flag_ahp    = int(self%cfg%flag_ahp, int32)
+      heat_tpl%R2          = self%cfg%R_ahp**2
+      heat_tpl%yc          = self%dom%ymax / 2.0_real64
+      heat_tpl%zc          = self%dom%zmax / 2.0_real64
+      heat_tpl%ek_coef     = 0.5_real64 * self%params%Nm(1) * self%chem%mass(1)
+      heat_tpl%Nh          = 0_int32
+      heat_tpl%sum_dEk     = 0.0_real64
+    end if
+
     !$omp parallel do private(iproc,ptype,q_species,m_species,use_boris,qmacro,tw0,tw1, &
-    !$omp&                    n_boris_used_call,n_boris_total_call) schedule(static)
+    !$omp&                    n_boris_used_call,n_boris_total_call,heat_loc) schedule(static)
     do iproc = 1, self%nproc
 
       do ptype = 1, self%ntype
@@ -1182,20 +1203,37 @@ contains
       end do
 
       tw0 = omp_get_wtime()
+      if (do_heat_tally) heat_loc = heat_tpl
       do ptype = 1, self%ntype
         self%np_thread(:,:,:,ptype,iproc) = 0.0_real64
 
         if (.not. allocated(self%part(ptype,iproc)%pv)) cycle
         if (self%part(ptype,iproc)%n <= 0_int32) cycle
 
-        call deposit_particle_set_to_np_thread( &
-          part       = self%part(ptype,iproc), &
-          n          = int(self%dom%n, int32), &
-          h          = self%dom%h, &
-          kq         = self%fld%kq, &
-          Nm_species = self%params%Nm(ptype), &
-          np_local   = self%np_thread(:,:,:,ptype,iproc) )
+        if (ptype == 1_int32 .and. do_heat_tally) then
+          call deposit_particle_set_to_np_thread( &
+            part       = self%part(ptype,iproc), &
+            n          = int(self%dom%n, int32), &
+            h          = self%dom%h, &
+            kq         = self%fld%kq, &
+            Nm_species = self%params%Nm(ptype), &
+            np_local   = self%np_thread(:,:,:,ptype,iproc), &
+            heat       = heat_loc )
+        else
+          call deposit_particle_set_to_np_thread( &
+            part       = self%part(ptype,iproc), &
+            n          = int(self%dom%n, int32), &
+            h          = self%dom%h, &
+            kq         = self%fld%kq, &
+            Nm_species = self%params%Nm(ptype), &
+            np_local   = self%np_thread(:,:,:,ptype,iproc) )
+        end if
       end do
+      ! One write per thread (no per-particle updates of shared arrays).
+      if (do_heat_tally) then
+        self%Nh(iproc)      = heat_loc%Nh
+        self%sum_dEk(iproc) = heat_loc%sum_dEk
+      end if
       tw1 = omp_get_wtime()
       t_deposit_thread(iproc) = tw1 - tw0
     end do

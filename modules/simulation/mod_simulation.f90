@@ -70,6 +70,15 @@ module mod_simulation
     real(real64) :: t_dep_loop   = 0.0_real64
     real(real64) :: t_dep_reduce = 0.0_real64
 
+    ! TEMPORARY diagnostic: wall time of phases that fall between the
+    ! top-level timers above (electron heating + Nh/sum_dEk tally, volume +
+    ! flux injection) and the outer wall time of advance_particles_local
+    ! (t_mover is built from its internal per-thread max timers, so fork/
+    ! join and anything outside those is otherwise invisible).
+    real(real64) :: t_heat       = 0.0_real64
+    real(real64) :: t_inj        = 0.0_real64
+    real(real64) :: t_mover_wall = 0.0_real64
+
     ! Min/avg across iproc of t_mover_push/t_dep_loop (t_mover_push and
     ! t_dep_loop above already hold the max across iproc, since that's what
     ! bounds the fused OMP region's wall time). Only used to check OMP load
@@ -623,8 +632,7 @@ contains
     real(real64)   :: t_move_dbg, t_bc_dbg, t_deposit_dbg
     real(real64)   :: t_move_min_dbg, t_move_avg_dbg, t_deposit_min_dbg, t_deposit_avg_dbg
     integer(int32) :: n_boris_used_dbg, n_boris_total_dbg
-    integer(int32) :: iproc_h, i_h, ix_h, ixl_h, ixr_h
-    real(real64)   :: xp_h, yp_h, zp_h, Eki_h, yhalf_h, zhalf_h
+    integer(int32) :: iproc_h
 
     tstep0 = MPI_Wtime()
 
@@ -723,6 +731,7 @@ contains
     !   [OMP]         reset Nh/sum_dEk; call eheating(vt); push; deposit
     ! In modular the deposit/accumulation stays after BC (below), but the
     ! vt computation and heating application happen here, before the push.
+    t0 = MPI_Wtime()
     if (self%state%cfg%Pabs > 0.0_real64 .and. self%state%cfg%flag_heat == 1) then
       if (self%state%params%nb_step_heating > 0_int32) then
         if (mod(istep, self%state%params%nb_step_heating) == 0_int32) then
@@ -734,6 +743,8 @@ contains
         end if
       end if
     end if
+    t1 = MPI_Wtime()
+    self%t_heat = self%t_heat + (t1 - t0)
 
     ! EXPERIMENTAL (SORT_EVERY_STEP): see flag declaration above. Sorts
     ! immediately before the fused push+deposit region below, on whatever
@@ -765,6 +776,7 @@ contains
                                   t_deposit_min_dbg, t_deposit_avg_dbg, &
                                   n_boris_used_dbg, n_boris_total_dbg)
     t1 = MPI_Wtime()
+    self%t_mover_wall  = self%t_mover_wall  + (t1 - t0)
     self%n_boris_used  = self%n_boris_used  + n_boris_used_dbg
     self%n_boris_total = self%n_boris_total + n_boris_total_dbg
     self%t_mover_push = self%t_mover_push + t_move_dbg
@@ -781,54 +793,11 @@ contains
     ! which also spans push+BC/SEE+deposit - see Src/main.f90 ctime(6)).
     self%t_mover = self%t_mover_push + self%t_mover_bc + self%t_dep_loop
 
-    ! Accumulate Nh and sum_dEk from post-push post-BC electrons, matching
-    ! legacy's charge_deposition timing. On non-heating steps, also reset
-    ! here (legacy resets at OMP block start every step). On heating steps
-    ! the reset already happened above before apply_electron_heating_local.
-    if (self%state%cfg%Pabs > 0.0_real64 .and. self%state%cfg%flag_heat == 1) then
-      if (self%state%params%nb_step_heating <= 0_int32 .or. &
-          mod(istep, self%state%params%nb_step_heating) /= 0_int32) then
-        if (allocated(self%state%Nh))      self%state%Nh      = 0_int32
-        if (allocated(self%state%sum_dEk)) self%state%sum_dEk = 0.0_real64
-      end if
-
-      !$omp parallel do private(iproc_h,i_h,ix_h,ixl_h,ixr_h,xp_h,yp_h,zp_h,Eki_h,yhalf_h,zhalf_h) schedule(static)
-      do iproc_h = 1, self%state%nproc
-        if (.not. allocated(self%state%part(1,iproc_h)%pv)) cycle
-        if (self%state%part(1,iproc_h)%n <= 0_int32) cycle
-
-        ixl_h  = int(self%state%cfg%xl_pow / self%state%dom%h(1), int32) + 1_int32
-        ixr_h  = int(self%state%cfg%xr_pow / self%state%dom%h(1), int32) + 1_int32
-        yhalf_h = self%state%dom%ymax / 2.0_real64
-        zhalf_h = self%state%dom%zmax / 2.0_real64
-
-        do i_h = 1_int32, self%state%part(1,iproc_h)%n
-          if (self%state%part(1,iproc_h)%flag_dead(i_h) /= 0_int8) cycle
-          xp_h = self%state%part(1,iproc_h)%pv(1,i_h)
-          ix_h = int(xp_h / self%state%dom%h(1), int32) + 1_int32
-          if (ix_h < ixl_h .or. ix_h > ixr_h) cycle
-
-          if (self%state%cfg%flag_circxh == 1_int32) then
-            yp_h = self%state%part(1,iproc_h)%pv(2,i_h)
-            zp_h = self%state%part(1,iproc_h)%pv(3,i_h)
-            if (self%state%cfg%flag_ahp == 0_int32) then
-              if (((yp_h-yhalf_h)**2 + (zp_h-zhalf_h)**2) > self%state%cfg%R_ahp**2) cycle
-            else
-              if (((yp_h-yhalf_h)**2 + (zp_h-zhalf_h)**2) < self%state%cfg%R_ahp**2) cycle
-            end if
-          end if
-
-          Eki_h = 0.5_real64 * self%state%params%Nm(1) * self%state%chem%mass(1) * &
-                (self%state%part(1,iproc_h)%pv(4,i_h)**2 + &
-                 self%state%part(1,iproc_h)%pv(5,i_h)**2 + &
-                 self%state%part(1,iproc_h)%pv(6,i_h)**2)
-
-          self%state%sum_dEk(iproc_h) = self%state%sum_dEk(iproc_h) + Eki_h
-          self%state%Nh(iproc_h)      = self%state%Nh(iproc_h) + 1_int32
-        end do
-      end do
-      !$omp end parallel do
-    end if
+    ! Nh/sum_dEk (electron heating-region tally) are now accumulated
+    ! inside advance_particles_local's ptype==1 deposit, above - one
+    ! less full pass over the electrons per step (see HeatRegionTally in
+    ! mod_chargeDeposition.f90). It overwrites Nh(iproc)/sum_dEk(iproc)
+    ! every step, so no reset is needed here any more.
 
     ! Reduce this step's per-thread deposit (already computed inside
     ! advance_particles_local, above) into np_red BEFORE collisions (legacy
@@ -873,6 +842,7 @@ contains
 
     ! Volume particle injection (legacy: part_injection, inside OMP per iproc)
     ! Fires every step when flag_inj==1 (ns_inj=1 hardcoded, same as legacy).
+    t0 = MPI_Wtime()
     if (self%state%cfg%flag_inj == 1_int32) then
       !$omp parallel do private(iproc_h) schedule(static)
       do iproc_h = 1, self%state%nproc
@@ -950,6 +920,9 @@ contains
         mom_loss     = self%state%mom_loss )
       self%state%N_flx = 0_int32
     end if
+
+    t1 = MPI_Wtime()
+    self%t_inj = self%t_inj + (t1 - t0)
 
     ! Output/write
     t0 = MPI_Wtime()
@@ -1404,6 +1377,10 @@ contains
         "  dep_clear(ms)=",  1000.0_real64*self%t_dep_clear/real(self%t_count,real64), &
         "  dep_loop(ms)=",   1000.0_real64*self%t_dep_loop/real(self%t_count,real64), &
         "  dep_reduce(ms)=", 1000.0_real64*self%t_dep_reduce/real(self%t_count,real64)
+      write(*,'(a,f8.2,a,f8.2,a,f8.2)') &
+        "  mover_wall(ms)=", 1000.0_real64*self%t_mover_wall/real(self%t_count,real64), &
+        "  heat(ms)=",       1000.0_real64*self%t_heat/real(self%t_count,real64), &
+        "  inj(ms)=",        1000.0_real64*self%t_inj/real(self%t_count,real64)
 
       ! OMP load-imbalance check across iproc: min/avg/max of the same
       ! per-thread timings mover_push(ms)/dep_loop(ms) above already
@@ -1494,6 +1471,9 @@ contains
     self%t_dep_clear  = 0.0_real64
     self%t_dep_loop   = 0.0_real64
     self%t_dep_reduce = 0.0_real64
+    self%t_heat       = 0.0_real64
+    self%t_inj        = 0.0_real64
+    self%t_mover_wall = 0.0_real64
     self%t_mover_push_min = 0.0_real64
     self%t_mover_push_avg = 0.0_real64
     self%t_dep_loop_min   = 0.0_real64
