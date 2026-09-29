@@ -467,9 +467,15 @@ contains
 
     if (.not. allocated(self%part)) return
 
-    !$omp parallel do collapse(2) private(ptype,iproc,ok_sorted,ok_cells) schedule(static)
-    do ptype = 1, self%ntype
-      do iproc = 1, self%nproc
+    ! Parallel over iproc only, each thread sorting every species of its
+    ! own iproc - same ownership as the mover, so a thread sorts memory
+    ! it first-touched (NUMA-local) and load follows the per-iproc
+    ! particle balance. The previous collapse(2) over (ptype,iproc) with
+    ! static chunks handed whole runs of electron sets (~half of all
+    ! particles) to the first few threads: ~2.4x max/avg at 2x16.
+    !$omp parallel do private(ptype,iproc,ok_sorted,ok_cells) schedule(static)
+    do iproc = 1, self%nproc
+      do ptype = 1, self%ntype
         if (.not. allocated(self%part(ptype,iproc)%pv)) cycle
         if (self%part(ptype,iproc)%n <= 1_int32) cycle
 
