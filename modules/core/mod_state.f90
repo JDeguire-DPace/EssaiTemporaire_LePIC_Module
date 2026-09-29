@@ -14,7 +14,7 @@ module mod_state
   use mod_poisson_decomp, only: PoissonDecomp
   use mod_charge_weights, only: build_kq
   use mod_debug_checks,   only: checkpoint_poisson_decomp, checkpoint_kq
-  use mod_density,        only: reduce_species_density, sync_species_density
+  use mod_density,        only: reduce_species_density, sync_species_density, clear_np_planes
 
   use mod_chemistryState, only: ChemistryState
   use mod_reactionsDB,    only: ReactionsDB
@@ -61,6 +61,14 @@ module mod_state
     type(ParticleSet), allocatable :: part(:,:)
 
     real(real64), allocatable :: np_thread(:,:,:,:,:)
+
+    ! Per-(ptype,iproc) z-extent of np_thread that may be nonzero: planes
+    ! np_zlo..np_zhi, plus the end planes 0:2 and n3:n3+2 if np_zend /= 0
+    ! (see np_plane_live in mod_density). Every plane outside it is
+    ! exactly zero. Since each iproc owns a z-slab of particles
+    ! (redistribute_species_by_cell), this lets the per-step clear and
+    ! the thread reduction touch only that slab instead of the whole grid.
+    integer(int32), allocatable :: np_zlo(:,:), np_zhi(:,:), np_zend(:,:)
 
     ! .false. while fld%np holds only this rank's density (the per-step
     ! deposit leaves it rank-local and MPI-sums only rho); sync_np() makes
@@ -235,6 +243,15 @@ contains
                             0:self%dom%n(3)+2, &
                             self%ntype, self%nproc))
     self%np_thread = 0.0_real64
+
+    ! Start as "whole grid may be nonzero": the initial load and restart
+    ! deposits write np_thread without tracking extents; the first
+    ! per-step deposit clears everything and narrows these.
+    allocate(self%np_zlo(self%ntype, self%nproc), self%np_zhi(self%ntype, self%nproc), &
+             self%np_zend(self%ntype, self%nproc))
+    self%np_zlo  = 0_int32
+    self%np_zhi  = int(self%dom%n(3), int32) + 2_int32
+    self%np_zend = 1_int32
 
     call self%init_particles()
 
@@ -1215,7 +1232,14 @@ contains
       tw0 = omp_get_wtime()
       if (do_heat_tally) heat_loc = heat_tpl
       do ptype = 1, self%ntype
-        self%np_thread(:,:,:,ptype,iproc) = 0.0_real64
+        ! Clear only the planes the previous deposit (+ periodic BC) could
+        ! have made nonzero, then mark empty until this deposit reports.
+        call clear_np_planes(self%np_thread(:,:,:,ptype,iproc), int(self%dom%n, int32), &
+                             self%np_zlo(ptype,iproc), self%np_zhi(ptype,iproc), &
+                             self%np_zend(ptype,iproc))
+        self%np_zlo(ptype,iproc)  = huge(1_int32)
+        self%np_zhi(ptype,iproc)  = -huge(1_int32)
+        self%np_zend(ptype,iproc) = 0_int32
 
         if (.not. allocated(self%part(ptype,iproc)%pv)) cycle
         if (self%part(ptype,iproc)%n <= 0_int32) cycle
@@ -1228,7 +1252,9 @@ contains
             kq         = self%fld%kq, &
             Nm_species = self%params%Nm(ptype), &
             np_local   = self%np_thread(:,:,:,ptype,iproc), &
-            heat       = heat_loc )
+            heat       = heat_loc, &
+            iz_lo      = self%np_zlo(ptype,iproc), &
+            iz_hi      = self%np_zhi(ptype,iproc) )
         else
           call deposit_particle_set_to_np_thread( &
             part       = self%part(ptype,iproc), &
@@ -1236,7 +1262,17 @@ contains
             h          = self%dom%h, &
             kq         = self%fld%kq, &
             Nm_species = self%params%Nm(ptype), &
-            np_local   = self%np_thread(:,:,:,ptype,iproc) )
+            np_local   = self%np_thread(:,:,:,ptype,iproc), &
+            iz_lo      = self%np_zlo(ptype,iproc), &
+            iz_hi      = self%np_zhi(ptype,iproc) )
+        end if
+
+        ! apply_periodic_density_bc's z-stitching copies between planes
+        ! {1,2,n3,n3+1} and {0,1,n3+1,n3+2}: if this deposit reached
+        ! within two planes of either end, both end blocks may turn nonzero.
+        if (self%np_zlo(ptype,iproc) <= 2_int32 .or. &
+            self%np_zhi(ptype,iproc) >= int(self%dom%n(3), int32)) then
+          self%np_zend(ptype,iproc) = 1_int32
         end if
       end do
       ! One write per thread (no per-particle updates of shared arrays).
@@ -1571,6 +1607,7 @@ contains
     call self%finalize_particles_only()
 
     if (allocated(self%np_thread))    deallocate(self%np_thread)
+    if (allocated(self%np_zlo))       deallocate(self%np_zlo, self%np_zhi, self%np_zend)
     if (allocated(self%sum_q_xz))     deallocate(self%sum_q_xz)
     if (allocated(self%sum_q_yz))     deallocate(self%sum_q_yz)
     if (allocated(self%P_loss))       deallocate(self%P_loss)

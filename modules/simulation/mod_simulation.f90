@@ -282,7 +282,10 @@ contains
       mpi_comm  = self%state%comm, &
       charge    = self%state%chem%charge(1:self%state%ntype), &
       np_red    = self%state%fld%np, &
-      rho       = self%state%fld%rho )
+      rho       = self%state%fld%rho, &
+      zlo       = self%state%np_zlo, &
+      zhi       = self%state%np_zhi, &
+      zend      = self%state%np_zend )
     self%state%np_synced = .false.
     dt1 = MPI_Wtime()
     self%t_dep_reduce = self%t_dep_reduce + (dt1 - dt0)

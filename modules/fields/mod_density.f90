@@ -24,6 +24,7 @@ module mod_density
   public :: reduce_species_density
   public :: reduce_density_and_rho
   public :: sync_species_density
+  public :: clear_np_planes
   public :: build_rho_from_np
   public :: build_rho_from_np_thread
   public :: density_max_per_species
@@ -53,7 +54,7 @@ contains
 
 
   subroutine reduce_density_and_rho(n, bcnd, np_thread, ntype, nproc, mpi_comm, charge, &
-                                    np_red, rho)
+                                    np_red, rho, zlo, zhi, zend)
     ! Per-step path, mirroring legacy calc_rho: rho is built from this
     ! rank's thread sum and only rho (one grid) is MPI-summed. np_red is
     ! left RANK-LOCAL - the caller must run sync_species_density on it
@@ -67,13 +68,17 @@ contains
     real(real64),   intent(in)    :: charge(ntype)
     real(real64),   intent(out)   :: np_red(0:n(1)+2,0:n(2)+2,0:n(3)+2,ntype)
     real(real64),   intent(out)   :: rho(0:n(1)+2,0:n(2)+2,0:n(3)+2)
+    ! Optional per-(ptype,iproc) z-extents of np_thread (see
+    ! np_plane_live); planes outside them are known to be zero and are
+    ! skipped in the sum.
+    integer(int32), intent(in), optional :: zlo(ntype,nproc), zhi(ntype,nproc), zend(ntype,nproc)
 
     integer :: ierr, mpi_size
 
     call MPI_Comm_size(mpi_comm, mpi_size, ierr)
 
     call apply_periodic_density_bc(n, bcnd, np_thread, ntype, nproc)
-    call sum_thread_density(n, np_thread, ntype, nproc, np_red, charge, rho)
+    call sum_thread_density(n, np_thread, ntype, nproc, np_red, charge, rho, zlo, zhi, zend)
 
     if (mpi_size > 1) then
       call MPI_Allreduce(MPI_IN_PLACE, rho, (n(1)+3)*(n(2)+3)*(n(3)+3), &
@@ -98,7 +103,7 @@ contains
   end subroutine sync_species_density
 
 
-  subroutine sum_thread_density(n, np_thread, ntype, nproc, np_red, charge, rho)
+  subroutine sum_thread_density(n, np_thread, ntype, nproc, np_red, charge, rho, zlo, zhi, zend)
     ! np_red = sum over iproc of np_thread on interior points 1..n+1,
     ! zero on the ghost shell. If charge/rho are present, also
     ! rho = -sum_s charge(s)*np_red(s) (same operation order as
@@ -113,11 +118,13 @@ contains
     real(real64),   intent(out) :: np_red(0:n(1)+2,0:n(2)+2,0:n(3)+2,ntype)
     real(real64),   intent(in),  optional :: charge(ntype)
     real(real64),   intent(out), optional :: rho(0:n(1)+2,0:n(2)+2,0:n(3)+2)
+    integer(int32), intent(in),  optional :: zlo(ntype,nproc), zhi(ntype,nproc), zend(ntype,nproc)
 
     integer :: ix, iy, iz, ptype, iproc, nx1
-    logical :: do_rho
+    logical :: do_rho, ranged
 
     do_rho = present(rho) .and. present(charge)
+    ranged = present(zlo) .and. present(zhi) .and. present(zend)
     nx1 = n(1) + 1
 
     !$omp parallel do collapse(2) private(iy,iz,ix,ptype,iproc) schedule(static) default(shared)
@@ -134,10 +141,16 @@ contains
         do ptype = 1, ntype
           np_red(0,iy,iz,ptype)      = 0.0_real64
           np_red(nx1+1,iy,iz,ptype)  = 0.0_real64
+          ! Start from zero and add only live planes. Bit-identical to the
+          ! full sum: every skipped term is exactly 0, and x + 0 == x.
           do ix = 1, nx1
-            np_red(ix,iy,iz,ptype) = np_thread(ix,iy,iz,ptype,1)
+            np_red(ix,iy,iz,ptype) = 0.0_real64
           end do
-          do iproc = 2, nproc
+          do iproc = 1, nproc
+            if (ranged) then
+              if (.not. np_plane_live(iz, zlo(ptype,iproc), zhi(ptype,iproc), &
+                                      zend(ptype,iproc), n(3))) cycle
+            end if
             do ix = 1, nx1
               np_red(ix,iy,iz,ptype) = np_red(ix,iy,iz,ptype) + np_thread(ix,iy,iz,ptype,iproc)
             end do
@@ -160,6 +173,34 @@ contains
     end do
     !$omp end parallel do
   end subroutine sum_thread_density
+
+
+  pure logical function np_plane_live(iz, lo, hi, zend, n3) result(live)
+    ! True if plane iz of an np_thread slice may be nonzero, given its
+    ! tracked extent: planes lo..hi, plus the end blocks 0:2 and n3:n3+2
+    ! when zend /= 0 (what apply_periodic_density_bc's z-stitching can
+    ! write when the deposit reached near either end).
+    integer, intent(in)        :: iz
+    integer(int32), intent(in) :: lo, hi, zend, n3
+
+    live = (iz >= lo .and. iz <= hi)
+    if (.not. live .and. zend /= 0_int32) live = (iz <= 2 .or. iz >= n3)
+  end function np_plane_live
+
+
+  subroutine clear_np_planes(np_local, n, lo, hi, zend)
+    ! Zero exactly the planes np_plane_live reports for (lo,hi,zend),
+    ! leaving the whole slice zero (everything else already was).
+    integer(int32), intent(in)    :: n(3)
+    real(real64),   intent(inout) :: np_local(0:n(1)+2,0:n(2)+2,0:n(3)+2)
+    integer(int32), intent(in)    :: lo, hi, zend
+
+    integer :: iz
+
+    do iz = 0, n(3)+2
+      if (np_plane_live(iz, lo, hi, zend, n(3))) np_local(:,:,iz) = 0.0_real64
+    end do
+  end subroutine clear_np_planes
 
 
   subroutine build_rho_from_np(n, np_red, charge, ntype, rho, bcnd, flag_pbc)

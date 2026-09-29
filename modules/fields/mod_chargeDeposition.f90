@@ -38,12 +38,15 @@ contains
   end subroutine clear_np_thread
 
 
-  subroutine deposit_particle_set_to_np_thread(part, n, h, kq, Nm_species, np_local, heat)
+  subroutine deposit_particle_set_to_np_thread(part, n, h, kq, Nm_species, np_local, heat, &
+                                               iz_lo, iz_hi)
     ! Fast production version of charge deposition.
     ! Same deposition convention as the previous modular code, but the
     ! expensive debug/error guards are compile-time disabled by default.
     ! If heat is present, also tallies live particles in the heating
     ! region into heat%Nh/heat%sum_dEk (see HeatRegionTally).
+    ! If iz_lo/iz_hi are present, returns the range of z-planes this call
+    ! wrote into np_local (iz_lo > iz_hi if it wrote nothing).
     type(ParticleSet), intent(in)    :: part
     integer(int32),     intent(in)    :: n(3)
     real(real64),       intent(in)    :: h(3)
@@ -51,6 +54,9 @@ contains
     real(real64),       intent(in)    :: Nm_species
     real(real64),       intent(inout) :: np_local(0:n(1)+2,0:n(2)+2,0:n(3)+2)
     type(HeatRegionTally), intent(inout), optional :: heat
+    integer(int32),     intent(out),   optional :: iz_lo, iz_hi
+
+    integer(int32) :: zlo_loc, zhi_loc
 
     logical        :: do_heat, in_heat
     integer(int32) :: ixh, hixl, hixr, hcirc, hahp, nh_loc
@@ -65,6 +71,11 @@ contains
     real(real64)   :: w1, w2, w3, w4, w5, w6, w7, w8
     real(real64)   :: xmax_loc, ymax_loc, zmax_loc
     logical        :: has_dead
+
+    if (present(iz_lo)) iz_lo = huge(1_int32)
+    if (present(iz_hi)) iz_hi = -huge(1_int32)
+    zlo_loc = huge(1_int32)
+    zhi_loc = -huge(1_int32)
 
     if (.not. allocated(part%pv)) return
     if (part%n <= 0_int32) return
@@ -147,6 +158,8 @@ contains
       ix = int(x / h(1), int32) + 1_int32
       iy = int(y / h(2), int32) + 1_int32
       iz = int(z / h(3), int32) + 1_int32
+      zlo_loc = min(zlo_loc, iz)
+      zhi_loc = max(zhi_loc, iz + 1_int32)
 
       if (DEPOSITION_SAFETY_CHECKS) then
         if (ix < 1_int32 .or. ix > n(1)+1_int32 .or. &
@@ -187,6 +200,9 @@ contains
       np_local(ix+1,iy+1,iz+1) = np_local(ix+1,iy+1,iz+1) + kq(ix+1,iy+1,iz+1) * w7
       np_local(ix  ,iy+1,iz+1) = np_local(ix  ,iy+1,iz+1) + kq(ix  ,iy+1,iz+1) * w8
     end do
+
+    if (present(iz_lo)) iz_lo = zlo_loc
+    if (present(iz_hi)) iz_hi = zhi_loc
 
     if (do_heat) then
       heat%Nh      = heat%Nh + nh_loc
