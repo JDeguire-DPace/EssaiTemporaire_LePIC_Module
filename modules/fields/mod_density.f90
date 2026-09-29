@@ -29,10 +29,6 @@ module mod_density
   public :: density_max_per_species
   public :: average_species_density
 
-  ! TEMPORARY diagnostic: split of the density reduction's wall time.
-  real(real64), public :: t_red_bc = 0.0_real64, t_red_zero = 0.0_real64
-  real(real64), public :: t_red_sum = 0.0_real64, t_red_mpi = 0.0_real64
-
 contains
 
   subroutine reduce_species_density(n, bcnd, np_thread, ntype, nproc, mpi_comm, np_red)
@@ -73,22 +69,16 @@ contains
     real(real64),   intent(out)   :: rho(0:n(1)+2,0:n(2)+2,0:n(3)+2)
 
     integer :: ierr, mpi_size
-    real(real64) :: tq0, tq1
 
     call MPI_Comm_size(mpi_comm, mpi_size, ierr)
 
-    tq0 = MPI_Wtime()
     call apply_periodic_density_bc(n, bcnd, np_thread, ntype, nproc)
-    tq1 = MPI_Wtime(); t_red_bc = t_red_bc + (tq1-tq0); tq0 = tq1
-
     call sum_thread_density(n, np_thread, ntype, nproc, np_red, charge, rho)
-    tq1 = MPI_Wtime(); t_red_sum = t_red_sum + (tq1-tq0); tq0 = tq1
 
     if (mpi_size > 1) then
       call MPI_Allreduce(MPI_IN_PLACE, rho, (n(1)+3)*(n(2)+3)*(n(3)+3), &
           MPI_DOUBLE_PRECISION, MPI_SUM, mpi_comm, ierr)
     end if
-    tq1 = MPI_Wtime(); t_red_mpi = t_red_mpi + (tq1-tq0)
   end subroutine reduce_density_and_rho
 
 

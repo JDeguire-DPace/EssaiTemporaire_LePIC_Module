@@ -3,8 +3,7 @@ module mod_simulation
 
   use mod_state,                 only: State, advance_particles_local
   use mod_density,               only: reduce_species_density, reduce_density_and_rho, &
-                                       build_rho_from_np, average_species_density, &
-                                       t_red_bc, t_red_zero, t_red_sum, t_red_mpi
+                                       build_rho_from_np, average_species_density
   use mod_restart,               only: write_restart_modular
   use mod_injection,             only: inject_particles_volume, inject_flux_particles
   use mod_PoissonSolver_legacy,  only: solve_poisson_legacy, print_poisson_breakdown, reset_poisson_breakdown
@@ -71,15 +70,6 @@ module mod_simulation
     real(real64) :: t_dep_clear  = 0.0_real64
     real(real64) :: t_dep_loop   = 0.0_real64
     real(real64) :: t_dep_reduce = 0.0_real64
-
-    ! TEMPORARY diagnostic: wall time of phases that fall between the
-    ! top-level timers above (electron heating + Nh/sum_dEk tally, volume +
-    ! flux injection) and the outer wall time of advance_particles_local
-    ! (t_mover is built from its internal per-thread max timers, so fork/
-    ! join and anything outside those is otherwise invisible).
-    real(real64) :: t_heat       = 0.0_real64
-    real(real64) :: t_inj        = 0.0_real64
-    real(real64) :: t_mover_wall = 0.0_real64
 
     ! Min/avg across iproc of t_mover_push/t_dep_loop (t_mover_push and
     ! t_dep_loop above already hold the max across iproc, since that's what
@@ -730,7 +720,6 @@ contains
     !   [OMP]         reset Nh/sum_dEk; call eheating(vt); push; deposit
     ! In modular the deposit/accumulation stays after BC (below), but the
     ! vt computation and heating application happen here, before the push.
-    t0 = MPI_Wtime()
     if (self%state%cfg%Pabs > 0.0_real64 .and. self%state%cfg%flag_heat == 1) then
       if (self%state%params%nb_step_heating > 0_int32) then
         if (mod(istep, self%state%params%nb_step_heating) == 0_int32) then
@@ -742,8 +731,6 @@ contains
         end if
       end if
     end if
-    t1 = MPI_Wtime()
-    self%t_heat = self%t_heat + (t1 - t0)
 
     ! EXPERIMENTAL (SORT_EVERY_STEP): see flag declaration above. Sorts
     ! immediately before the fused push+deposit region below, on whatever
@@ -775,7 +762,6 @@ contains
                                   t_deposit_min_dbg, t_deposit_avg_dbg, &
                                   n_boris_used_dbg, n_boris_total_dbg)
     t1 = MPI_Wtime()
-    self%t_mover_wall  = self%t_mover_wall  + (t1 - t0)
     self%n_boris_used  = self%n_boris_used  + n_boris_used_dbg
     self%n_boris_total = self%n_boris_total + n_boris_total_dbg
     self%t_mover_push = self%t_mover_push + t_move_dbg
@@ -841,7 +827,6 @@ contains
 
     ! Volume particle injection (legacy: part_injection, inside OMP per iproc)
     ! Fires every step when flag_inj==1 (ns_inj=1 hardcoded, same as legacy).
-    t0 = MPI_Wtime()
     if (self%state%cfg%flag_inj == 1_int32) then
       !$omp parallel do private(iproc_h) schedule(static)
       do iproc_h = 1, self%state%nproc
@@ -919,9 +904,6 @@ contains
         mom_loss     = self%state%mom_loss )
       self%state%N_flx = 0_int32
     end if
-
-    t1 = MPI_Wtime()
-    self%t_inj = self%t_inj + (t1 - t0)
 
     ! Output/write
     t0 = MPI_Wtime()
@@ -1376,15 +1358,6 @@ contains
         "  dep_clear(ms)=",  1000.0_real64*self%t_dep_clear/real(self%t_count,real64), &
         "  dep_loop(ms)=",   1000.0_real64*self%t_dep_loop/real(self%t_count,real64), &
         "  dep_reduce(ms)=", 1000.0_real64*self%t_dep_reduce/real(self%t_count,real64)
-      write(*,'(a,f8.2,a,f8.2,a,f8.2)') &
-        "  mover_wall(ms)=", 1000.0_real64*self%t_mover_wall/real(self%t_count,real64), &
-        "  heat(ms)=",       1000.0_real64*self%t_heat/real(self%t_count,real64), &
-        "  inj(ms)=",        1000.0_real64*self%t_inj/real(self%t_count,real64)
-      write(*,'(a,f8.2,a,f8.2,a,f8.2,a,f8.2)') &
-        "  red_bc(ms)=",   1000.0_real64*t_red_bc/real(self%t_count,real64), &
-        "  red_zero(ms)=", 1000.0_real64*t_red_zero/real(self%t_count,real64), &
-        "  red_sum(ms)=",  1000.0_real64*t_red_sum/real(self%t_count,real64), &
-        "  red_mpi(ms)=",  1000.0_real64*t_red_mpi/real(self%t_count,real64)
 
       ! OMP load-imbalance check across iproc: min/avg/max of the same
       ! per-thread timings mover_push(ms)/dep_loop(ms) above already
@@ -1475,11 +1448,6 @@ contains
     self%t_dep_clear  = 0.0_real64
     self%t_dep_loop   = 0.0_real64
     self%t_dep_reduce = 0.0_real64
-    self%t_heat       = 0.0_real64
-    self%t_inj        = 0.0_real64
-    self%t_mover_wall = 0.0_real64
-    t_red_bc = 0.0_real64; t_red_zero = 0.0_real64
-    t_red_sum = 0.0_real64; t_red_mpi = 0.0_real64
     self%t_mover_push_min = 0.0_real64
     self%t_mover_push_avg = 0.0_real64
     self%t_dep_loop_min   = 0.0_real64
