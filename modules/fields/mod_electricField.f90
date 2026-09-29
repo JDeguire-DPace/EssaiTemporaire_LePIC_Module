@@ -16,7 +16,13 @@ contains
 
     integer :: ix, iy, iz
 
-    E = 0.0_real64
+    ! Parallel zero (60 MB at ITER size; was a single-threaded array
+    ! assignment in front of the already-parallel loops below).
+    !$omp parallel do private(iz) schedule(static)
+    do iz = 0, n(3)+2
+      E(:,:,:,iz) = 0.0_real64
+    end do
+    !$omp end parallel do
 
     !
     ! Interior points

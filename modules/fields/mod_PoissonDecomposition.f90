@@ -117,7 +117,7 @@ contains
     real(real64), intent(in) :: phi(0:,0:,0:)
     integer,      intent(in) :: bcnd(0:,0:,0:)
 
-    integer :: iz0, iz1
+    integer :: iz0, iz1, k
 
     iz0 = self%k0
     iz1 = self%k0 + self%m + 2
@@ -129,8 +129,13 @@ contains
       error stop
     end if
 
-    self%phi_dom(:,:,0:self%m+2)  = phi(:,:,iz0:iz1)
-    self%bcnd_dom(:,:,0:self%m+2) = int(bcnd(:,:,iz0:iz1), int32)
+    ! Plane-parallel copies (were single-threaded array assignments).
+    !$omp parallel do private(k) schedule(static)
+    do k = 0, self%m+2
+      self%phi_dom(:,:,k)  = phi(:,:,iz0+k)
+      self%bcnd_dom(:,:,k) = int(bcnd(:,:,iz0+k), int32)
+    end do
+    !$omp end parallel do
   end subroutine scatter_from_global
 
 
@@ -140,7 +145,7 @@ contains
     class(PoissonDecomp), intent(inout) :: self
     real(real64), intent(in) :: rhs(0:,0:,0:)
 
-    integer :: iz0, iz1
+    integer :: iz0, iz1, k
 
     iz0 = self%k0
     iz1 = self%k0 + self%m + 1
@@ -152,7 +157,11 @@ contains
       error stop
     end if
 
-    self%rhs_dom(:,:,0:self%m+1) = rhs(:,:,iz0:iz1)
+    !$omp parallel do private(k) schedule(static)
+    do k = 0, self%m+1
+      self%rhs_dom(:,:,k) = rhs(:,:,iz0+k)
+    end do
+    !$omp end parallel do
   end subroutine scatter_rhs_from_global
 
 
