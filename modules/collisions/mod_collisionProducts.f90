@@ -253,6 +253,10 @@ contains
       p%pv(6,ip) = p%pv(6,p%n)
     end if
 
+    ! Vacated slot: clear its flags (slots past n are kept zeroed).
+    if (allocated(p%flag_dead)) p%flag_dead(p%n) = 0
+    if (allocated(p%flag_cex))  p%flag_cex(p%n)  = 0_int32
+
     p%n = p%n - 1_int32
 
   end subroutine mark_particle_dead

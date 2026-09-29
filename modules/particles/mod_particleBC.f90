@@ -305,16 +305,20 @@ contains
     part%n = part%n - np_lost
     if (part%n < 0_int32) part%n = 0_int32
 
+    ! Keep the invariant "slots past n have zeroed flags" by clearing only
+    ! the np_lost slots compaction just vacated. This used to zero the
+    ! whole spare capacity plus cell_id/cell_count/cell_start (~19 MB of
+    ! ncells-sized arrays per species per iproc) on every call - pure
+    ! memory-bandwidth cost that dominated the push at high thread counts
+    ! and is why it barely gained from hyperthreading. The cell lists are
+    ! only read by collisions, right after sort_particles_local rebuilds
+    ! them, so invalidating them here bought nothing.
     if (allocated(part%flag_dead)) then
-      if (part%n < part%nmax) part%flag_dead(part%n+1:part%nmax) = 0_int8
+      part%flag_dead(part%n+1:min(part%nmax, part%n+np_lost)) = 0_int8
     end if
     if (allocated(part%flag_cex)) then
-      if (part%n < part%nmax) part%flag_cex(part%n+1:part%nmax) = 0_int32
+      part%flag_cex(part%n+1:min(part%nmax, part%n+np_lost)) = 0_int32
     end if
-
-    if (allocated(part%cell_id))    part%cell_id    = 0_int32
-    if (allocated(part%cell_count)) part%cell_count = 0_int32
-    if (allocated(part%cell_start)) part%cell_start = 0_int32
 
   end subroutine apply_particle_bc
 

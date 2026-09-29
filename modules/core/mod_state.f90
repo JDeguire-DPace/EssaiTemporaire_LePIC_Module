@@ -22,7 +22,7 @@ module mod_state
   use mod_particles,      only: ParticleSet
   use mod_particle_loader,  only: load_particles_modular
   use mod_restart,          only: restart_particles_modular
-  use mod_particle_sorting, only: sort_particles_by_cell, check_particles_are_sorted, check_cell_indexing
+  use mod_particle_sorting, only: sort_particles_by_cell, redistribute_species_by_cell, check_particles_are_sorted, check_cell_indexing
   use mod_particleMover,    only: move_and_bc_electrostatic, move_and_bc_electrostatic_fast, &
                                    move_and_bc_boris, move_and_bc_boris_fast
   use mod_particleBC,       only: apply_particle_bc, SeeParams
@@ -473,24 +473,22 @@ contains
 
     if (.not. allocated(self%part)) return
 
-    ! Parallel over iproc only, each thread sorting every species of its
-    ! own iproc - same ownership as the mover, so a thread sorts memory
-    ! it first-touched (NUMA-local) and load follows the per-iproc
-    ! particle balance. The previous collapse(2) over (ptype,iproc) with
-    ! static chunks handed whole runs of electron sets (~half of all
-    ! particles) to the first few threads: ~2.4x max/avg at 2x16.
-    !$omp parallel do private(ptype,iproc,ok_sorted,ok_cells) schedule(static)
-    do iproc = 1, self%nproc
+    ! Global per-species sort + redistribution: each iproc ends up with a
+    ! contiguous run of cells (a z-slab), as in legacy part_sorting. This
+    ! replaced a per-iproc sort that left every thread's particles spread
+    ! over the whole domain, so every thread's field gathers and deposit
+    ! swept the full E/B/np grids - see redistribute_species_by_cell.
+    do ptype = 1, self%ntype
+      call redistribute_species_by_cell(self%part(ptype,:), int(self%dom%n, int32), &
+                                        self%dom%h, ptype)
+    end do
+
+    if (VALIDATE_SORTING) then
       do ptype = 1, self%ntype
-        if (.not. allocated(self%part(ptype,iproc)%pv)) cycle
-        if (self%part(ptype,iproc)%n <= 1_int32) cycle
+        do iproc = 1, self%nproc
+          if (.not. allocated(self%part(ptype,iproc)%pv)) cycle
+          if (self%part(ptype,iproc)%n <= 1_int32) cycle
 
-        call sort_particles_by_cell( &
-             part = self%part(ptype,iproc), &
-             n    = int(self%dom%n, int32), &
-             h    = self%dom%h )
-
-        if (VALIDATE_SORTING) then
           ok_sorted = check_particles_are_sorted(self%part(ptype,iproc))
           if (.not. ok_sorted) then
             write(*,'(a,3(i0,1x))') 'Sorting failed on rank, ptype, iproc = ', &
@@ -504,9 +502,9 @@ contains
                  self%mpi_rank, ptype, iproc
             error stop 'mod_state%sort_particles_local: cell indexing failed'
           end if
-        end if
+        end do
       end do
-    end do
+    end if
   end subroutine sort_particles_local
 
 

@@ -5,6 +5,7 @@ module mod_particle_sorting
   private
 
   public :: sort_particles_by_cell
+  public :: redistribute_species_by_cell
   public :: compute_particle_cell_ids
   public :: cell_index_from_position
   public :: check_particles_are_sorted
@@ -68,6 +69,17 @@ module mod_particle_sorting
 
   !$omp threadprivate(scratch_cap, cell_scratch_cap, next_slot, cell_id_new, &
   !$omp                staging, flag_dead_new, flag_cex_new)
+
+  ! --- shared (NOT threadprivate) scratch for redistribute_species_by_cell
+  ! One staging buffer for a whole species across all iproc, plus per-cell
+  ! global counts/starts. Grow-only, like the per-thread buffers above.
+  integer(int32), save :: gscratch_cap = 0_int32
+  integer(int32), save :: gcell_cap    = 0_int32
+  type(RealFields7), allocatable, save :: gstage(:)
+  integer(int32),    allocatable, save :: gcell(:)
+  integer(int8),     allocatable, save :: gdead(:)
+  integer(int32),    allocatable, save :: gcex(:)
+  integer(int32),    allocatable, save :: gstart(:)
 
 contains
 
@@ -253,6 +265,168 @@ contains
     part%flag_cex(1:np)  = flag_cex_new(1:np)
 
   end subroutine sort_particles_by_cell
+
+
+  subroutine redistribute_species_by_cell(parts, n, h, species_id)
+    !=============================================================
+    ! Global counting sort of ONE species across all iproc, then deal
+    ! the sorted particles back out in contiguous, equal-size chunks:
+    ! iproc k gets global positions (k-1)*chunk+1 .. k*chunk. Since the
+    ! cell index runs x fastest, then y, then z, each iproc ends up
+    ! owning a thin z-slab of the domain - same as legacy part_sorting
+    ! (Src/sorting.f90). A thread's field gathers (mover) and charge
+    ! scatter (deposit) then touch only its slab of E/B/np instead of
+    ! the whole grid, which keeps them in L2 and is what lets legacy's
+    ! push scale ~2x with hyperthreading.
+    !
+    ! On exit each parts(k) is sorted by cell with valid cell_id,
+    ! cell_count and cell_start (as after sort_particles_by_cell), and
+    ! per-species counts per iproc are balanced to within one particle.
+    !
+    ! Must be called OUTSIDE any parallel region (opens its own).
+    !=============================================================
+    type(ParticleSet), intent(inout) :: parts(:)
+    integer(int32),    intent(in)    :: n(3)
+    real(real64),      intent(in)    :: h(3)
+    integer(int32),    intent(in)    :: species_id
+
+    integer(int32) :: nproc, ncells, ntot, chunk
+    integer(int32) :: p, ic, i, g, g0, g1, m, acc, n_old
+
+    nproc  = size(parts)
+    ncells = n(1) * n(2) * n(3)
+
+    ntot = 0_int32
+    do p = 1, nproc
+      if (allocated(parts(p)%pv)) ntot = ntot + max(0_int32, parts(p)%n)
+    end do
+    if (ntot <= 0_int32) return
+
+    chunk = (ntot + nproc - 1_int32) / nproc
+
+    if (ntot > gscratch_cap) then
+      if (allocated(gstage)) deallocate(gstage, gcell, gdead, gcex)
+      gscratch_cap = max(ntot, 2_int32*gscratch_cap)
+      allocate(gstage(gscratch_cap), gcell(gscratch_cap), &
+               gdead(gscratch_cap), gcex(gscratch_cap))
+    end if
+    if (ncells > gcell_cap) then
+      if (allocated(gstart)) deallocate(gstart)
+      allocate(gstart(ncells))
+      gcell_cap = ncells
+    end if
+
+    ! 1. Per-iproc cell ids and per-cell counts (cell_start from this is
+    !    overwritten below).
+    !$omp parallel do private(p) schedule(static)
+    do p = 1, nproc
+      if (allocated(parts(p)%pv)) then
+        call compute_particle_cell_ids(parts(p), n, h)
+      else
+        call parts(p)%ensure_cell_storage(ncells)
+        parts(p)%cell_count = 0_int32
+      end if
+    end do
+    !$omp end parallel do
+
+    ! 2. Global per-cell totals, then exclusive prefix -> global start.
+    !$omp parallel do private(ic,p,acc) schedule(static)
+    do ic = 1, ncells
+      acc = 0_int32
+      do p = 1, nproc
+        acc = acc + parts(p)%cell_count(ic)
+      end do
+      gstart(ic) = acc
+    end do
+    !$omp end parallel do
+
+    acc = 1_int32
+    do ic = 1, ncells
+      g = gstart(ic)
+      gstart(ic) = acc
+      acc = acc + g
+    end do
+
+    ! 3. Per-(cell,iproc) write cursors, stored in each set's cell_start
+    !    (rebuilt in step 6). iproc order within a cell keeps the result
+    !    independent of thread scheduling.
+    !$omp parallel do private(ic,p,acc) schedule(static)
+    do ic = 1, ncells
+      acc = gstart(ic)
+      do p = 1, nproc
+        parts(p)%cell_start(ic) = acc
+        acc = acc + parts(p)%cell_count(ic)
+      end do
+    end do
+    !$omp end parallel do
+
+    ! 4. Scatter every particle to its global sorted slot. Each iproc owns
+    !    its cursors, so no atomics are needed.
+    !$omp parallel do private(p,i,ic,g) schedule(static)
+    do p = 1, nproc
+      if (.not. allocated(parts(p)%pv)) cycle
+      do i = 1, parts(p)%n
+        ic = parts(p)%cell_id(i)
+        g  = parts(p)%cell_start(ic)
+        parts(p)%cell_start(ic) = g + 1_int32
+
+        gstage(g)%x  = parts(p)%pv(1,i)
+        gstage(g)%y  = parts(p)%pv(2,i)
+        gstage(g)%z  = parts(p)%pv(3,i)
+        gstage(g)%vx = parts(p)%pv(4,i)
+        gstage(g)%vy = parts(p)%pv(5,i)
+        gstage(g)%vz = parts(p)%pv(6,i)
+        gstage(g)%w  = parts(p)%w(i)
+        gcell(g) = ic
+        gdead(g) = parts(p)%flag_dead(i)
+        gcex(g)  = parts(p)%flag_cex(i)
+      end do
+    end do
+    !$omp end parallel do
+
+    ! 5+6. Each iproc copies in its own contiguous chunk (so it first-
+    !      touches its own memory) and rebuilds its cell_count/cell_start.
+    !$omp parallel do private(p,g0,g1,m,i,g,ic,n_old) schedule(static)
+    do p = 1, nproc
+      g0 = (p - 1_int32) * chunk + 1_int32
+      g1 = min(p * chunk, ntot)
+      m  = max(0_int32, g1 - g0 + 1_int32)
+
+      n_old = 0_int32
+      if (allocated(parts(p)%pv)) n_old = parts(p)%n
+      call parts(p)%ensure_capacity(m)
+      parts(p)%n = m
+      ! Slots this set vacates keep zeroed flags (invariant for slots > n).
+      if (n_old > m) then
+        parts(p)%flag_dead(m+1:n_old) = 0_int8
+        parts(p)%flag_cex(m+1:n_old)  = 0_int32
+      end if
+
+      parts(p)%cell_count = 0_int32
+      do i = 1, m
+        g = g0 + i - 1_int32
+        parts(p)%pv(1,i) = gstage(g)%x
+        parts(p)%pv(2,i) = gstage(g)%y
+        parts(p)%pv(3,i) = gstage(g)%z
+        parts(p)%pv(4,i) = gstage(g)%vx
+        parts(p)%pv(5,i) = gstage(g)%vy
+        parts(p)%pv(6,i) = gstage(g)%vz
+        parts(p)%w(i)    = gstage(g)%w
+        parts(p)%sp(i)   = species_id
+        ic = gcell(g)
+        parts(p)%cell_id(i)   = ic
+        parts(p)%flag_dead(i) = gdead(g)
+        parts(p)%flag_cex(i)  = gcex(g)
+        parts(p)%cell_count(ic) = parts(p)%cell_count(ic) + 1_int32
+      end do
+
+      parts(p)%cell_start(1) = 1_int32
+      do ic = 2, ncells
+        parts(p)%cell_start(ic) = parts(p)%cell_start(ic-1) + parts(p)%cell_count(ic-1)
+      end do
+    end do
+    !$omp end parallel do
+  end subroutine redistribute_species_by_cell
 
   logical function check_particles_are_sorted(part) result(ok)
     !=============================================================
