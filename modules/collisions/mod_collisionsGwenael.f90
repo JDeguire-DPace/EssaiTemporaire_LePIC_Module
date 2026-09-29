@@ -79,6 +79,7 @@ module mod_collisionsGwenael
   use iso_fortran_env,          only: int32, int8, real64
   use mod_particles,            only: ParticleSet
   use mod_RNG,                  only: ran2, load_gauss
+  use omp_lib,                  only: omp_get_max_threads
   use mod_collisionDiagnostics, only: count_rxn, init_debug_diagnostics, record_np_mx, &
                                        record_target_search, record_npt
 
@@ -880,23 +881,50 @@ contains
     integer(int32),    intent(out) :: total_cell_count(ncells,ntype_tracked)
     integer(int32),    intent(out) :: first_proc(ncells,ntype_tracked)
 
-    integer(int32) :: s, jproc
+    integer(int32) :: s, jproc, nblk, b, b0, b1, i0, i1
+    integer(int32) :: clo(ntype_tracked,nproc), chi(ntype_tracked,nproc)
 
-    total_cell_count = 0_int32
-    first_proc       = 0_int32
-
+    ! Each set's cell_count is zero outside cell_lo..cell_hi (see
+    ! ParticleSet); after the per-species redistribution that range is one
+    ! z-slab. Reading only inside it - and running over cells in parallel -
+    ! replaces a serial ntype*nproc*ncells whole-array pass. Same result:
+    ! same sums, and first_proc is still the lowest jproc with a particle.
     do s = 1_int32, ntype_tracked
       do jproc = 1_int32, nproc
+        clo(s,jproc) = 1_int32
+        chi(s,jproc) = 0_int32
         if (.not. allocated(part(s,jproc)%pv)) cycle
         if (.not. allocated(part(s,jproc)%cell_count)) cycle
         if (size(part(s,jproc)%cell_count) < ncells) cycle
-
-        total_cell_count(:,s) = total_cell_count(:,s) + part(s,jproc)%cell_count(1:ncells)
-        where (first_proc(:,s) == 0_int32 .and. part(s,jproc)%cell_count(1:ncells) > 0_int32)
-          first_proc(:,s) = jproc
-        end where
+        clo(s,jproc) = max(1_int32, part(s,jproc)%cell_lo)
+        chi(s,jproc) = min(ncells, part(s,jproc)%cell_hi)
       end do
     end do
+
+    ! Parallel over contiguous cell blocks, each adding every set's
+    ! overlapping slice in jproc order (contiguous array sections). A
+    ! per-cell loop over jproc here would be outer-loop-vectorized by ifx
+    ! 2025.0 into an AVX-512 gather that faults SIGILL - see
+    ! redistribute_species_by_cell.
+    nblk = max(1_int32, min(ncells, 8_int32*int(omp_get_max_threads(), int32)))
+    !$omp parallel do private(b,b0,b1,s,jproc,i0,i1) schedule(static)
+    do b = 1_int32, nblk
+      b0 = int((int(ncells,8)*(b-1))/nblk, int32) + 1_int32
+      b1 = int((int(ncells,8)*b)/nblk, int32)
+      do s = 1_int32, ntype_tracked
+        total_cell_count(b0:b1,s) = 0_int32
+        first_proc(b0:b1,s)       = 0_int32
+        do jproc = 1_int32, nproc
+          i0 = max(b0, clo(s,jproc)); i1 = min(b1, chi(s,jproc))
+          if (i0 > i1) cycle
+          total_cell_count(i0:i1,s) = total_cell_count(i0:i1,s) + part(s,jproc)%cell_count(i0:i1)
+          where (first_proc(i0:i1,s) == 0_int32 .and. part(s,jproc)%cell_count(i0:i1) > 0_int32)
+            first_proc(i0:i1,s) = jproc
+          end where
+        end do
+      end do
+    end do
+    !$omp end parallel do
   end subroutine precompute_cell_target_info
 
 

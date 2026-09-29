@@ -27,6 +27,11 @@ module mod_particles
     integer(int32), allocatable :: cell_count(:)  ! size ncells
     integer(int32), allocatable :: cell_start(:)  ! size ncells
     integer(int32) :: ncells = 0
+    ! cell_count/cell_start are zero outside cells cell_lo..cell_hi (empty
+    ! when cell_lo > cell_hi). Lets the sort and the collision setup touch
+    ! only the cell range a set actually occupies - after the per-species
+    ! redistribution that is one z-slab - instead of all ncells.
+    integer(int32) :: cell_lo = 1, cell_hi = 0
 
     ! Collision-related per-particle flags
     integer(int8),  allocatable :: flag_dead(:)   ! size nmax
@@ -149,6 +154,8 @@ contains
 
     self%cell_count = 0_int32
     self%cell_start = 0_int32
+    self%cell_lo = 1_int32
+    self%cell_hi = 0_int32
   end subroutine ensure_cell_storage
 
 
@@ -199,6 +206,8 @@ contains
 
     if (allocated(self%cell_count)) self%cell_count = 0_int32
     if (allocated(self%cell_start)) self%cell_start = 0_int32
+    self%cell_lo = 1_int32
+    self%cell_hi = 0_int32
   end subroutine clear
 
 

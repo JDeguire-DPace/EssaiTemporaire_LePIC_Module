@@ -1,6 +1,7 @@
 module mod_particle_sorting
   use iso_fortran_env, only: int32, real64, int8
   use mod_particles,   only: ParticleSet
+  use omp_lib,         only: omp_get_max_threads
   implicit none
   private
 
@@ -161,28 +162,50 @@ contains
     integer(int32),     intent(in)    :: n(3)
     real(real64),       intent(in)    :: h(3)
 
-    integer(int32) :: i, ic, ncells
+    integer(int32) :: i, ic, ncells, lo, hi
 
     ncells = n(1) * n(2) * n(3)
 
     call part%ensure_cell_storage(ncells)
 
-    part%cell_count = 0_int32
-    part%cell_start = 0_int32
+    ! Only cells cell_lo..cell_hi can be nonzero (see ParticleSet).
+    call clear_cell_range(part)
 
     if (part%n <= 0_int32) return
 
+    lo = huge(1_int32)
+    hi = 0_int32
     do i = 1, part%n
       ic = cell_index_from_position(part%pv(1,i), part%pv(2,i), part%pv(3,i), h, n)
       part%cell_id(i)     = ic
       part%cell_count(ic) = part%cell_count(ic) + 1_int32
+      lo = min(lo, ic)
+      hi = max(hi, ic)
     end do
+    part%cell_lo = lo
+    part%cell_hi = hi
 
-    part%cell_start(1) = 1_int32
-    do ic = 2, ncells
+    ! cell_start is only meaningful where cell_count > 0; outside the
+    ! occupied range it stays 0.
+    part%cell_start(lo) = 1_int32
+    do ic = lo+1, hi
       part%cell_start(ic) = part%cell_start(ic-1) + part%cell_count(ic-1)
     end do
   end subroutine compute_particle_cell_ids
+
+
+  subroutine clear_cell_range(part)
+    ! Zero cell_count/cell_start over the set's occupied range, leaving
+    ! both all-zero, and mark the range empty.
+    type(ParticleSet), intent(inout) :: part
+
+    if (part%cell_lo <= part%cell_hi) then
+      part%cell_count(part%cell_lo:part%cell_hi) = 0_int32
+      part%cell_start(part%cell_lo:part%cell_hi) = 0_int32
+    end if
+    part%cell_lo = 1_int32
+    part%cell_hi = 0_int32
+  end subroutine clear_cell_range
 
 
   subroutine sort_particles_by_cell(part, n, h)
@@ -292,6 +315,8 @@ contains
 
     integer(int32) :: nproc, ncells, ntot, chunk
     integer(int32) :: p, ic, i, g, g0, g1, m, acc, n_old
+    integer(int32) :: plo(size(parts)), phi(size(parts))
+    integer(int32) :: nblk, b, b0, b1, i0, i1
 
     nproc  = size(parts)
     ncells = n(1) * n(2) * n(3)
@@ -329,33 +354,47 @@ contains
     end do
     !$omp end parallel do
 
+    ! Occupied cell range of each set (from step 1). Sets are only read
+    ! inside their own range - everything outside it is zero.
+    do p = 1, nproc
+      plo(p) = parts(p)%cell_lo
+      phi(p) = parts(p)%cell_hi
+    end do
+
     ! 2. Global per-cell totals, then exclusive prefix -> global start.
-    !$omp parallel do private(ic,p,acc) schedule(static)
-    do ic = 1, ncells
-      acc = 0_int32
+    !    Parallel over contiguous cell blocks; each block adds, in iproc
+    !    order, the part of every set's range that overlaps it. (A per-cell
+    !    loop over p here was outer-loop-vectorized by ifx 2025.0 into an
+    !    AVX-512 gather with dest == index register, which faults SIGILL.)
+    nblk = max(1_int32, min(ncells, 8_int32*int(omp_get_max_threads(), int32)))
+    !$omp parallel do private(b,b0,b1,p,i0,i1) schedule(static)
+    do b = 1, nblk
+      b0 = int((int(ncells,8)*(b-1))/nblk, int32) + 1_int32
+      b1 = int((int(ncells,8)*b)/nblk, int32)
+      gstart(b0:b1) = 0_int32
       do p = 1, nproc
-        acc = acc + parts(p)%cell_count(ic)
+        i0 = max(b0, plo(p)); i1 = min(b1, phi(p))
+        if (i0 <= i1) gstart(i0:i1) = gstart(i0:i1) + parts(p)%cell_count(i0:i1)
       end do
-      gstart(ic) = acc
     end do
     !$omp end parallel do
 
-    acc = 1_int32
-    do ic = 1, ncells
-      g = gstart(ic)
-      gstart(ic) = acc
-      acc = acc + g
-    end do
+    call exclusive_prefix_sum(gstart, ncells)
 
     ! 3. Per-(cell,iproc) write cursors, stored in each set's cell_start
-    !    (rebuilt in step 6). iproc order within a cell keeps the result
-    !    independent of thread scheduling.
-    !$omp parallel do private(ic,p,acc) schedule(static)
-    do ic = 1, ncells
-      acc = gstart(ic)
+    !    (only inside its range; rebuilt in step 6). gstart is advanced in
+    !    place as the running cursor (not needed afterwards); iproc order
+    !    within a cell keeps the result independent of thread scheduling.
+    !$omp parallel do private(b,b0,b1,p,i0,i1) schedule(static)
+    do b = 1, nblk
+      b0 = int((int(ncells,8)*(b-1))/nblk, int32) + 1_int32
+      b1 = int((int(ncells,8)*b)/nblk, int32)
       do p = 1, nproc
-        parts(p)%cell_start(ic) = acc
-        acc = acc + parts(p)%cell_count(ic)
+        i0 = max(b0, plo(p)); i1 = min(b1, phi(p))
+        if (i0 <= i1) then
+          parts(p)%cell_start(i0:i1) = gstart(i0:i1)
+          gstart(i0:i1) = gstart(i0:i1) + parts(p)%cell_count(i0:i1)
+        end if
       end do
     end do
     !$omp end parallel do
@@ -396,13 +435,15 @@ contains
       if (allocated(parts(p)%pv)) n_old = parts(p)%n
       call parts(p)%ensure_capacity(m)
       parts(p)%n = m
+      ! Back to all-zero cell lists (only the step-1 range was touched),
+      ! then rebuild over the new, contiguous range.
+      call clear_cell_range(parts(p))
       ! Slots this set vacates keep zeroed flags (invariant for slots > n).
       if (n_old > m) then
         parts(p)%flag_dead(m+1:n_old) = 0_int8
         parts(p)%flag_cex(m+1:n_old)  = 0_int32
       end if
 
-      parts(p)%cell_count = 0_int32
       do i = 1, m
         g = g0 + i - 1_int32
         parts(p)%pv(1,i) = gstage(g)%x
@@ -420,13 +461,67 @@ contains
         parts(p)%cell_count(ic) = parts(p)%cell_count(ic) + 1_int32
       end do
 
-      parts(p)%cell_start(1) = 1_int32
-      do ic = 2, ncells
-        parts(p)%cell_start(ic) = parts(p)%cell_start(ic-1) + parts(p)%cell_count(ic-1)
-      end do
+      if (m > 0_int32) then
+        ! Chunk is sorted by cell, so its range is first..last cell.
+        parts(p)%cell_lo = gcell(g0)
+        parts(p)%cell_hi = gcell(g1)
+        parts(p)%cell_start(parts(p)%cell_lo) = 1_int32
+        do ic = parts(p)%cell_lo+1, parts(p)%cell_hi
+          parts(p)%cell_start(ic) = parts(p)%cell_start(ic-1) + parts(p)%cell_count(ic-1)
+        end do
+      end if
     end do
     !$omp end parallel do
   end subroutine redistribute_species_by_cell
+
+
+  subroutine exclusive_prefix_sum(a, na)
+    ! In place: a(i) <- 1 + sum(a(1:i-1)) (1-based starts). Blocked so all
+    ! threads share the pass instead of one thread walking all ncells.
+    integer(int32), intent(inout) :: a(:)
+    integer(int32), intent(in)    :: na
+
+    integer(int32), allocatable :: bsum(:)
+    integer(int32) :: nb, b, i, i0, i1, acc, t
+
+    nb = max(1, min(na, 8*omp_get_max_threads()))
+    allocate(bsum(0:nb))
+    bsum = 0_int32
+
+    !$omp parallel do private(b,i,i0,i1,acc) schedule(static)
+    do b = 1, nb
+      i0 = int((int(na,8)*(b-1))/nb, int32) + 1_int32
+      i1 = int((int(na,8)*b)/nb, int32)
+      acc = 0_int32
+      do i = i0, i1
+        acc = acc + a(i)
+      end do
+      bsum(b) = acc
+    end do
+    !$omp end parallel do
+
+    acc = 1_int32
+    do b = 1, nb
+      t = bsum(b)
+      bsum(b) = acc
+      acc = acc + t
+    end do
+
+    !$omp parallel do private(b,i,i0,i1,acc,t) schedule(static)
+    do b = 1, nb
+      i0 = int((int(na,8)*(b-1))/nb, int32) + 1_int32
+      i1 = int((int(na,8)*b)/nb, int32)
+      acc = bsum(b)
+      do i = i0, i1
+        t = a(i)
+        a(i) = acc
+        acc = acc + t
+      end do
+    end do
+    !$omp end parallel do
+
+    deallocate(bsum)
+  end subroutine exclusive_prefix_sum
 
   logical function check_particles_are_sorted(part) result(ok)
     !=============================================================
