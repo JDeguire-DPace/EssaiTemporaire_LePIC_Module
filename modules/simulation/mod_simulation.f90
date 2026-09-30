@@ -802,8 +802,17 @@ contains
 
     ! MC collisions (every nb_step_collisions steps)
     t0 = MPI_Wtime()
+    ! Fires at the END of steps nb, 2*nb, ... (mod == 0). That is the same
+    ! point, on the same density, as legacy's collisions at the START of
+    ! steps nb+1, 2*nb+1, ... (Src/main.f90: MOD(it,ns_coll).eq.1, before
+    ! that step's push). Using mod == 1 here ran them one step later than
+    ! legacy, so a heating step (mod(istep,4)==0) could directly follow a
+    ! collision step and build vt from a heating-region tally taken before
+    ! the collisions changed the electron population: those heating steps
+    ! delivered ~10% more than Pabs (+2..5% on average, and a denser
+    ! plasma than legacy).
     if (self%state%params%nb_step_collisions > 0_int32) then
-      if (mod(istep, self%state%params%nb_step_collisions) == 1_int32) then
+      if (mod(istep, self%state%params%nb_step_collisions) == 0_int32) then
 
         ! Legacy-like: build Plist/cell lists from current post-mover particles
         call self%state%sort_particles_local()
