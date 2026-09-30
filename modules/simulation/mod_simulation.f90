@@ -1,5 +1,5 @@
 module mod_simulation
-  use iso_fortran_env, only: int32, real64, int8
+  use iso_fortran_env, only: int32, real64, int8, int64
 
   use mod_state,                 only: State, advance_particles_local
   use mod_density,               only: reduce_species_density, reduce_density_and_rho, &
@@ -85,8 +85,10 @@ module mod_simulation
     ! Boris rotation vs. hit the negligible-|B| electrostatic fallback,
     ! summed over the steps between diagnostic prints (same
     ! accumulate-then-reset pattern as t_mover_push etc above).
-    integer(int32) :: n_boris_used  = 0_int32
-    integer(int32) :: n_boris_total = 0_int32
+    ! int64: summed over ~all particles x nsav steps, which passes 2**31
+    ! (e.g. ~4.5M electrons/rank x 1000 steps at ITER 8x24).
+    integer(int64) :: n_boris_used  = 0_int64
+    integer(int64) :: n_boris_total = 0_int64
 
     ! Toggles DATA.BAK/ <-> DATA.BAK2/ on each backup write, matching
     ! legacy's flag_wrt (so a crash mid-write never destroys the only
@@ -765,8 +767,8 @@ contains
                                   t_deposit_min_dbg, t_deposit_avg_dbg, &
                                   n_boris_used_dbg, n_boris_total_dbg)
     t1 = MPI_Wtime()
-    self%n_boris_used  = self%n_boris_used  + n_boris_used_dbg
-    self%n_boris_total = self%n_boris_total + n_boris_total_dbg
+    self%n_boris_used  = self%n_boris_used  + int(n_boris_used_dbg, int64)
+    self%n_boris_total = self%n_boris_total + int(n_boris_total_dbg, int64)
     self%t_mover_push = self%t_mover_push + t_move_dbg
     self%t_mover_bc   = self%t_mover_bc   + t_bc_dbg
     self%t_dep_loop   = self%t_dep_loop   + t_deposit_dbg
@@ -1360,7 +1362,7 @@ contains
       ! (mod_particleMover.f90). Only meaningful when the Boris pusher ran
       ! at all this window (n_boris_total==0 otherwise, e.g. an
       ! electrostatic-only case).
-      if (self%n_boris_total > 0_int32) then
+      if (self%n_boris_total > 0_int64) then
         write(*,'(a,i0,a,i0,a,f6.2,a)') &
           "  boris used=", self%n_boris_used, " / ", self%n_boris_total, &
           "  (", 100.0_real64*real(self%n_boris_used,real64)/real(self%n_boris_total,real64), &
@@ -1464,8 +1466,8 @@ contains
     self%t_mover_push_avg = 0.0_real64
     self%t_dep_loop_min   = 0.0_real64
     self%t_dep_loop_avg   = 0.0_real64
-    self%n_boris_used  = 0_int32
-    self%n_boris_total = 0_int32
+    self%n_boris_used  = 0_int64
+    self%n_boris_total = 0_int64
     self%t_bck     = 0.0_real64
     self%t_total   = 0.0_real64
     self%t_count   = 0_int32
