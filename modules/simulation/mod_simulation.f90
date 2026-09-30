@@ -385,6 +385,8 @@ contains
     if (allocated(self%state%sink_avg_xz)) self%state%sink_avg_xz = 0.0_real64
     if (allocated(self%state%sink_avg_yz)) self%state%sink_avg_yz = 0.0_real64
 
+    if (allocated(self%state%avg3D)) self%state%avg3D = 0.0_real64
+
     self%state%cnt_avg = 0_int32
   end subroutine reset_2d_averages
 
@@ -555,17 +557,54 @@ contains
     call write_plane_xz_scalar_2d(trim(prefix)//'_xz.mco', tmp_xz, int(self%state%dom%n, int32), 1_int32)
     call write_plane_yz_scalar_2d(trim(prefix)//'_yz.mco', tmp_yz, int(self%state%dom%n, int32), 1_int32)
 
-    prefix = './Output/Output_2D/it' // trim(sstep) // '_Ex'
-    call write_vector_component_planes(self%state%fld%E, int(self%state%dom%n, int32), &
-                                      1_int32, ix_plane, iy_plane_E, iz_plane, 1_int32, prefix)
+    if (allocated(self%state%avg3D)) then
+      ! flag_avg3D==1: time-averaged E planes and the averaged 3D phi /
+      ! species-2 density map, as legacy write_data.f90 and main.f90 do.
+      block
+        character(len=2), parameter :: ecomp(3) = ['Ex', 'Ey', 'Ez']
+        integer(int32) :: comp, n1, n2, n3
+        integer :: u3d
 
-    prefix = './Output/Output_2D/it' // trim(sstep) // '_Ey'
-    call write_vector_component_planes(self%state%fld%E, int(self%state%dom%n, int32), &
-                                      2_int32, ix_plane, iy_plane_E, iz_plane, 1_int32, prefix)
+        n1 = int(self%state%dom%n(1), int32)
+        n2 = int(self%state%dom%n(2), int32)
+        n3 = int(self%state%dom%n(3), int32)
 
-    prefix = './Output/Output_2D/it' // trim(sstep) // '_Ez'
-    call write_vector_component_planes(self%state%fld%E, int(self%state%dom%n, int32), &
-                                      3_int32, ix_plane, iy_plane_E, iz_plane, 1_int32, prefix)
+        do comp = 1, 3
+          tmp_xy = 0.0_real64
+          tmp_xz = 0.0_real64
+          tmp_yz = 0.0_real64
+          tmp_xy(1:n1+1,1:n2+1) = self%state%avg3D(comp,:,:,iz_plane)   / avg_factor
+          tmp_xz(1:n1+1,1:n3+1) = self%state%avg3D(comp,:,iy_plane_E,:) / avg_factor
+          tmp_yz(1:n2+1,1:n3+1) = self%state%avg3D(comp,ix_plane,:,:)   / avg_factor
+
+          prefix = './Output/Output_2D/it' // trim(sstep) // '_' // ecomp(comp)
+          call write_plane_xy_scalar_2d(trim(prefix)//'_xy.mco', tmp_xy, int(self%state%dom%n, int32), 1_int32)
+          call write_plane_xz_scalar_2d(trim(prefix)//'_xz.mco', tmp_xz, int(self%state%dom%n, int32), 1_int32)
+          call write_plane_yz_scalar_2d(trim(prefix)//'_yz.mco', tmp_yz, int(self%state%dom%n, int32), 1_int32)
+        end do
+
+        ! Same record layout as legacy DATA/phi_n_3D.dat, so
+        ! post_analysis/phi_n_3D/convert.f90 reads it unchanged.
+        write(*,*) 'Saving 3D potentiel and density maps ...'
+        open(newunit=u3d, file='./Output/phi_n_3D.dat', form='unformatted', &
+             status='replace', action='write')
+        write(u3d) self%state%dom%n(1), self%state%dom%n(2), self%state%dom%n(3)
+        write(u3d) self%state%avg3D(4:5,:,:,:) / avg_factor
+        close(u3d)
+      end block
+    else
+      prefix = './Output/Output_2D/it' // trim(sstep) // '_Ex'
+      call write_vector_component_planes(self%state%fld%E, int(self%state%dom%n, int32), &
+                                        1_int32, ix_plane, iy_plane_E, iz_plane, 1_int32, prefix)
+
+      prefix = './Output/Output_2D/it' // trim(sstep) // '_Ey'
+      call write_vector_component_planes(self%state%fld%E, int(self%state%dom%n, int32), &
+                                        2_int32, ix_plane, iy_plane_E, iz_plane, 1_int32, prefix)
+
+      prefix = './Output/Output_2D/it' // trim(sstep) // '_Ez'
+      call write_vector_component_planes(self%state%fld%E, int(self%state%dom%n, int32), &
+                                        3_int32, ix_plane, iy_plane_E, iz_plane, 1_int32, prefix)
+    end if
 
     ! --- legacy phi_Te_ne_cntr.dat: domain-center phi/Te/ne (species 1 =
     ! electrons) plus ne sampled along x. Same data_pavg source as the

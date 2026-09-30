@@ -131,6 +131,15 @@ module mod_state
     real(real64), allocatable :: phi_avg_xz(:,:)
     real(real64), allocatable :: phi_avg_yz(:,:)
 
+    ! 3D time averages (legacy avg3D, cfg%flag_avg3D==1 only):
+    ! (1:3,...) = E, (4,...) = phi, (5,...) = density of species 2, on the
+    ! physical nodes 1..n+1. Summed at the same cadence and with the same
+    ! cnt_avg as the 2D plane averages; written by output_step (averaged
+    ! E planes + phi_n_3D.dat). Rank 0 only - every rank holds the same
+    ! global E/phi/np at that point and only rank 0 writes, so the other
+    ! ranks would just duplicate ~100 MB and the accumulation.
+    real(real64), allocatable :: avg3D(:,:,:,:)
+
     ! Reaction-driven particle production/destruction per plane, per
     ! tracked species, per OMP thread (iproc) - legacy's plt_src==1
     ! ss2D_xy/xz/yz. Dimensioned per-iproc (like Pcoll/p_mac) because they
@@ -312,6 +321,11 @@ contains
     self%phi_avg_xz = 0.0_real64
     self%phi_avg_yz = 0.0_real64
     self%cnt_avg    = 0_int32
+
+    if (self%cfg%flag_avg3D == 1 .and. self%mpi_rank == 0) then
+      allocate(self%avg3D(5, 1:self%dom%n(1)+1, 1:self%dom%n(2)+1, 1:self%dom%n(3)+1))
+      self%avg3D = 0.0_real64
+    end if
 
     allocate(self%data_pavg_xy(5, 0:self%dom%n(1)+2, 0:self%dom%n(2)+2, self%ntype))
     allocate(self%data_pavg_xz(5, 0:self%dom%n(1)+2, 0:self%dom%n(3)+2, self%ntype))
@@ -1551,6 +1565,7 @@ contains
     integer(int32) :: ptype
     integer(int32) :: ix_plane, iy_density, iy_phi, iz_plane
     integer(int32) :: ny
+    integer(int32) :: ix, iy, iz, ispec
 
     call self%sync_np()
 
@@ -1575,6 +1590,23 @@ contains
     self%phi_avg_xy(:,:) = self%phi_avg_xy(:,:) + self%fld%phi(:,:,iz_plane)
     self%phi_avg_xz(:,:) = self%phi_avg_xz(:,:) + self%fld%phi(:,iy_phi,:)
     self%phi_avg_yz(:,:) = self%phi_avg_yz(:,:) + self%fld%phi(ix_plane,:,:)
+
+    ! Legacy main.f90 avg3D block: E, phi and the species-2 density. fld%np
+    ! is already rank-summed by the sync_np() above (legacy's dens_red).
+    if (allocated(self%avg3D)) then
+      ispec = min(2_int32, self%ntype)
+      !$omp parallel do private(ix,iy,iz) schedule(static)
+      do iz = 1, self%dom%n(3)+1
+        do iy = 1, self%dom%n(2)+1
+          do ix = 1, self%dom%n(1)+1
+            self%avg3D(1:3,ix,iy,iz) = self%avg3D(1:3,ix,iy,iz) + self%fld%E(1:3,ix,iy,iz)
+            self%avg3D(4,ix,iy,iz)   = self%avg3D(4,ix,iy,iz)   + self%fld%phi(ix,iy,iz)
+            self%avg3D(5,ix,iy,iz)   = self%avg3D(5,ix,iy,iz)   + self%fld%np(ix,iy,iz,ispec)
+          end do
+        end do
+      end do
+      !$omp end parallel do
+    end if
 
     self%cnt_avg = self%cnt_avg + 1_int32
 
@@ -1629,6 +1661,7 @@ contains
     if (allocated(self%phi_avg_xy))   deallocate(self%phi_avg_xy)
     if (allocated(self%phi_avg_xz))   deallocate(self%phi_avg_xz)
     if (allocated(self%phi_avg_yz))   deallocate(self%phi_avg_yz)
+    if (allocated(self%avg3D))        deallocate(self%avg3D)
     if (allocated(self%data_pavg_xy)) deallocate(self%data_pavg_xy)
     if (allocated(self%data_pavg_xz)) deallocate(self%data_pavg_xz)
     if (allocated(self%data_pavg_yz)) deallocate(self%data_pavg_yz)
