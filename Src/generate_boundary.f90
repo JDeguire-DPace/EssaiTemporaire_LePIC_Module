@@ -398,7 +398,17 @@ subroutine generate_boundary(u,n,h,bcnd,V,ngrid,dtype,xl_pow,xr_pow,mpi_rank)
   Lgy= Lgy*1.d-2
   Lgz= Lgz*1.d-2
 
-  Sg= Lgy*Lgz - (cnt_hy-1)*(cnt_hz-1)*Sh*1.d-4
+  ! With no apertures (flag_grd=0) the 'goto 100' above skips the only
+  ! code that sets Sh, cnt_hy and cnt_hz, so they are uninitialized here
+  ! (stack garbage under -auto). That garbage fed Sg -> the H- flux
+  ! injection count, and on some machines made part_flux_injection try to
+  ! create millions of particles per thread at step 1 (nmax overflow /
+  ! SIGSEGV / divide error). No apertures means nothing to subtract.
+  if(flag_grd.eq.1) then
+     Sg= Lgy*Lgz - (cnt_hy-1)*(cnt_hz-1)*Sh*1.d-4
+  else
+     Sg= Lgy*Lgz
+  endif
 
   zg_sec= zg_sec*1.d-2
 
