@@ -21,6 +21,10 @@ module mod_config
     real(real64)      :: omega     = 0.0_real64
     real(real64)      :: kt        = 0.0_real64
     character(len=20) :: rname     = ""
+    ! Number of PIC time steps to run (sim%run). Read from the first line of
+    ! conditions.inp, right after rname - REQUIRED (must be > 0). legacy's
+    ! Src/read_input.f90 reads only rname from that line and ignores the rest.
+    integer           :: nsteps    = 0
     integer           :: ngrid     = 0
     integer           :: ng        = 0
 

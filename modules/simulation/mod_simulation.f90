@@ -18,6 +18,7 @@ module mod_simulation
   use mod_collisionDiagnostics, only: print_rxn_counts, reset_rxn_counts, &
                                        print_debug_diagnostics, reset_debug_diagnostics
   use mod_collisions, only: perform_collisions_step, perform_coulomb_step
+  use mod_intro,      only: print_introduction
   use mpi
 
   implicit none
@@ -116,6 +117,11 @@ contains
   subroutine init(self, comm_in)
     class(Simulation), intent(inout) :: self
     integer, intent(in) :: comm_in
+    integer :: rank, ierr
+
+    ! Print the banner/license once, from rank 0 only, before anything else.
+    call MPI_Comm_rank(comm_in, rank, ierr)
+    if (rank == 0) call print_introduction()
 
     call self%state%init(comm_in)
 

@@ -4,7 +4,7 @@
 # compile Fortran with /opt/intel/oneapi/mpi/2021.14/bin/mpiifx
 Fortran_DEFINES = 
 
-Fortran_INCLUDES = -I/home/jdeguire/LePIC_antenna/modules/legacy -I/home/jdeguire/LePIC_antenna/build/mod
+Fortran_INCLUDES = -I/home/jdeguire/LePIC+/modules/legacy -I/home/jdeguire/LePIC+/build/mod
 
 Fortran_FLAGS = -O3 -module mod -O3 -ipo -no-prec-div -m64 -xHost -qopenmp -auto -fp-model=fast=2 -unroll
 

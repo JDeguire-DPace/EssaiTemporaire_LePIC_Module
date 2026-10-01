@@ -77,6 +77,7 @@ module mod_readConditions
 
         integer :: iB, flag_read, i_rg
         character(len=3) :: end_file
+        character(len=256) :: line1
         character(len=1) :: ans
 
         ! locals for signature outputs (still stored in cfg)
@@ -89,7 +90,11 @@ module mod_readConditions
 
         open(10,file='./input_dir/conditions.inp')
 
-        read(10,*,end=999) cfg%rname
+        ! Read line 1 as a whole record first so a missing nsteps is an
+        ! error instead of silently consuming a value from line 2.
+        read(10,'(a)',end=999) line1
+        read(line1,*,err=998,end=998) cfg%rname, cfg%nsteps
+        if (cfg%nsteps <= 0) goto 998
         read(10,*,end=999) cfg%Ti(1)
 
         read(10,*,err=999) cfg%ng
@@ -254,6 +259,11 @@ module mod_readConditions
         return
 
         999 if (mpi_rank == 0) write(*,"(a)"), 'Input file was not read correctly!'
+        call stop_calculation
+        return
+
+        998 if (mpi_rank == 0) write(*,"(a)") 'conditions.inp line 1 must be: ' // &
+            '<reactions file> <number of time steps (> 0)>'
         call stop_calculation
     end subroutine read_input_cfg
 
