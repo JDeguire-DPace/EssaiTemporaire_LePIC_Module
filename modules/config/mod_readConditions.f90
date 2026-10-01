@@ -77,20 +77,24 @@ module mod_readConditions
 
         integer :: iB, flag_read, i_rg
         character(len=3) :: end_file
+        character(len=256) :: line1
         character(len=1) :: ans
 
         ! locals for signature outputs (still stored in cfg)
         integer :: flag_avg3D
-        real(real64) :: tmp
 
         ! Init things that must reset each read
         cfg%xl_rg = 0.0_real64
         cfg%xr_rg = 0.0_real64
         cfg%flag_grd = 0
 
-        open(10,file='../input_dir/conditions.inp')
+        open(10,file='./input_dir/conditions.inp')
 
-        read(10,*,end=999) cfg%rname
+        ! Read line 1 as a whole record first so a missing nsteps is an
+        ! error instead of silently consuming a value from line 2.
+        read(10,'(a)',end=999) line1
+        read(line1,*,err=998,end=998) cfg%rname, cfg%nsteps
+        if (cfg%nsteps <= 0) goto 998
         read(10,*,end=999) cfg%Ti(1)
 
         read(10,*,err=999) cfg%ng
@@ -200,14 +204,49 @@ module mod_readConditions
 
         read(10,*,err=999) cfg%jne, cfg%THm, cfg%num_grd, cfg%Ca
 
-        read(10,*,err=999) cfg%gam_sec, cfg%igrid_sec, ans, cfg%phi0_RF, cfg%f0_RF, cfg%phi1_RF, cfg%f1_RF
+        read(10,*,err=999) cfg%gam_sec, cfg%igrid_sec, ans, cfg%phi0_RF, cfg%f0_RF, cfg%phi1_RF, cfg%f1_RF, cfg%E0_RF
         cfg%flag_RFpot = 0
         if (ans=='y' .or. ans=='Y') cfg%flag_RFpot = 1
+
+        ! RF antenna (inductive) heating - Src/read_input.f90:128-134
+        ! 'A'/'a': wall-coil geometry (skin depth decays radially inward
+        ! from R_ahp). 'P'/'p': planar-coil geometry (coil under a
+        ! dielectric window at x=xl_pow; skin depth decays axially away
+        ! from the window instead, and the radial term uses the bounded
+        ! Faraday's-law profile rather than an unbounded r/R_ahp growth).
+        cfg%flag_RFant = 0
+        cfg%flag_planar_ant = 0
+        if (ans=='A' .or. ans=='a') then
+            cfg%flag_RFant = 1
+            cfg%flag_inj  = 0
+            cfg%I_inj     = 0.0_real64
+            cfg%flag_heat = 0
+        end if
+        if (ans=='P' .or. ans=='p') then
+            cfg%flag_RFant      = 1
+            cfg%flag_planar_ant = 1
+            cfg%flag_inj  = 0
+            cfg%I_inj     = 0.0_real64
+            cfg%flag_heat = 0
+        end if
 
         if (cfg%I_inj > 0.0_real64 .and. cfg%gam_sec > 0.0_real64) then
             print*, 'Warning: gam_sec>0 is incompatible with I_inj>0, please correct ...'
             call stop_calculation
         end if
+
+        read(10,*,err=999) ans
+        cfg%flag_coulomb = 0
+        if (ans=='y' .or. ans=='Y') cfg%flag_coulomb = 1
+
+        ! Modular-only line - legacy's Src/read_input.f90 has no matching
+        ! read, but tolerates it fine: its own END-search loop just skips
+        ! any line that isn't END, same as it already does for the
+        ! Coulomb-collisions line above. 'momentum' (default, unchanged
+        ! behavior) or 'energy' (Powis & Kaganovich EC-PIC scheme) - see
+        ! cfg%push_scheme's declaration comment (mod_config.f90) and the
+        ! push_scheme guard in mod_simulation.f90's init().
+        read(10,*,err=999) cfg%push_scheme
 
         flag_read = 0
         do while (flag_read == 0)
@@ -220,6 +259,11 @@ module mod_readConditions
         return
 
         999 if (mpi_rank == 0) write(*,"(a)"), 'Input file was not read correctly!'
+        call stop_calculation
+        return
+
+        998 if (mpi_rank == 0) write(*,"(a)") 'conditions.inp line 1 must be: ' // &
+            '<reactions file> <number of time steps (> 0)>'
         call stop_calculation
     end subroutine read_input_cfg
 
